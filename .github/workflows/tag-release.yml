@@ -1,0 +1,52 @@
+# tag-release: GitHub itself tags each release and publishes it on the Releases page.
+# For every version heading in CHANGELOG.md ("## v0.4.0 (date): title") that has no tag yet, it tags the
+# commit that added that heading and makes a GitHub Release whose notes are that version's entry.
+# A tag or release that exists is never moved or remade. It uses the run's own token (contents: write);
+# no secret is added. (The session that writes releases cannot push tags through its proxy.)
+name: tag-release
+on:
+  push:
+    branches: [main]
+    paths:
+      - CHANGELOG.md
+      - .github/workflows/tag-release.yml
+permissions:
+  contents: write
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+jobs:
+  tag:
+    if: github.repository == 'dav1dpgit/digihan'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: tag and publish every version in CHANGELOG.md that has no tag yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for V in $(grep -oE '^## v[0-9]+\.[0-9]+\.[0-9]+ ' CHANGELOG.md | cut -c4- | tr -d ' ' | sort -uV); do
+            SHA=$(git log --format=%H --reverse -S"## ${V} " -- CHANGELOG.md | head -1)
+            [ -n "$SHA" ] || { echo "no commit adds ${V}"; exit 1; }
+            if git ls-remote --exit-code --tags origin "refs/tags/${V}" >/dev/null 2>&1; then
+              echo "tag ${V} exists, left as it is"
+            else
+              git tag -a "${V}" -m "DigiHan ${V}" "${SHA}"
+              git push origin "refs/tags/${V}"
+              echo "tagged ${SHA} as ${V}"
+            fi
+            if gh release view "${V}" >/dev/null 2>&1; then
+              echo "release ${V} exists, left as it is"
+            else
+              TITLE=$(grep -m1 -E "^## ${V} " CHANGELOG.md | cut -c4-)
+              awk -v h="## ${V} " 'index($0, h) == 1 {on = 1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notes.md
+              gh release create "${V}" --verify-tag --title "${TITLE}" --notes-file notes.md
+              echo "published release ${V}"
+            fi
+          done
