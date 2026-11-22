@@ -1,4 +1,4 @@
-// DigiHan signature check for the phone scanner (format v0.3, payload version 1).
+// DigiHan signature check for the phone scanner (format v0.4, payload version 1).
 // Self-contained: BIP340 Schnorr verification over secp256k1 with BigInt, SHA-256 via
 // WebCrypto, bech32 (npub), Nostr event checks (NIP-01). Verification only: no secret keys here.
 // Runs in browsers and in Node 20+ (globalThis.crypto.subtle).
@@ -96,11 +96,11 @@ const DHV = (() => {
   async function signedMessage(docHash, tsBytes, fpBytes, centerHash, blockHash) {
     const parts = [docHash, tsBytes, fpBytes];
     if (centerHash) parts.push(centerHash);
-    if (blockHash) parts.push(blockHash);          // draft v0.4 anchor: the block's hash, in display order
+    if (blockHash) parts.push(blockHash);          // anchored seal (v0.4): the block's hash, in display order
     return taggedHash("DigiHan/v1", cat(...parts));
   }
   // Check one seal against one key, one document hash and (if committed) the registrations.
-  // blockHashAt(height) -> Uint8Array(32) | null is needed only for anchored seals (draft v0.4).
+  // blockHashAt(height) -> Uint8Array(32) | null is needed only for anchored seals (format v0.4).
   // Returns {ok, reason, reg, anchored}. reason is one plain sentence.
   async function checkSeal(payload, pub, docHash, registrations, blockHashAt) {
     const f = parse(payload);

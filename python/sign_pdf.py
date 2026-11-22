@@ -18,11 +18,11 @@ from reportlab.lib.units import mm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import digihan as dh          # noqa: E402  (format v0.3)
+import digihan as dh          # noqa: E402  (format v0.4)
 import dhsign                 # noqa: E402
 
 NSYM, DPMM = 45, 24.0
-ANCHOR = None   # (block_height, block_hash_bytes) when sealing with --anchor (draft v0.4)
+ANCHOR = None   # (block_height, block_hash_bytes) when sealing with --anchor (format v0.4)
 BLOCK = lambda h: ANCHOR[1] if ANCHOR and h == ANCHOR[0] else None
 GEOM = dh.Geometry(45, 5, 0.6, square=False)
 SEAL_MM = 45.0
@@ -177,7 +177,7 @@ def seal_pdf(in_path, out_dir, page_no, kf, password, art_path, reg):
     w.add_metadata({"/DigiHanPayload": payload.hex(),
                     "/DigiHanSealPage": str(page_no + 1),
                     "/DigiHanSealBox": f"{x_mm:.2f},{y_mm:.2f},{SEAL_MM:.1f},{qz}",
-                    "/DigiHanFormat": "DigiHan format v0.3, doc tier 1 (byte-exact)"})
+                    "/DigiHanFormat": "DigiHan format v0.4, doc tier 1 (byte-exact)"})
     buf = io.BytesIO(); w.write(buf)
     sealed_path = unique(os.path.join(out_dir, f"{base}_sealed.pdf"))
     open(sealed_path, "wb").write(buf.getvalue())
@@ -238,7 +238,7 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
              "The attached file and its own electronic signatures are not modified.",
              "To check: scan the seal, open the attachment, and confirm its SHA-256 matches.",
              "",
-             "DigiHan format v0.3. It proves which key sealed these exact bytes; it is not a notarization."]
+             "DigiHan format v0.4. It proves which key sealed these exact bytes; it is not a notarization."]
     for i, t in enumerate(lines):
         c.drawString(25 * mm, h_pt - 40 * mm - i * 5.2 * mm, t)
     c.drawImage(ImageReader(seal_path), x_mm * mm, h_pt - (y_mm + SEAL_MM) * mm,
@@ -249,7 +249,7 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
     w.add_metadata({"/DigiHanPayload": payload.hex(), "/DigiHanSealedFile": name,
                     "/DigiHanSealPage": "1",
                     "/DigiHanSealBox": f"{x_mm:.2f},{y_mm:.2f},{SEAL_MM:.1f},15",
-                    "/DigiHanFormat": "DigiHan format v0.3, cover sheet, doc tier 1 (byte-exact)"})
+                    "/DigiHanFormat": "DigiHan format v0.4, cover sheet, doc tier 1 (byte-exact)"})
     out = io.BytesIO(); w.write(out)
     sealed_path = unique(os.path.join(out_dir, f"{base}_DigiHan_cover.pdf"))
     open(sealed_path, "wb").write(out.getvalue())
@@ -347,9 +347,12 @@ if __name__ == "__main__":
                     help="auto: cover sheet if the PDF already has an e-signature")
     ap.add_argument("--key", required=True,
                     help="folder made by make_key.py: keyfile.json, registration.json, center_art.png")
-    ap.add_argument("--anchor", default=None, metavar="auto|HEIGHT:HASH",
-                    help="draft v0.4: prove the seal was made no earlier than a Bitcoin block "
-                         "('auto' asks mempool.space; or give a block from your own node)")
+    ap.add_argument("--anchor", default=None, metavar="auto|node|HEIGHT:HASH",
+                    help="prove the seal was made no earlier than a Bitcoin block: 'auto' asks two block "
+                         "explorers, 'node' asks your bitcoin-cli, or give HEIGHT:HASH")
+    ap.add_argument("--stamp", action="store_true",
+                    help="prove the seal was made no later than a Bitcoin block: send its hash to the "
+                         "OpenTimestamps calendars (finish later with timestamp.py upgrade)")
     ap.add_argument("--password", default=None, help=argparse.SUPPRESS)   # tests only
     a = ap.parse_args()
     if a.anchor:
@@ -396,16 +399,31 @@ if __name__ == "__main__":
     else:
         st["say"](f"  timestamp   {time.strftime('%Y-%m-%d %H:%M:%SZ', time.gmtime(f['ts']))}")
     st["say"](); st["say"](f"RESULT: {'ALL CHECKS PASSED' if passed else 'A CHECK FAILED — see above'}")
-    # the 78-byte seal data, for an OpenTimestamps proof ("no later than"): ots stamp <this file>
+    # the 78-byte seal data, for an OpenTimestamps proof ("no later than")
     pay = unique(os.path.join(a.outdir, f"{st['base']}_seal_payload.bin"))
     open(pay, "wb").write(st["payload"])
+    stamped = None
+    if a.stamp:
+        import ots
+        try:
+            proof, cals = ots.stamp(st["payload"])
+            stamped = pay + ".ots"
+            open(stamped, "xb").write(proof.to_bytes())
+        except Exception as e:
+            print(f"Time proof not started: {e}. Try later: python timestamp.py stamp \"{pay}\"")
     rpt = unique(os.path.join(a.outdir, f"{st['base']}_verification_report.txt"))
     open(rpt, "w").write("\n".join(st["log"]) + "\n")
     reg_path = os.path.join(a.key, "registration.json")
     print()
     print(f"Sealed file:  {os.path.abspath(st['sealed_path'])}")
     print(f"Report:       {os.path.abspath(rpt)}")
-    print(f"Seal data:    {os.path.abspath(pay)}   (for a time proof: ots stamp \"{os.path.basename(pay)}\")")
+    print(f"Seal data:    {os.path.abspath(pay)}")
+    if stamped:
+        print(f"Time proof:   {os.path.abspath(stamped)}   (pending; in a few hours run:")
+        print(f'              python timestamp.py upgrade "{stamped}"')
+        print(f'              python timestamp.py attach "{st["sealed_path"]}" "{stamped}")')
+    else:
+        print(f'For a "no later than" time proof: python timestamp.py stamp "{pay}"')
     print("To check it independently, run:")
     print(f'  .\\.venv\\Scripts\\python.exe verify_pdf.py "{st["sealed_path"]}" "{reg_path}" --save-original'
           if os.name == "nt" else

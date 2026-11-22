@@ -1,6 +1,7 @@
-# DigiHan seal format, v0.3
+# DigiHan seal format, v0.4
 
-Status: **frozen**. Payload version 1. This document is placed in the public domain (CC0 1.0);
+Status: **frozen**. Payload version 1. v0.4 adds time proofs (section 11) to v0.3; every v0.3 seal is a
+valid v0.4 seal. This document is placed in the public domain (CC0 1.0);
 anyone may implement it without asking. The reference code in this repository is Apache-2.0.
 
 A DigiHan seal is a round (or square) printed or on-screen mark. Its outer ring of dots carries a
@@ -16,11 +17,12 @@ A seal that verifies proves three things:
 
 1. the holder of the key with the stated fingerprint signed it;
 2. the document's bytes are exactly the bytes that were signed (one changed byte fails);
-3. the time in the seal is the time the signer stated, and nobody can change it afterward.
+3. the time in the seal cannot be changed afterward.
 
-It does **not** prove who holds the key (that is a separate step, such as a notary), and it does
-**not** prove when the seal was made: the signer chooses the time. Time anchors that prove a window
-(no earlier than one Bitcoin block, no later than another) are a draft extension (section 11).
+It does **not** prove who holds the key (that is a separate step, such as a notary). On its own the time
+is the signer's statement. Two time proofs (section 11) prove a window instead: an **anchored** seal was
+made no earlier than a given Bitcoin block, and an **OpenTimestamps proof** shows it existed no later
+than a given block.
 
 ## 2. Geometry
 
@@ -79,22 +81,24 @@ Stream = sync word (28 bits) ‖ Reed–Solomon codeword (123 bytes, most signif
 |---|---|---|
 | 0 | 1 | version (high 4 bits) and flags (low 4 bits) |
 | 1 | 8 | key fingerprint = first 8 bytes of SHA-256(public key) |
-| 9 | 5 | timestamp, Unix seconds, big-endian (signer-stated) |
+| 9 | 5 | timestamp, Unix seconds, big-endian (signer-stated); for an anchored seal, a Bitcoin block height |
 | 14 | 64 | BIP340 Schnorr signature |
 
 ## 5. Version and flags
 
 * Version MUST be 1. A verifier MUST reject any other version.
-* Flag bit 2 (value 4): the center artwork is committed (section 6). Bits 0, 1 and 3 are reserved,
-  MUST be 0, and a verifier MUST reject a seal with a reserved bit set. (The draft v0.4 extension
-  gives bit 0 a meaning: section 11.)
+* Flag bit 2 (value 4): the center artwork is committed (section 6).
+* Flag bit 0 (value 1): the seal is **anchored** (section 11.1). The timestamp field holds a Bitcoin block
+  height instead of a time.
+* Bits 1 and 3 are reserved, MUST be 0, and a verifier MUST reject a seal with a reserved bit set.
 
 ## 6. Signed message
 
 ```
 doc_hash    = SHA-256(document bytes)                       32 bytes
 center_hash = SHA-256(center artwork file bytes)            32 bytes, only if flag bit 2 is set
-m = TaggedHash("DigiHan/v1", doc_hash ‖ timestamp(5) ‖ fingerprint(8) [‖ center_hash])
+block_hash  = hash of the anchored block, display order     32 bytes, only if flag bit 0 is set
+m = TaggedHash("DigiHan/v1", doc_hash ‖ timestamp(5) ‖ fingerprint(8) [‖ center_hash] [‖ block_hash])
 signature = BIP340-Sign(secret key, m)
 ```
 
@@ -124,9 +128,11 @@ same document sealed twice gives two different rings.
    SHA-256(public key)[0:8] equals it.
 4. Compute `doc_hash` over the exact document bytes the verifier will show the reader.
 5. If flag bit 2 is set, take `center_hash` from a registration for this key whose own signature is valid.
-6. Build `m` (section 6) and check the BIP340 signature with the public key.
-7. If valid, show the reader: the key, the signer-stated time, and, if committed, the registered
-   artwork beside the scanned seal so a person can compare them.
+6. If flag bit 0 is set, get the anchored block's hash (section 11.3).
+7. Build `m` (section 6) and check the BIP340 signature with the public key.
+8. If an OpenTimestamps proof for this seal is available, check it (section 11.2).
+9. If valid, show the reader: the key; the time (the signer's statement, or the proven window); and, if
+   committed, the registered artwork beside the scanned seal so a person can compare them.
 
 A verifier MUST present the document it checked (for a PDF, the attached original), never a different
 rendering of it. This defeats files that look different in different viewers.
@@ -142,9 +148,19 @@ v0.3 defines tier 1: `doc_hash` is over the exact bytes of the file. The referen
 * **Cover sheet.** If the PDF already carries an electronic signature, it is not modified: a cover
   page holds the seal and the signed file is attached unchanged. `/DigiHanSealedFile` names the attachment.
 
+* **Time proof.** An OpenTimestamps proof (section 11.2) MAY be attached as `seal.ots`. The reference
+  tool writes it into a new file (`python/timestamp.py attach`); the sealed PDF is not changed.
+
 Later tiers (canonical content, printed canonical string) are not yet defined.
 
-## 10. Changes from v0.2
+## 10. Changes
+
+**v0.4 (from v0.3).** Flag bit 0 defined: anchored seals, "made no earlier than block A" (section 11.1).
+OpenTimestamps proofs over the payload, "existed no later than block B" (section 11.2). Block data from a
+node or from two sources that agree (section 11.3). The ring, the payload layout and plain seals are
+unchanged.
+
+**v0.3 (from v0.2).**
 
 * Signing tag renamed from "RingSeal/v1" to "DigiHan/v1".
 * Bit 0 moved from 3 o'clock to 12 o'clock, under the key bridge.
@@ -153,21 +169,45 @@ Later tiers (canonical content, printed canonical string) are not yet defined.
   start angle separately when retrying without the bridge calibration.
 * One size only (45 mm / 0.6 mm); the 40 mm test profile is dropped.
 
-## 11. Draft extension v0.4: time anchors (not part of v0.3)
+## 11. Time proofs
 
-**No earlier than a block (implemented as a draft).** Flag bit 0 (value 1) marks an anchored seal. The
-5-byte time field holds a Bitcoin block height H (big-endian), and the signed message ends with block H's
-32-byte hash in display order (as `bitcoin-cli getblockhash H` prints it):
+### 11.1 No earlier than: the block anchor
+
+Flag bit 0 (value 1) marks an anchored seal. The 5-byte timestamp field holds a Bitcoin block height A
+(big-endian), and the signed message ends with block A's 32-byte hash in display order (as
+`bitcoin-cli getblockhash A` prints it):
 
 ```
-m = TaggedHash("DigiHan/v1", doc_hash ‖ H(5) ‖ fingerprint(8) [‖ center_hash] ‖ block_hash)
+m = TaggedHash("DigiHan/v1", doc_hash ‖ A(5) ‖ fingerprint(8) [‖ center_hash] ‖ block_hash)
 ```
 
-A verifier gets block H's hash from a source it trusts (its own node needs no trust) and checks the
-signature with it. If it verifies, the seal was made after block H was mined. A v0.3 verifier rejects
-the seal, because bit 0 is reserved in v0.3 (section 5).
+A verifier gets block A's hash (section 11.3) and checks the signature with it. If it verifies, the seal
+was made after block A was mined. A signer SHOULD anchor at least two blocks below the chain tip. A v0.3
+verifier rejects an anchored seal, because bit 0 is reserved in v0.3.
 
-**No later than a block (planned).** An OpenTimestamps proof over SHA-256 of the 78-byte payload.
+### 11.2 No later than: OpenTimestamps
+
+The proof is an OpenTimestamps detached proof (the standard `.ots` file format, opentimestamps.org) whose
+file hash is SHA-256 over the seal's 78-byte payload. A verifier:
+
+1. computes SHA-256 of the payload read from the ring and requires it to equal the proof's file hash;
+2. follows the proof's operations to each Bitcoin block attestation (height B, message = a merkle root);
+3. gets block B's merkle root (section 11.3) and compares; the lowest block number that matches is the
+   bound: the seal existed no later than block B;
+4. if the seal is also anchored at block A, requires A ≤ B; otherwise the seal is reported as not valid.
+
+Pending attestations (calendar addresses) prove nothing until completed. Where proofs are kept:
+
+* in a sealed PDF, as an attached file named `seal.ots` (a verifier MAY accept any attached file that
+  starts with the OpenTimestamps file header);
+* beside the seal data file, as `<name>.ots`;
+* published by a site at `ots/<hex SHA-256 of the payload>.ots`, relative to its scanner.
+
+### 11.3 Block data
+
+The verifier's own Bitcoin node needs no trust. Otherwise a verifier SHOULD ask at least two independent
+sources and MUST refuse an answer they disagree on. Block times can be off by up to about two hours;
+block numbers are exact.
 
 See [docs/TIME-PROOF.md](docs/TIME-PROOF.md).
 
@@ -175,3 +215,4 @@ See [docs/TIME-PROOF.md](docs/TIME-PROOF.md).
 
 * The center registration as a Nostr NIP: draft in [nip/NIP-DIGIHAN.md](nip/NIP-DIGIHAN.md). It adds an
   `f` tag (the key id) so a verifier holding only a scanned seal can find the key on relays.
+* A way to carry a time proof for a seal that is neither in a PDF nor on a site (for example a Nostr event).

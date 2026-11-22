@@ -1,4 +1,4 @@
-"""DigiHan format v0.3 tests. Run from the python/ folder:  python -m pytest tests"""
+"""DigiHan format v0.4 tests. Run from the python/ folder:  python -m pytest tests"""
 import csv, hashlib, os, sys
 import numpy as np
 import pytest
@@ -71,7 +71,7 @@ def test_signed_message_tag():
     assert m == bip340.tagged_hash("DigiHan/v1", b"\0" * 45)
 
 
-# ---- draft v0.4: "no earlier than" block anchor ----
+# ---- v0.4: "no earlier than" block anchor ----
 GENESIS = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"   # Bitcoin block 0
 
 
@@ -99,3 +99,91 @@ def test_anchor_with_center_and_tamper():
     assert dhsign.verify_payload(p, b"doc", kr, [reg], block_hash_at=lambda h: bh)[0]
     q = bytearray(p); q[9:14] = (1).to_bytes(5, "big")       # claim a higher block number
     assert not dhsign.verify_payload(bytes(q), b"doc", kr, [reg], block_hash_at=lambda h: bh)[0]
+
+
+# ------------------------------------------------ OpenTimestamps (no later than) ---
+import ots  # noqa: E402
+
+OTSD = os.path.join(HERE, "ots")
+HELLO_ROOT = "8a1b66ecb7cbd07d8139a7e7d7f2c41aab1f5009b8364aaf61d03ad245e47e00"   # block 358391
+
+
+def _read(*p):
+    return open(os.path.join(OTSD, *p), "rb").read()
+
+
+def test_ots_reads_and_writes_standard_proofs():
+    for name, btc, pend in [("hello-world.txt", [(358391, HELLO_ROOT)], []),
+                            ("two-calendars.txt", [], ["https://alice.btc.calendar.opentimestamps.org",
+                                                       "https://bob.btc.calendar.opentimestamps.org"]),
+                            ("different-blockchains.txt", [(455605, "2a19192cf00fb1baeea516b69b3a62195849589b4caafeb6ad6ebba58b9ae69a")], None)]:
+        raw = _read(name + ".ots")
+        p = ots.Proof.from_bytes(raw)
+        assert p.digest == hashlib.sha256(_read(name)).digest()
+        assert p.bitcoin() == btc
+        if pend is not None:
+            assert p.pending() == pend
+        assert p.to_bytes() == raw                      # byte-identical round trip
+    for bad in ("bad-major-version.ots", "exceeds-max-msg-length.ots"):
+        with pytest.raises(ots.ProofError):
+            ots.Proof.from_bytes(_read("invalid", bad))
+    with pytest.raises(ots.ProofError):
+        ots.Proof.from_bytes(_read("hello-world.txt.ots")[:-3])      # cut short
+
+
+def test_ots_verify_against_block():
+    p, data = ots.Proof.from_bytes(_read("hello-world.txt.ots")), _read("hello-world.txt")
+    assert ots.verify(p, data, lambda h: (HELLO_ROOT, 1_432_800_000) if h == 358391 else None) == (358391, 1_432_800_000)
+    with pytest.raises(ots.ProofError, match="does not match"):
+        ots.verify(p, data, lambda h: ("00" * 32, 0))
+    with pytest.raises(ots.ProofError, match="different data"):
+        ots.verify(p, data + b"x", lambda h: (HELLO_ROOT, 0))
+    with pytest.raises(ots.ProofError, match="could not be fetched"):
+        ots.verify(p, data, lambda h: None)
+
+
+def test_ots_stamp_upgrade_verify_a_seal():
+    """A seal's payload through a simulated calendar: stamp -> pending -> upgrade -> Bitcoin -> verify."""
+    sk, pk = dhsign.new_key()
+    payload = dhsign.seal_payload(sk, pk, b"contract", 1_790_000_000)
+    d = ots.payload_digest(payload)
+    t4 = (1_790_000_100).to_bytes(4, "big")
+    pool, cal = "https://a.pool.opentimestamps.org", "https://alice.btc.calendar.opentimestamps.org"
+    leaf = t4 + d                                          # the calendar prepends its time
+    tx_prefix, tx_suffix = b"\x01" * 40, b"\x02" * 12      # stand-ins for the calendar's transaction
+    inner = hashlib.sha256(hashlib.sha256(tx_prefix + hashlib.sha256(leaf).digest() + tx_suffix).digest()).digest()
+    root = hashlib.sha256(hashlib.sha256(inner + b"\x03" * 32).digest()).digest()
+
+    def http(url, data=None):
+        if url == pool + "/digest":
+            assert data == d
+            return bytes([0xF1]) + ots._varbytes(t4) + b"\x00" + ots._write_att(("pending", cal))
+        if url == cal + "/timestamp/" + leaf.hex():
+            body = bytes([0x08, 0xF1]) + ots._varbytes(tx_prefix) + bytes([0xF0]) + ots._varbytes(tx_suffix)
+            body += bytes([0x08, 0x08, 0xF0]) + ots._varbytes(b"\x03" * 32) + bytes([0x08, 0x08])
+            return body + b"\x00" + ots._write_att(("bitcoin", 930000))
+        raise OSError("404")
+
+    proof, ok = ots.stamp(payload, calendars=[pool], need=1, http=http)
+    assert ok == [pool] and proof.pending() == [cal] and proof.bitcoin() == []
+    pending = ots.Proof.from_bytes(proof.to_bytes())
+    with pytest.raises(ots.ProofError, match="pending"):
+        ots.verify(pending, payload, lambda h: None)
+    assert ots.upgrade(pending, http=http) == 1
+    assert not ots.CALENDAR_OK.match("https://evil.example.com") and not ots.CALENDAR_OK.match("http://alice.btc.calendar.opentimestamps.org")
+    done = ots.Proof.from_bytes(pending.to_bytes())
+    assert done.bitcoin() == [(930000, root[::-1].hex())]
+    assert ots.verify(done, payload, lambda h: (root[::-1].hex(), 1_790_003_000)) == (930000, 1_790_003_000)
+    other = dhsign.seal_payload(sk, pk, b"contract", 1_790_000_001)
+    with pytest.raises(ots.ProofError, match="different data"):
+        ots.verify(done, other, lambda h: (root[::-1].hex(), 0))
+
+
+@pytest.mark.online
+def test_ots_online_block_358391():
+    """Needs the internet: the example proof's root against two block explorers."""
+    import anchor
+    got = anchor.explorer_merkle_at(358391)
+    assert got is not None and got[0] == HELLO_ROOT
+    assert ots.verify(ots.Proof.from_bytes(_read("hello-world.txt.ots")), _read("hello-world.txt"),
+                      anchor.explorer_merkle_at)[0] == 358391

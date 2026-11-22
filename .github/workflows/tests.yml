@@ -1,0 +1,52 @@
+# tests: runs the Python and phone tests on every push. The "online" job also checks the example
+# OpenTimestamps proof against two live block explorers, and whether a web page may ask them (CORS);
+# it reports what it found as notices and does not block anything.
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -r python/requirements.txt
+      - name: Python tests
+        working-directory: python
+        run: python -m pytest -q tests
+      - name: Phone tests (signatures, time proofs)
+        run: node web/scanner/verify.test.js && node web/scanner/ots.test.js
+      - name: Phone decoder on 60 screenshots (photo path)
+        working-directory: tests
+        run: python make_screens.py && node decode_frames.js photo screens | tee screens.txt && grep -q "TOTAL.*60/60" screens.txt
+  online:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r python/requirements.txt
+      - name: The example proof against mempool.space and blockstream.info
+        working-directory: python
+        run: |
+          if python -m pytest -q tests -m online; then echo "::notice title=explorers::block 358391 matches the example proof at both explorers"; else echo "::warning title=explorers::online check failed"; exit 1; fi
+      - name: May a web page ask the explorers? (CORS)
+        if: always()
+        run: |
+          for u in https://mempool.space/api/block-height/358391 https://blockstream.info/api/block-height/358391; do
+            h=$(curl -s -D - -o /dev/null -H "Origin: https://digihan.org" "$u" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
+            echo "::notice title=CORS::${u} -> ${h:-no access-control-allow-origin header}"
+          done

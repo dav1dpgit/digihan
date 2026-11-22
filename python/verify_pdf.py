@@ -25,8 +25,12 @@ ap = argparse.ArgumentParser()
 ap.add_argument("sealed")
 ap.add_argument("registration")
 ap.add_argument("--save-original", action="store_true")
+ap.add_argument("--node", action="store_true", help="take Bitcoin block data from your own bitcoin-cli "
+                "(otherwise two block explorers are asked: mempool.space and blockstream.info)")
 ap.add_argument("--block-hash", default=None, help="for an anchored seal: the anchored block's hash "
-                "(from your own node: bitcoin-cli getblockhash HEIGHT); otherwise mempool.space is asked")
+                "(from your own node: bitcoin-cli getblockhash HEIGHT)")
+ap.add_argument("--ots", default=None, help="an OpenTimestamps proof (.ots) for this seal, if it is not "
+                "attached to the PDF")
 a = ap.parse_args()
 
 problems = []
@@ -77,10 +81,12 @@ def block_at(h):
     if a.block_hash:
         return dhsign.block_hash_bytes(a.block_hash)
     import anchor
+    if a.node:
+        return anchor.node_hash_at(h)
     b = anchor.explorer_hash_at(h)
     if b is not None:
-        print(f"  block {h}: hash taken from mempool.space ({b.hex()[:16]}...). For full independence, "
-              f"compare it with your own node: bitcoin-cli getblockhash {h}")
+        print(f"  block {h}: hash from mempool.space and blockstream.info ({b.hex()[:16]}...). For full "
+              f"independence, compare it with your own node: bitcoin-cli getblockhash {h}")
     return b
 ok, lines, _ = dhsign.verify_payload(payload, original, keyring, [reg], block_hash_at=block_at)
 for l in lines:
@@ -91,6 +97,27 @@ if not ok and seal_fp not in keyring:
                     f"than the registration you supplied ({dhsign.fingerprint(pk).hex()})")
 elif not ok:
     problems.append("the signature does not match the attached file, time, key or center art")
+
+# no later than: an OpenTimestamps proof, attached as seal.ots or given with --ots
+import ots, timestamp     # noqa: E402
+proof_bytes = open(a.ots, "rb").read() if a.ots else None
+if proof_bytes is None:
+    for nm in [ots.attach_name()] + [n for n in r.attachments if n != ots.attach_name()]:
+        if nm in r.attachments and ots.is_proof(r.attachments[nm][0]):
+            proof_bytes = r.attachments[nm][0]
+            break
+later = None
+if proof_bytes is None:
+    print("  TIME (no later than): no OpenTimestamps proof attached")
+elif ok:
+    try:
+        later = timestamp.check(ots.Proof.from_bytes(proof_bytes), payload, a.node, say=lambda m: print("  " + m))
+    except ots.ProofError as e:
+        print(f"  TIME (no later than): the attached proof cannot be read — {e}")
+
+if later and dhsign.parse_payload(payload)["flags"] & dhsign.FLAG_ANCHOR and later[0] < dhsign.parse_payload(payload)["ts"]:
+    problems.append(f"the time proofs contradict each other: anchored to block {dhsign.parse_payload(payload)['ts']}, "
+                    f"but timestamped at the lower block number {later[0]}")
 
 if mode == "cover sheet":
     print(f"E-signature inside the attached file: {sign_pdf.esig_status(original)}")
@@ -110,11 +137,13 @@ if problems:
         print(f"  - {p}")
     sys.exit(1)
 f = dhsign.parse_payload(payload)
+print("RESULT: VALID — the attached file is exactly what this key sealed.")
 if f["flags"] & dhsign.FLAG_ANCHOR:
-    print("RESULT: VALID — the attached file is exactly what this key sealed, no earlier than "
-          f"Bitcoin block {f['ts']} (proven by the block anchor).")
+    print(f"        Made no earlier than Bitcoin block {f['ts']} (proven: the block's hash is signed).")
 else:
-    print("RESULT: VALID — the attached file is exactly what this key sealed, at "
-          f"{time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(f['ts']))} (time stated by the signer).")
+    print(f"        Time stated by the signer: {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(f['ts']))} (not proven).")
+if later:
+    print(f"        Made no later than Bitcoin block {later[0]}, mined "
+          f"{time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(later[1]))} (proven: OpenTimestamps).")
 print("        This proves which KEY sealed it. Who holds the key is a separate question")
 print("        (a notary's job), and the attached file is what you should read.")

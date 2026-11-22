@@ -1,4 +1,4 @@
-"""DigiHan ring codec, format v0.3.
+"""DigiHan ring codec, format v0.4 (the ring is unchanged since v0.3).
 
 Layout (radii in mm, from center outward):
   [0, r_center]            free-zone center art (decoder-masked)

@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.4.0 (2026-11-22): time proofs, no earlier than and no later than
+
+* Format v0.4 (frozen): flag bit 0 defined. An anchored seal signs a Bitcoin block's hash and so was made
+  **no earlier than** that block. An OpenTimestamps proof over the seal's 78 bytes shows it existed
+  **no later than** a block. Plain v0.3 seals are unchanged and still valid (SPEC.md, sections 10-11).
+* Python: `ots.py` reads and writes standard `.ots` proofs (checked against the reference library on
+  its example proofs, byte for byte); `timestamp.py` stamps, upgrades, attaches (`seal.ots` in a new
+  PDF) and verifies; `sign_pdf.py --stamp` and `--anchor node`; `verify_pdf.py` checks an attached proof
+  and reports the window; contradicting proofs fail.
+* Block data comes from your own node (`--node`) or from two block explorers (mempool.space and
+  blockstream.info), refused when they disagree.
+* Phone scanner v8: checks both proofs and shows "sealed after block A and before block B"; finds the
+  proof inside a sealed PDF, as a picked `.ots` file, or next to the scanner (`ots/<seal digest>.ots`).
+* Phone scanner v7: photos and screenshots are searched for the seal's outline first. A screenshot taken
+  in dark mode (a dark browser toolbar along the bottom) or a seal off center no longer fails:
+  60/60 test screenshots (was 2/60).
+* GitHub now tags each release and publishes it (`.github/workflows/tag-release.yml`) and runs the
+  tests on every push (`.github/workflows/tests.yml`).
+
 ## v0.3.1 (2026-11-22): the phone checks signatures
 
 * Scanner v6 checks the BIP340 signature on the phone (`web/scanner/verify.js`, tested on the 19 official

@@ -1,55 +1,78 @@
 # Time proof
 
-A v0.3 seal proves which key sealed a document and that the document has not changed. The time in it
-is the signer's statement: the signer can write any time, earlier or later. This note is the plan to
-prove **when** a seal was made, as a window between two Bitcoin blocks, and what is built so far.
+A plain seal proves which key sealed a document and that the document has not changed. The time in it
+is the signer's statement: the signer can write any time, earlier or later. Format v0.4 adds two proofs
+that place the seal between two Bitcoin blocks. Both are built, in the Python tools and on the phone.
 
-## The window
+| Bound | What it proves | How |
+|---|---|---|
+| **No earlier than** | The seal was made after Bitcoin block A was mined | Block A's hash is part of what is signed. Nobody can know a block's hash before the block exists. |
+| **No later than** | The seal existed when Bitcoin block B was mined | An OpenTimestamps proof that the seal's 78 bytes were recorded in block B |
 
-| Bound | What it proves | How | Status |
-|---|---|---|---|
-| No earlier than | The seal was made after Bitcoin block H was mined | Block H's hash is part of what is signed. Nobody can know a block's hash before the block exists. | **Built, draft v0.4** |
-| No later than | The seal existed before Bitcoin block K was mined | An OpenTimestamps proof that the seal's data was recorded in block K | Next |
+With both, the phone says: *sealed after Bitcoin block A (mined ...) and before Bitcoin block B (mined ...)*.
+The window is usually one to a few hours. Either proof can be used alone.
 
-Together they place the seal between two blocks: usually a window of one to three hours.
+## No earlier than: the block anchor
 
-## No earlier than (built, draft v0.4)
+* Payload flag bit 0 (value 1) marks an **anchored** seal. The 5-byte time field holds the block height A
+  instead of a time, and the signed message ends with block A's 32-byte hash, in the order it is usually
+  printed (as `bitcoin-cli getblockhash A` shows it):
 
-* Payload flag bit 0 (value 1) marks an **anchored** seal. The 5-byte time field then holds the block
-  height H instead of a time, and the signed message ends with block H's 32-byte hash, in the order it is
-  usually printed (as `bitcoin-cli getblockhash H` shows it):
+  `m = TaggedHash("DigiHan/v1", doc_hash ‖ A(5) ‖ key_id(8) [‖ center_hash] ‖ block_hash)`
 
-  `m = TaggedHash("DigiHan/v1", doc_hash ‖ H(5) ‖ key_id(8) [‖ center_hash] ‖ block_hash)`
+* The ring is unchanged: same 78 bytes, same layout. A v0.3 verifier rejects an anchored seal (bit 0 was
+  reserved) instead of misreading it.
+* The anchor is two blocks below the tip, so a short chain reorganization cannot remove it.
 
-* The ring is unchanged: same 78 bytes, same layout.
-* A v0.3 verifier must reject a seal with a reserved flag set, so an anchored seal is refused by old
-  verifiers rather than misread. That is by design.
+```
+python sign_pdf.py doc.pdf sealed --key key_alice --anchor auto    # two block explorers
+python sign_pdf.py doc.pdf sealed --key key_alice --anchor node    # your own bitcoin-cli
+```
 
-**Sealing:** `python sign_pdf.py doc.pdf sealed --key key_alice --anchor auto` anchors two blocks below
-the tip reported by mempool.space. For full independence give a block from your own node:
-`--anchor HEIGHT:HASH` with `bitcoin-cli getblockcount` and `bitcoin-cli getblockhash HEIGHT`.
+## No later than: OpenTimestamps
 
-**Checking:** `python verify_pdf.py sealed/doc_sealed.pdf key_alice/registration.json` asks mempool.space
-for block H's hash; `--block-hash HASH` uses one you got from your own node. The phone scanner fetches
-the hash from mempool.space and says "made no earlier than Bitcoin block H".
+The proof is a standard OpenTimestamps file (`.ots`) over the SHA-256 of the seal's 78-byte payload,
+the data in the ring. The payload holds the signature, so proving the payload existed at block B proves
+the seal was made by then. The phone gets the payload from the ring, so it needs nothing else to know
+which proof belongs to which seal.
 
-**Limits.** A block's own time can be off by up to about two hours. The check trusts whichever source
-gave the block hash; your own node is the only source that needs no trust.
+```
+python sign_pdf.py doc.pdf sealed --key key_alice --anchor auto --stamp       # seal and stamp at once
+python timestamp.py upgrade sealed/doc_seal_payload.bin.ots                    # a few hours later
+python timestamp.py attach  sealed/doc_sealed.pdf sealed/doc_seal_payload.bin.ots
+python verify_pdf.py sealed/doc_sealed_timestamped.pdf key_alice/registration.json
+```
 
-## No later than (next)
+* `--stamp` (or `python timestamp.py stamp sealed/doc_seal_payload.bin` later) sends the hash to the
+  OpenTimestamps calendars and saves a pending proof. A calendar puts many hashes into one Bitcoin
+  transaction, so the proof is complete once that transaction is in a block: usually a few hours.
+* `upgrade` fetches the Bitcoin part. It keeps the pending version as `.bak`.
+* `attach` writes a new PDF with the proof attached as `seal.ots`. The sealed PDF is not changed.
+* The `.ots` files are standard: `ots verify doc_seal_payload.bin.ots` (opentimestamps-client) checks
+  them too, and `timestamp.py` reads proofs the `ots` client made.
 
-1. `sign_pdf.py` already writes the seal's 78-byte data to `<name>_seal_payload.bin`. Its SHA-256 is the
-   value the phone's digest is cut from, so the phone can recompute it from the ring alone.
-2. Stamp it with the official OpenTimestamps client:
-   ```
-   pip install opentimestamps-client
-   ots stamp doc_seal_payload.bin          # writes doc_seal_payload.bin.ots
-   ots upgrade doc_seal_payload.bin.ots    # a few hours later, once a block includes it
-   ots verify doc_seal_payload.bin.ots     # "Bitcoin block K attests existence as of ..."
-   ```
-3. To build: attach the upgraded `.ots` proof inside the sealed PDF; teach `verify_pdf.py` to check it;
-   teach the phone to check it against block K's header (the proof's last step is block K's merkle root).
-4. For seals outside PDFs, publish the proof beside the seal, for example as a Nostr event (compare NIP-03).
+**Where a verifier finds the proof:** attached to the sealed PDF as `seal.ots`; as a file next to the
+seal data (`<name>_seal_payload.bin.ots`), which the phone accepts through *Check against a document…*;
+or published by a site at `ots/<seal digest>.ots`. The 21 sample seals on digihan.org have theirs there,
+made and completed by a GitHub workflow.
+
+## Block data
+
+Both checks need facts about a block: its hash (anchor) or its merkle root (OpenTimestamps). Your own
+node needs no trust: `--node` on `verify_pdf.py` and `timestamp.py verify` uses `bitcoin-cli`. Otherwise
+the Python tools and the phone ask two block explorers, mempool.space and blockstream.info, and refuse an
+answer the two disagree on.
+
+## Limits
+
+* A block's own time can be off by up to about two hours, so dates shown for blocks are approximate.
+  The block numbers are exact.
+* The calendars are not trusted for the proof: a complete proof checks against the block alone. They are
+  needed only to get the proof finished, and a calendar that disappears before then means stamping again.
+* If the two proofs contradict each other (the timestamp's block is below the anchor's), the seal is
+  reported as not valid.
+* A seal outside a PDF and outside a site needs its proof carried some other way, for example a Nostr
+  event (compare NIP-03). That is not defined yet.
 
 ## Prior work
 

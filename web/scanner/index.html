@@ -105,7 +105,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v6 · format v0.3</div>
+    <div class="v">scanner v8 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -140,7 +140,8 @@ input[type=file] { display:none; }
     <div class="grid">
       <div class="k">signer</div><div class="v" id="r_signer">—</div>
       <div class="k">document</div><div class="v" id="r_doc">—</div>
-      <div class="k">stated time</div><div class="v" id="r_ts"></div>
+      <div class="k">time</div><div class="v" id="r_ts"></div>
+      <div class="k">time proof</div><div class="v" id="r_proof">—</div>
       <div class="k">key id</div><div class="v" id="r_fp"></div>
       <div class="k">frame</div><div class="v" id="r_geom"></div>
       <div class="k">version</div><div class="v" id="r_ver"></div>
@@ -164,6 +165,7 @@ input[type=file] { display:none; }
 
 <script src="digihan.js"></script>
 <script src="verify.js"></script>
+<script src="ots.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -202,16 +204,18 @@ async function showResult(r) {
   $("r_geom").textContent = (r.geom.square ? "square · kakuin " : "round · jitsuin ") + r.geom.d + "mm";
   $("r_ver").textContent = parsed.ver + " (flags " + parsed.flags + ")";
   $("r_fp").textContent = parsed.fp.replace(/(.{4})(?=.)/g, "$1 ");
-  $("r_ts").textContent = (parsed.flags & 1) ? "no earlier than Bitcoin block " + parsed.ts + " (anchored)"
-    : new Date(parsed.ts * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z";
+  $("r_ts").textContent = (parsed.flags & 1) ? "anchored to Bitcoin block " + parsed.ts.toLocaleString("en-US")
+    : new Date(parsed.ts * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z, stated by the signer";
   $("r_sig").textContent = parsed.sig.slice(0, 24) + "…" + parsed.sig.slice(-8);
   $("r_corr").textContent = r.corrected + " byte(s)";
   $("r_frames").textContent = frames;
   say("");
   sheet.classList.add("up");
   if (navigator.vibrate) navigator.vibrate(60);
-  current = { payload: p, fp: parsed.fp, keys: null, docs: [] };
+  current = { payload: p, fp: parsed.fp, keys: null, docs: [], proofs: [], digest: DHV.hex(new Uint8Array(dg)) };
   $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
+  $("r_proof").textContent = "—";
+  await siteProof(current);
   verdict("warn", "Ring read — checking the signature…", "Looking up the signer's public key.");
   runCheck();
 }
@@ -284,10 +288,64 @@ document.addEventListener("visibilitychange", () => {
 // ---------------- signature check ----------------
 const REGISTRY_URL = "registry.json";                 // published sample registry (same site)
 const RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
-const BLOCKS = "https://mempool.space/api/block-height/";   // anchored seals (draft v0.4): block hash by height
-async function blockHashAt(h) {
-  try { const r = await fetch(BLOCKS + h); if (!r.ok) return null; const t = (await r.text()).trim();
-    return /^[0-9a-f]{64}$/.test(t) ? DHV.unhex(t) : null; } catch (e) { return null; }
+// Bitcoin block data for the time proofs: two block explorers are asked, and an answer they disagree on
+// is refused. (Your own node is the source that needs no trust; the Python tools take --node.)
+const EXPLORERS = ["https://mempool.space/api", "https://blockstream.info/api"];
+const blockCache = new Map();
+async function agree(path, parse) {
+  if (blockCache.has(path)) return blockCache.get(path);
+  const got = (await Promise.all(EXPLORERS.map(async base => {
+    try { const r = await fetch(base + path); return r.ok ? parse((await r.text()).trim()) : null; } catch (e) { return null; }
+  }))).filter(v => v !== null && v !== undefined);
+  const v = got.length && got.every(x => x === got[0]) ? got[0] : null;
+  if (v !== null) blockCache.set(path, v);
+  return v;
+}
+const hashText = t => /^[0-9a-f]{64}$/.test(t) ? t : null;
+async function blockHashAt(h) {                       // no earlier than: the anchored block's hash
+  const t = await agree("/block-height/" + h, hashText);
+  return t ? DHV.unhex(t) : null;
+}
+async function merkleAt(h) {                          // no later than: the block's merkle root and time
+  const bh = await agree("/block-height/" + h, hashText); if (!bh) return null;
+  const v = await agree("/block/" + bh, t => { const j = JSON.parse(t); return j.merkle_root + " " + j.timestamp; });
+  if (!v) return null;
+  const [root, time] = v.split(" "); return { root, time: +time };
+}
+// A time proof published next to the sample seals (digihan.org/ots/<seal digest>.ots), if there is one.
+async function siteProof(c) {
+  try { const r = await fetch("ots/" + c.digest + ".ots", { cache: "no-cache" });
+    if (r.ok) { const b = new Uint8Array(await r.arrayBuffer()); if (DHO.isProof(b)) c.proofs.push({ bytes: b, from: "digihan.org" }); } } catch (e) {}
+}
+const utc = t => new Date(t * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+const num = n => n.toLocaleString("en-US");
+// After a valid signature: what the time proofs show. Returns {text, why, bad}.
+async function timeWindow(c, anchored) {
+  let later = null, why = "";
+  for (const pr of c.proofs) {
+    try { later = await DHO.verify(pr.bytes, c.payload, merkleAt); later.from = pr.from; break; }
+    catch (e) { why = e.message; }
+  }
+  const KEY = " Who holds the key is a separate question.";
+  if (anchored !== null && later && later.height < anchored)
+    return { bad: true, text: "the two proofs contradict each other",
+             why: "The time proofs contradict each other: anchored to block " + num(anchored) + ", timestamped at the lower block number " + num(later.height) + "." };
+  const a = anchored !== null ? await merkleAt(anchored) : null;          // only for the anchored block's date
+  const A = anchored !== null ? "Bitcoin block " + num(anchored) + (a ? " (mined " + utc(a.time) + ")" : "") : "";
+  const B = later ? "Bitcoin block " + num(later.height) + " (mined " + utc(later.time) + ")" : "";
+  if (anchored !== null && later)
+    return { text: "after " + A + ", before " + B,
+             why: "This exact document was sealed by this key after " + A + " and before " + B + ". Both are proven." + KEY };
+  if (later) {
+    const off = parsePayload(c.payload).ts > later.time + 7200 ? " The stated time is after that block, so the stated time is wrong." : "";
+    return { text: "no later than " + B,
+             why: "This exact document was sealed by this key no later than " + B + ", proven by OpenTimestamps." + off + KEY };
+  }
+  if (anchored !== null)
+    return { text: "no earlier than " + A + (why ? ". " + why : ""),
+             why: "This exact document was sealed by this key no earlier than " + A + ": the block's hash is part of what was signed." + KEY };
+  return { text: why || "none: the time is the signer's statement",
+           why: "This exact document was sealed by this key. The time is the signer's statement." + KEY };
 }
 let current = null, registryCache = null;
 const short = s => s.length > 20 ? s.slice(0, 12) + "…" + s.slice(-6) : s;
@@ -377,9 +435,13 @@ async function runCheck() {
     if (r.ok) {
       $("r_signer").textContent = short(DHV.npubEncode(k.pub)) + " · " + k.source;
       $("r_doc").textContent = d.name;
-      verdict("ok", "Signature valid", r.anchored !== null && r.anchored !== undefined
-        ? "This exact document was sealed by this key, no earlier than Bitcoin block " + r.anchored + " (its hash is part of what was signed). Who holds the key is a separate question."
-        : "This exact document was sealed by this key. The time is the signer's statement; who holds the key is a separate question.");
+      const anchored = r.anchored !== null && r.anchored !== undefined ? r.anchored : null;
+      verdict("ok", "Signature valid", "Checking the time proof…");
+      $("r_proof").textContent = c.proofs.length ? "checking…" : "—";
+      const tw = await timeWindow(c, anchored);
+      if (c !== current) return;
+      $("r_proof").textContent = tw.text;
+      if (tw.bad) verdict("bad", "Time proofs contradict", tw.why); else verdict("ok", "Signature valid", tw.why);
       const ch = r.reg ? DHV.tag(r.reg, "center_hash") : null;
       if (ch) { if (k.center && k.center.sha256 === ch) showArt(k.center.url, ch); else if (k.image) showArt(k.image, ch); }
       return;
@@ -414,9 +476,13 @@ $("docIn").addEventListener("change", async ev => {
   const f = ev.target.files && ev.target.files[0]; ev.target.value = "";
   if (!f || !current) return;
   const bytes = new Uint8Array(await f.arrayBuffer());
+  if (DHO.isProof(bytes)) { current.proofs.push({ bytes, from: f.name }); runCheck(); return; }   // a .ots time proof
   current.docs.push({ name: f.name, sha: await DHV.sha256(bytes) });
   if (/^%PDF/.test(new TextDecoder("latin1").decode(bytes.slice(0, 5))))
-    for (const a of await pdfAttachments(bytes)) current.docs.push({ name: "the file attached inside " + f.name, sha: await DHV.sha256(a) });
+    for (const a of await pdfAttachments(bytes)) {
+      if (DHO.isProof(a)) current.proofs.push({ bytes: a, from: "the proof attached inside " + f.name });
+      else current.docs.push({ name: "the file attached inside " + f.name, sha: await DHV.sha256(a) });
+    }
   runCheck();
 });
 $("keyBtn").addEventListener("click", () => $("keyBox").classList.toggle("hide"));
@@ -452,11 +518,9 @@ $("fileIn").addEventListener("change", ev => {
   img.onload = () => {
     frames = 1;
     const { g, w, h } = grayFrom(img, img.naturalWidth, img.naturalHeight);
-    let r = decodeGray(g, w, h);
-    if (!r) {                                   // a seal shown light-on-dark (a dark screen): try it inverted
-      const inv = new Uint8Array(g.length); for (let i = 0; i < g.length; i++) inv[i] = 255 - g[i];
-      r = decodeGray(inv, w, h);
-    }
+    // v7: a photo or screenshot is searched for the seal's outline (a dark toolbar or an off-center seal
+    // no longer hides it), and tried inverted for a seal shown light on dark
+    const r = decodePhoto(g, w, h);
     if (r) showResult(r);
     else say("no seal decoded in that photo — try closer or flatter");
     ev.target.value = "";

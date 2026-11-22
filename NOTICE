@@ -6,3 +6,6 @@ This product includes software developed for the DigiHan project (https://digiha
 python/tests/bip340_test_vectors.csv is the test vector file from BIP340
 (https://github.com/bitcoin/bips/tree/master/bip-0340), BSD-2-Clause.
 python/bip340.py implements the algorithm specified in BIP340.
+
+python/tests/ots/ holds example OpenTimestamps proofs copied unchanged from opentimestamps-client
+(https://github.com/opentimestamps/opentimestamps-client, LGPL-3.0), used only as test data.

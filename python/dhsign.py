@@ -1,7 +1,7 @@
-"""DigiHan signing and verification layer (format v0.3). See SPEC.md.
+"""DigiHan signing and verification layer (format v0.4). See SPEC.md.
 
   payload (78 B) = ver/flags (1) | key_fingerprint (8) | timestamp (5) | sig (64)
-  m = TaggedHash("DigiHan/v1", doc_hash || timestamp || key_fingerprint [|| center_hash])
+  m = TaggedHash("DigiHan/v1", doc_hash || timestamp || key_fingerprint [|| center_hash] [|| block_hash])
 The password only encrypts the private key at rest; it never enters the seal.
 """
 import hashlib, json, os, time
@@ -10,7 +10,7 @@ import bip340
 
 VERSION = 1
 FLAG_CENTER = 0b0100            # flags bit 2: center committed
-FLAG_ANCHOR = 0b0001            # flags bit 0 (draft v0.4): the time field holds a Bitcoin block height and
+FLAG_ANCHOR = 0b0001            # flags bit 0 (format v0.4): the time field holds a Bitcoin block height and
                                 # the signed message ends with that block's hash -> "made no earlier than"
 KNOWN_FLAGS = FLAG_CENTER | FLAG_ANCHOR
 TAG = "DigiHan/v1"              # BIP340 tagged-hash tag for the signed message
@@ -130,7 +130,7 @@ def signed_message(doc_hash: bytes, ts: int, fp: bytes, center_hash=None, block_
     body = doc_hash + ts.to_bytes(5, "big") + fp
     if center_hash is not None:
         body += center_hash
-    if block_hash is not None:                  # draft v0.4 anchor: 32 bytes, in the usual display order
+    if block_hash is not None:                  # anchored seal (v0.4): 32 bytes, in the usual display order
         body += block_hash
     return bip340.tagged_hash(TAG, body)
 
@@ -145,7 +145,7 @@ def block_hash_bytes(display_hex: str) -> bytes:
 
 def seal_payload(sk: bytes, pubkey: bytes, doc_bytes: bytes, ts: int,
                  center_hash=None, aux=None, anchor=None) -> bytes:
-    """anchor = (block_height, block_hash_bytes) seals "no earlier than that block" (draft v0.4):
+    """anchor = (block_height, block_hash_bytes) seals "no earlier than that block" (format v0.4):
     the time field then holds the height, and the block's hash is signed with the document."""
     fp = fingerprint(pubkey)
     block_hash = None
@@ -167,7 +167,7 @@ def parse_payload(p: bytes) -> dict:
 
 def verify_payload(p: bytes, doc_bytes: bytes, keyring: dict, registrations: list, block_hash_at=None):
     """Returns (ok, report_lines, matched_registration). See SPEC.md, section 8.
-    block_hash_at(height) -> 32 bytes or None: needed only for anchored seals (draft v0.4)."""
+    block_hash_at(height) -> 32 bytes or None: needed only for anchored seals (format v0.4)."""
     lines = []
     f = parse_payload(p)
     anchored = bool(f["flags"] & FLAG_ANCHOR)

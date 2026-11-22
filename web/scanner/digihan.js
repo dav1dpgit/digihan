@@ -1,4 +1,4 @@
-// DigiHan ring decoder, format v0.3 — self-contained JS port of digihan.py
+// DigiHan ring decoder, format v0.4 (the ring is unchanged since v0.3) — self-contained JS port of digihan.py
 // Payload: 78 bytes = ver(4b)|flags(4b)|fingerprint(64b)|timestamp(40b)|sig(512b)
 // Stream: 28-bit sync 0xE769C57 || RS(123,78) codeword bits, track-major from the innermost
 // track; bit 0 starts at 12 o'clock under the key bridge and the stream runs clockwise.
@@ -709,7 +709,75 @@ function decodeGray(gray, w, h) {
   return null;
 }
 
+// ---------------- photos: find the seal by its outline first ----------------
+// A photo or screenshot can hold a lot besides the seal: text, a phone's toolbar (dark in dark mode),
+// the seal off center or filling the width. The crop ladder above assumes a centered seal, and a large
+// dark block drags the ink centroid away from it. So for photos, find hollow, roughly round (or square)
+// ink outlines — the seal's rim or frame — and read the ring inside each one.
+function sealOutlines(gray, w, h) {
+  const S = 2, W = Math.ceil(w / S), H = Math.ceil(h / S);      // label on a half-size ink mask
+  const th = otsu(gray), bin = new Uint8Array(W * H);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
+    if (gray[y*w + x] < th) bin[((y / S) | 0) * W + ((x / S) | 0)] = 1;
+  const lab = new Int32Array(W * H), stack = new Int32Array(W * H), out = [];
+  let next = 0;
+  for (let s = 0; s < W * H; s++) {
+    if (!bin[s] || lab[s]) continue;
+    next++;
+    let sp = 0, n = 0, x0 = W, y0 = H, x1 = 0, y1 = 0, sx = 0, sy = 0;
+    stack[sp++] = s; lab[s] = next;
+    while (sp) {
+      const p = stack[--sp], px = p % W, py = (p / W) | 0;
+      n++; sx += px; sy += py;
+      if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const qx = px + dx, qy = py + dy;
+        if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
+        const q = qy * W + qx;
+        if (bin[q] && !lab[q]) { lab[q] = next; stack[sp++] = q; }
+      }
+    }
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    if (Math.min(bw, bh) * S < 100) continue;                    // smaller than any readable seal
+    if (bw / bh > 1.6 || bh / bw > 1.6) continue;                // not round or square, even tilted
+    if (n / (bw * bh) > 0.45) continue;                          // a solid block (a toolbar), not an outline
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    if (Math.abs(sx / n - mx) > 0.12 * bw || Math.abs(sy / n - my) > 0.12 * bh) continue;  // lopsided
+    if (lab[(my | 0) * W + (mx | 0)] === next) continue;         // not hollow
+    out.push({ cx: mx * S + S / 2, cy: my * S + S / 2, side: Math.max(bw, bh) * S, area: bw * bh });
+  }
+  out.sort((a, b) => b.area - a.area);
+  return out.slice(0, 4);
+}
+function cropBox(gray, w, h, cx, cy, side) {
+  const x0 = Math.max(0, Math.round(cx - side / 2)), y0 = Math.max(0, Math.round(cy - side / 2));
+  const x1 = Math.min(w, Math.round(cx + side / 2)), y1 = Math.min(h, Math.round(cy + side / 2));
+  const cw = x1 - x0, ch = y1 - y0, out = new Uint8Array(cw * ch);
+  for (let y = 0; y < ch; y++) out.set(gray.subarray((y0 + y) * w + x0, (y0 + y) * w + x1), y * cw);
+  return { g: out, w: cw, h: ch };
+}
+function decodeOutlines(gray, w, h) {
+  for (const o of sealOutlines(gray, w, h)) {
+    const c = cropBox(gray, w, h, o.cx, o.cy, o.side * 1.22);     // the rim plus a quiet margin
+    const im = makeImg(c.g, c.w, c.h);
+    for (const g of PROFILES) {
+      const r = decodeWithGeom(im, g);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+// For a still picture: the camera's ladder first, then the outline search; each also inverted, for a
+// seal shown light on dark.
+function decodePhoto(gray, w, h) {
+  let r = decodeGray(gray, w, h) || decodeOutlines(gray, w, h);
+  if (r) return r;
+  const inv = new Uint8Array(gray.length);
+  for (let i = 0; i < gray.length; i++) inv[i] = 255 - gray[i];
+  return decodeGray(inv, w, h) || decodeOutlines(inv, w, h);
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { decodeGray, decodeWithGeom, makeImg, Geometry, PROFILES,
+  module.exports = { decodeGray, decodePhoto, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
                      parsePayload, rsDecode };
 }
