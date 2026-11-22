@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>DigiHan seal scanner</title>
+<style>
+/* scanner v5 (format v0.3) — viewfinder layout: full-bleed viewfinder, controls
+   float over it, zero clutter in the frame, safe-area-aware footer. */
+:root { --ink:#b3382c; --fg:#e8e6e1; --dim:rgba(255,255,255,.72); --ok:#5fd39a; }
+* { box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; background:#000; overflow:hidden; }
+body { font:15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--fg); }
+
+.scan-overlay { position:fixed; inset:0; height:100dvh; background:#000; }
+.scan-inner { position:absolute; inset:0; }
+.scan-video { width:100%; height:100%; object-fit:cover; display:block; }
+
+/* header floats over the top edge; never inside the aiming area */
+.scan-head {
+  position:absolute; top:0; left:0; right:0; z-index:3;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px 12px;
+  background:linear-gradient(180deg, rgba(0,0,0,.62), rgba(0,0,0,0));
+  pointer-events:none;
+}
+.scan-head h1 { font-size:15px; font-weight:600; letter-spacing:.01em;
+  text-shadow:0 1px 3px rgba(0,0,0,.7); }
+.scan-head h1 span { color:#e2705f; }
+.scan-head .v { font-size:11px; color:var(--dim); }
+
+/* footer floats over the bottom edge */
+.scan-foot {
+  position:absolute; bottom:0; left:0; right:0; z-index:3;
+  padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));
+  display:flex; flex-direction:column; gap:10px;
+  background:linear-gradient(0deg, rgba(0,0,0,.55), rgba(0,0,0,0));
+}
+.scan-status {
+  font-size:13px; color:rgba(255,255,255,.85); text-align:center;
+  min-height:18px; text-shadow:0 1px 3px rgba(0,0,0,.6);
+}
+.scan-btn {
+  width:100%; background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.3);
+  color:#fff; font:600 14px/1 inherit; border-radius:11px; padding:14px;
+  cursor:pointer; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+.scan-ctlrow { display:flex; gap:10px; align-items:center; }
+.scan-ctlrow .scan-btn { width:auto; flex:1; }
+.photo-btn {
+  width:50px; min-width:50px; height:50px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(20,20,24,.85); border:1.5px solid rgba(255,255,255,.9);
+  color:#fff; cursor:pointer;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+.photo-btn svg { width:24px; height:24px; }
+input[type=file] { display:none; }
+
+/* start gate — the camera opens on a user gesture (iOS requires it) */
+.start-gate {
+  position:absolute; inset:0; z-index:5; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:18px; padding:28px;
+  background:#0d0e10; text-align:center;
+}
+.start-gate p { color:var(--dim); font-size:13.5px; max-width:20em; }
+.start-gate .go {
+  background:var(--ink); border:none; color:#fff; font:600 15px/1 inherit;
+  border-radius:12px; padding:16px 30px; cursor:pointer;
+}
+.hide { display:none !important; }
+
+/* result sheet — rises over the (already stopped) video, so the viewfinder
+   is never obstructed while aiming */
+.sheet {
+  position:absolute; left:0; right:0; bottom:0; z-index:6;
+  transform:translateY(101%); transition:transform .22s ease-out;
+  background:#141518; border-top:2px solid var(--ink);
+  border-radius:16px 16px 0 0;
+  padding:16px 18px calc(16px + env(safe-area-inset-bottom,0px));
+  max-height:82dvh; overflow-y:auto;
+}
+.sheet.up { transform:translateY(0); }
+.verdict { font-size:15.5px; font-weight:700; color:var(--ok); margin-bottom:10px; }
+.digest-big {
+  font-family:ui-monospace, Menlo, monospace; font-size:26px; font-weight:700;
+  color:#e2705f; letter-spacing:.06em; margin-bottom:2px;
+}
+.digest-cap { font-size:11.5px; color:var(--dim); margin-bottom:12px; }
+.grid { display:grid; grid-template-columns:92px 1fr; gap:5px 10px; font-size:12.5px; }
+.grid .k { color:var(--dim); }
+.grid .v { font-family:ui-monospace, Menlo, monospace; word-break:break-all; }
+.sheet .scan-btn { margin-top:14px; background:rgba(255,255,255,.14); }
+</style>
+</head>
+<body>
+<div class="scan-overlay">
+  <div class="scan-inner"><video class="scan-video" id="video" playsinline muted></video></div>
+
+  <div class="scan-head">
+    <h1>Digi<span>Han</span> v2 — seal verifier</h1>
+    <div class="v">scanner v5 · format v0.3</div>
+  </div>
+
+  <div class="scan-foot" id="foot">
+    <div class="scan-status" id="status"></div>
+    <div class="scan-ctlrow">
+      <button class="photo-btn" id="photoBtn" aria-label="Decode a seal from a photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.6"/>
+          <path d="M3 17l5-5 4 4 3.5-3.5L21 18"/>
+        </svg>
+      </button>
+      <button class="scan-btn" id="stopBtn">Stop</button>
+    </div>
+  </div>
+
+  <div class="start-gate" id="gate">
+    <h1 style="font-size:19px;font-weight:600">Digi<span style="color:var(--ink)">Han</span> v2</h1>
+    <p>Point the camera at a printed seal. Decoding runs entirely on this
+       device — nothing is uploaded.</p>
+    <button class="go" id="startBtn">Start camera</button>
+    <button class="scan-btn" id="photoOnly" style="width:auto;padding:12px 22px">Use a photo instead</button>
+  </div>
+
+  <div class="sheet" id="sheet">
+    <div class="verdict">Seal decoded — payload intact</div>
+    <div class="digest-big" id="r_digest"></div>
+    <div class="digest-cap">digest — compare with the label under the seal</div>
+    <div class="grid">
+      <div class="k">frame</div><div class="v" id="r_geom"></div>
+      <div class="k">version</div><div class="v" id="r_ver"></div>
+      <div class="k">fingerprint</div><div class="v" id="r_fp"></div>
+      <div class="k">timestamp</div><div class="v" id="r_ts"></div>
+      <div class="k">signature</div><div class="v" id="r_sig"></div>
+      <div class="k">RS repair</div><div class="v" id="r_corr"></div>
+      <div class="k">frames</div><div class="v" id="r_frames"></div>
+    </div>
+    <button class="scan-btn" id="againBtn">Scan another</button>
+  </div>
+</div>
+
+<input type="file" id="fileIn" accept="image/*">
+<canvas id="work" class="hide"></canvas>
+
+<script src="digihan.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const video = $("video"), statusEl = $("status"), sheet = $("sheet"), gate = $("gate");
+const work = $("work");
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent || "") ||
+               (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+// Lesson from earlier scanners: pixels-per-module is the load-bearing variable. No aggressive
+// downscale — cap only high enough to bound worst-case decode latency.
+const MAXDIM = 1400;
+let scanning = false, frames = 0, stream = null, track = null, busy = false;
+
+function say(t) { statusEl.textContent = t; }
+
+function grayFrom(src, sw, sh) {
+  const scale = Math.min(1, MAXDIM / Math.max(sw, sh));
+  const w = Math.max(64, Math.round(sw * scale)), h = Math.max(64, Math.round(sh * scale));
+  work.width = w; work.height = h;
+  const ctx = work.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(src, 0, 0, w, h);
+  const d = ctx.getImageData(0, 0, w, h).data, g = new Uint8Array(w * h);
+  for (let i = 0, j = 0; j < g.length; i += 4, j++)
+    g[j] = (d[i] * 299 + d[i+1] * 587 + d[i+2] * 114) / 1000 | 0;
+  return { g, w, h };
+}
+
+async function showResult(r) {
+  stopCamera("decoded");
+  const p = r.data, parsed = parsePayload(p);
+  const dg = await crypto.subtle.digest("SHA-256", p);
+  $("r_digest").textContent = Array.from(new Uint8Array(dg).slice(0, 4),
+    b => b.toString(16).padStart(2, "0")).join("");
+  $("r_geom").textContent = (r.geom.square ? "square · kakuin " : "round · jitsuin ") + r.geom.d + "mm";
+  $("r_ver").textContent = parsed.ver + " (flags " + parsed.flags + ")";
+  $("r_fp").textContent = parsed.fp;
+  $("r_ts").textContent = new Date(parsed.ts * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z";
+  $("r_sig").textContent = parsed.sig.slice(0, 24) + "…" + parsed.sig.slice(-8);
+  $("r_corr").textContent = r.corrected + " byte(s)";
+  $("r_frames").textContent = frames;
+  say("");
+  sheet.classList.add("up");
+  if (navigator.vibrate) navigator.vibrate(60);
+}
+
+function loop() {
+  if (!scanning) return;
+  if (!busy && video.readyState >= 2 && video.videoWidth) {
+    busy = true;
+    frames++;
+    try {
+      const { g, w, h } = grayFrom(video, video.videoWidth, video.videoHeight);
+      const t0 = performance.now();
+      const r = decodeGray(g, w, h);
+      const ms = Math.round(performance.now() - t0);
+      if (r) { busy = false; showResult(r); return; }
+      if (frames % 4 === 0) say("scanning · " + frames + " frames · " + ms + "ms");
+    } catch (e) { /* keep scanning */ }
+    busy = false;
+  }
+  requestAnimationFrame(loop);
+}
+
+async function startCamera() {
+  gate.classList.add("hide");
+  say("opening camera…");
+  try {
+    // Rule: iOS gets NO constraints (forcing resolution shifts the
+    // colour profile and its unconstrained feed is already high-res); non-iOS
+    // gets the standard Android block.
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    track = stream.getVideoTracks()[0] || null;
+    if (!IS_IOS && track && track.applyConstraints) {
+      await track.applyConstraints({
+        width: { ideal: 1280 }, height: { ideal: 720 },
+        frameRate: { ideal: 30 },
+        advanced: [{ focusMode: "continuous" }],
+      }).catch(() => {});
+    }
+    // An external stop (iOS red pill) is honest — say so, don't hang.
+    if (track) track.addEventListener("ended", () => {
+      scanning = false; say("camera stopped — tap Stop, then Start again");
+    });
+    scanning = true; frames = 0;
+    say("scanning…");
+    requestAnimationFrame(loop);
+  } catch (e) {
+    gate.classList.remove("hide");
+    say("");
+    gate.querySelector("p").textContent =
+      "Camera unavailable (" + (e && e.name) + "). Use a photo instead.";
+  }
+}
+
+function stopCamera(reason) {
+  scanning = false;
+  try { if (stream) stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { video.pause(); video.srcObject = null; video.removeAttribute("src"); video.load(); } catch (e) {}
+  stream = null; track = null;
+}
+
+// Backgrounding tears the camera down honestly.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && scanning) { stopCamera("hidden"); say("paused — tap Start"); gate.classList.remove("hide"); }
+});
+
+$("startBtn").addEventListener("click", startCamera);
+$("stopBtn").addEventListener("click", () => {
+  stopCamera("user"); say(""); gate.classList.remove("hide");
+});
+$("againBtn").addEventListener("click", () => {
+  sheet.classList.remove("up"); gate.classList.remove("hide"); say("");
+});
+$("photoBtn").addEventListener("click", () => $("fileIn").click());
+$("photoOnly").addEventListener("click", () => $("fileIn").click());
+
+$("fileIn").addEventListener("change", ev => {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  say("reading photo…");
+  const img = new Image();
+  img.onload = () => {
+    frames = 1;
+    const { g, w, h } = grayFrom(img, img.naturalWidth, img.naturalHeight);
+    const r = decodeGray(g, w, h);
+    if (r) showResult(r);
+    else say("no seal decoded in that photo — try closer or flatter");
+    ev.target.value = "";
+  };
+  img.onerror = () => say("could not read that image");
+  img.src = URL.createObjectURL(f);
+});
+</script>
+</body>
+</html>

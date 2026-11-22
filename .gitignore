@@ -1,0 +1,7 @@
+# secret keys and outputs made by the tools: never commit
+key_*/
+sealed/
+*.gray
+tests/frames/
+__pycache__/
+.pytest_cache/

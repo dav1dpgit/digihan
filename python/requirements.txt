@@ -1,0 +1,9 @@
+numpy>=1.26
+pillow>=10.0
+reedsolo>=1.7
+pypdf>=5.0
+reportlab>=4.0
+cryptography>=42
+pypdfium2>=4.25
+pyhanko>=0.25
+pytest>=8

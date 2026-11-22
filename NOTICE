@@ -1,0 +1,8 @@
+DigiHan
+Copyright 2026 Plotzwerks
+
+This product includes software developed for the DigiHan project (https://digihan.org).
+
+python/tests/bip340_test_vectors.csv is the test vector file from BIP340
+(https://github.com/bitcoin/bips/tree/master/bip-0340), BSD-2-Clause.
+python/bip340.py implements the algorithm specified in BIP340.
