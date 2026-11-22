@@ -22,6 +22,8 @@ import digihan as dh          # noqa: E402  (format v0.3)
 import dhsign                 # noqa: E402
 
 NSYM, DPMM = 45, 24.0
+ANCHOR = None   # (block_height, block_hash_bytes) when sealing with --anchor (draft v0.4)
+BLOCK = lambda h: ANCHOR[1] if ANCHOR and h == ANCHOR[0] else None
 GEOM = dh.Geometry(45, 5, 0.6, square=False)
 SEAL_MM = 45.0
 VERMILLION = (178, 56, 44)
@@ -137,7 +139,7 @@ def seal_pdf(in_path, out_dir, page_no, kf, password, art_path, reg):
     assert reg["tags"][1][1] == center_hash.hex(), "artwork does not match registration"
     ts = int(time.time())
     sk = dhsign.unlock_key(kf, password)
-    payload = dhsign.seal_payload(sk, pk, original, ts, center_hash)
+    payload = dhsign.seal_payload(sk, pk, original, ts, center_hash, anchor=ANCHOR)
     del sk
     say(f"document sha256 (what was signed): {hashlib.sha256(original).hexdigest()}")
     say(f"signer: {dhsign.bech32('npub', pk)}  fingerprint {dhsign.fingerprint(pk).hex()}")
@@ -208,7 +210,7 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
     assert reg["tags"][1][1] == center_hash.hex(), "artwork does not match registration"
     ts = int(time.time())
     sk = dhsign.unlock_key(kf, password)
-    payload = dhsign.seal_payload(sk, pk, original, ts, center_hash)
+    payload = dhsign.seal_payload(sk, pk, original, ts, center_hash, anchor=ANCHOR)
     del sk
     say(f"document sha256 (what was signed): {hashlib.sha256(original).hexdigest()}")
     say(f"signer: {dhsign.bech32('npub', pk)}  fingerprint {dhsign.fingerprint(pk).hex()}")
@@ -313,13 +315,13 @@ def verify_from_scratch(st, reg, out_dir):
         f"{'OK' if payload_optical == st['payload'] else 'MISMATCH'}, {ncorr} byte(s) repaired")
     say(f"seal == payload stored in the file: {payload_optical == payload_meta}")
     say(f"embedded original == your input file, byte for byte: {original == st['original']}")
-    ok, lines, _ = dhsign.verify_payload(payload_optical, original, keyring, [reg])
+    ok, lines, _ = dhsign.verify_payload(payload_optical, original, keyring, [reg], block_hash_at=BLOCK)
     for l in lines:
         say("  " + l)
 
     say(); say("=== TAMPER TESTS — each must fail ===")
     def t(name, doc, p=payload_optical, regs=(reg,)):
-        res = dhsign.verify_payload(p, doc, keyring, list(regs))[0]
+        res = dhsign.verify_payload(p, doc, keyring, list(regs), block_hash_at=BLOCK)[0]
         say(f"  {'FAIL as required ' if not res else 'PASSED (DEFECT)  '}  {name}")
         return not res
     flips = [len(original) // 3, len(original) // 2, len(original) - 10]
@@ -345,8 +347,16 @@ if __name__ == "__main__":
                     help="auto: cover sheet if the PDF already has an e-signature")
     ap.add_argument("--key", required=True,
                     help="folder made by make_key.py: keyfile.json, registration.json, center_art.png")
+    ap.add_argument("--anchor", default=None, metavar="auto|HEIGHT:HASH",
+                    help="draft v0.4: prove the seal was made no earlier than a Bitcoin block "
+                         "('auto' asks mempool.space; or give a block from your own node)")
     ap.add_argument("--password", default=None, help=argparse.SUPPRESS)   # tests only
     a = ap.parse_args()
+    if a.anchor:
+        import anchor as _anchor
+        ANCHOR = _anchor.parse_anchor_arg(a.anchor)
+        print(f"Anchoring to Bitcoin block {ANCHOR[0]} ({ANCHOR[1].hex()[:16]}...): the seal will prove it was "
+              f"made no earlier than this block.")
     kf = json.load(open(os.path.join(a.key, "keyfile.json")))
     reg = json.load(open(os.path.join(a.key, "registration.json")))
     art = os.path.join(a.key, "center_art.png")
@@ -379,16 +389,23 @@ if __name__ == "__main__":
     st["say"](); st["say"]("=== PHONE CHECK — the scanner (web/scanner, digihan.org/scan) should show ===")
     st["say"](f"  digest      {hashlib.sha256(st['payload']).hexdigest()[:8]}")
     st["say"](f"  frame       round · jitsuin 45mm")
-    st["say"](f"  version     1 (flags 4)")
+    st["say"](f"  version     1 (flags {f['flags']})")
     st["say"](f"  fingerprint {f['fp'].hex()}")
-    st["say"](f"  timestamp   {time.strftime('%Y-%m-%d %H:%M:%SZ', time.gmtime(f['ts']))}")
+    if f["flags"] & dhsign.FLAG_ANCHOR:
+        st["say"](f"  anchored    no earlier than Bitcoin block {f['ts']}")
+    else:
+        st["say"](f"  timestamp   {time.strftime('%Y-%m-%d %H:%M:%SZ', time.gmtime(f['ts']))}")
     st["say"](); st["say"](f"RESULT: {'ALL CHECKS PASSED' if passed else 'A CHECK FAILED — see above'}")
+    # the 78-byte seal data, for an OpenTimestamps proof ("no later than"): ots stamp <this file>
+    pay = unique(os.path.join(a.outdir, f"{st['base']}_seal_payload.bin"))
+    open(pay, "wb").write(st["payload"])
     rpt = unique(os.path.join(a.outdir, f"{st['base']}_verification_report.txt"))
     open(rpt, "w").write("\n".join(st["log"]) + "\n")
     reg_path = os.path.join(a.key, "registration.json")
     print()
     print(f"Sealed file:  {os.path.abspath(st['sealed_path'])}")
     print(f"Report:       {os.path.abspath(rpt)}")
+    print(f"Seal data:    {os.path.abspath(pay)}   (for a time proof: ots stamp \"{os.path.basename(pay)}\")")
     print("To check it independently, run:")
     print(f'  .\\.venv\\Scripts\\python.exe verify_pdf.py "{st["sealed_path"]}" "{reg_path}" --save-original'
           if os.name == "nt" else

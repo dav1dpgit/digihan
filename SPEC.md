@@ -20,7 +20,7 @@ A seal that verifies proves three things:
 
 It does **not** prove who holds the key (that is a separate step, such as a notary), and it does
 **not** prove when the seal was made: the signer chooses the time. Time anchors that prove a window
-(no earlier than one Bitcoin block, no later than another) are planned as a future extension (section 11).
+(no earlier than one Bitcoin block, no later than another) are a draft extension (section 11).
 
 ## 2. Geometry
 
@@ -86,7 +86,8 @@ Stream = sync word (28 bits) ‖ Reed–Solomon codeword (123 bytes, most signif
 
 * Version MUST be 1. A verifier MUST reject any other version.
 * Flag bit 2 (value 4): the center artwork is committed (section 6). Bits 0, 1 and 3 are reserved,
-  MUST be 0, and a verifier MUST reject a seal with a reserved bit set.
+  MUST be 0, and a verifier MUST reject a seal with a reserved bit set. (The draft v0.4 extension
+  gives bit 0 a meaning: section 11.)
 
 ## 6. Signed message
 
@@ -112,7 +113,8 @@ same document sealed twice gives two different rings.
   * `content`: `{"app": "DigiHan", "format": "v0.3", "center_hash": "<hex>"}`
 
   Each artwork gets its own record (the `d` tag carries the hash), so old seals keep verifying after
-  a signer changes artwork. A Nostr NIP for this record is being drafted.
+  a signer changes artwork. Records also carry `["f", "<key id>"]` and an `alt` tag; the draft NIP
+  ([nip/NIP-DIGIHAN.md](nip/NIP-DIGIHAN.md)) defines the full record.
 
 ## 8. Verification
 
@@ -151,10 +153,25 @@ Later tiers (canonical content, printed canonical string) are not yet defined.
   start angle separately when retrying without the bridge calibration.
 * One size only (45 mm / 0.6 mm); the 40 mm test profile is dropped.
 
-## 11. Planned (not in v0.3)
+## 11. Draft extension v0.4: time anchors (not part of v0.3)
 
-* **Time anchors.** No later than: an OpenTimestamps proof that a hash of the seal was in a Bitcoin
-  block. No earlier than: a recent block hash inside the signed message. Together they prove a window.
-  This will use a reserved flag and a new tag, so v0.3 seals stay valid.
-* **Signature check on the phone** (the scanner reads the ring today; checking the signature needs the key and document).
-* **Nostr NIP** for the center registration.
+**No earlier than a block (implemented as a draft).** Flag bit 0 (value 1) marks an anchored seal. The
+5-byte time field holds a Bitcoin block height H (big-endian), and the signed message ends with block H's
+32-byte hash in display order (as `bitcoin-cli getblockhash H` prints it):
+
+```
+m = TaggedHash("DigiHan/v1", doc_hash ‖ H(5) ‖ fingerprint(8) [‖ center_hash] ‖ block_hash)
+```
+
+A verifier gets block H's hash from a source it trusts (its own node needs no trust) and checks the
+signature with it. If it verifies, the seal was made after block H was mined. A v0.3 verifier rejects
+the seal, because bit 0 is reserved in v0.3 (section 5).
+
+**No later than a block (planned).** An OpenTimestamps proof over SHA-256 of the 78-byte payload.
+
+See [docs/TIME-PROOF.md](docs/TIME-PROOF.md).
+
+## 12. Also planned
+
+* The center registration as a Nostr NIP: draft in [nip/NIP-DIGIHAN.md](nip/NIP-DIGIHAN.md). It adds an
+  `f` tag (the key id) so a verifier holding only a scanned seal can find the key on relays.

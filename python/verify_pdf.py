@@ -25,6 +25,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("sealed")
 ap.add_argument("registration")
 ap.add_argument("--save-original", action="store_true")
+ap.add_argument("--block-hash", default=None, help="for an anchored seal: the anchored block's hash "
+                "(from your own node: bitcoin-cli getblockhash HEIGHT); otherwise mempool.space is asked")
 a = ap.parse_args()
 
 problems = []
@@ -71,7 +73,16 @@ except Exception as e:
     print("Seal on page: could not be read")
 
 payload = payload_seal or payload_meta
-ok, lines, _ = dhsign.verify_payload(payload, original, keyring, [reg])
+def block_at(h):
+    if a.block_hash:
+        return dhsign.block_hash_bytes(a.block_hash)
+    import anchor
+    b = anchor.explorer_hash_at(h)
+    if b is not None:
+        print(f"  block {h}: hash taken from mempool.space ({b.hex()[:16]}...). For full independence, "
+              f"compare it with your own node: bitcoin-cli getblockhash {h}")
+    return b
+ok, lines, _ = dhsign.verify_payload(payload, original, keyring, [reg], block_hash_at=block_at)
 for l in lines:
     print("  " + l)
 seal_fp = dhsign.parse_payload(payload)["fp"].hex()
@@ -99,7 +110,11 @@ if problems:
         print(f"  - {p}")
     sys.exit(1)
 f = dhsign.parse_payload(payload)
-print("RESULT: VALID — the attached file is exactly what this key sealed, at "
-      f"{time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(f['ts']))} (time stated by the signer).")
+if f["flags"] & dhsign.FLAG_ANCHOR:
+    print("RESULT: VALID — the attached file is exactly what this key sealed, no earlier than "
+          f"Bitcoin block {f['ts']} (proven by the block anchor).")
+else:
+    print("RESULT: VALID — the attached file is exactly what this key sealed, at "
+          f"{time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(f['ts']))} (time stated by the signer).")
 print("        This proves which KEY sealed it. Who holds the key is a separate question")
 print("        (a notary's job), and the attached file is what you should read.")

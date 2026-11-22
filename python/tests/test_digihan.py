@@ -69,3 +69,33 @@ def test_sign_verify_and_tamper():
 def test_signed_message_tag():
     m = dhsign.signed_message(b"\0" * 32, 0, b"\0" * 8)
     assert m == bip340.tagged_hash("DigiHan/v1", b"\0" * 45)
+
+
+# ---- draft v0.4: "no earlier than" block anchor ----
+GENESIS = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"   # Bitcoin block 0
+
+
+def test_anchor_no_earlier_than_block():
+    sk, pk = dhsign.new_key()
+    doc = b"anchored document"
+    bh = dhsign.block_hash_bytes(GENESIS)
+    p = dhsign.seal_payload(sk, pk, doc, 0, anchor=(0, bh))
+    f = dhsign.parse_payload(p)
+    assert f["flags"] & dhsign.FLAG_ANCHOR and f["ts"] == 0
+    keyring = {dhsign.fingerprint(pk).hex(): pk}
+    ok, lines, _ = dhsign.verify_payload(p, doc, keyring, [], block_hash_at=lambda h: bh if h == 0 else None)
+    assert ok and any("no earlier than Bitcoin block 0" in l for l in lines)
+    wrong = bytes(32)                                         # a different chain or a made-up block
+    assert not dhsign.verify_payload(p, doc, keyring, [], block_hash_at=lambda h: wrong)[0]
+    assert not dhsign.verify_payload(p, doc, keyring, [])[0]  # no block hash available: cannot pass
+
+
+def test_anchor_with_center_and_tamper():
+    sk, pk = dhsign.new_key()
+    art = b"art"; reg = dhsign.register_center(sk, pk, art)
+    bh = dhsign.block_hash_bytes(GENESIS)
+    p = dhsign.seal_payload(sk, pk, b"doc", 0, hashlib.sha256(art).digest(), anchor=(0, bh))
+    kr = {dhsign.fingerprint(pk).hex(): pk}
+    assert dhsign.verify_payload(p, b"doc", kr, [reg], block_hash_at=lambda h: bh)[0]
+    q = bytearray(p); q[9:14] = (1).to_bytes(5, "big")       # claim a higher block number
+    assert not dhsign.verify_payload(bytes(q), b"doc", kr, [reg], block_hash_at=lambda h: bh)[0]
