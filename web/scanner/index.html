@@ -57,16 +57,18 @@ body { font:15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; color:var(-
 .photo-btn svg { width:24px; height:24px; }
 input[type=file] { display:none; }
 
-/* start gate — the camera opens on a user gesture (iOS requires it) */
-.start-gate {
-  position:absolute; inset:0; z-index:5; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; gap:18px; padding:28px;
-  background:#0d0e10; text-align:center;
+/* v13: no start screen. The camera opens as the page opens; if the browser will not open it without a
+   tap, this small notice sits in the viewfinder with one button (the photo button stays at the bottom). */
+.cam-msg {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:4; width:min(86vw, 320px);
+  display:flex; flex-direction:column; align-items:center; gap:14px; padding:20px 18px; text-align:center;
+  background:rgba(20,20,24,.72); border:1px solid rgba(255,255,255,.18); border-radius:14px;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
 }
-.start-gate p { color:var(--dim); font-size:13.5px; max-width:20em; }
-.start-gate .go {
+.cam-msg p { color:var(--dim); font-size:13.5px; margin:0; }
+.cam-msg .go {
   background:var(--ink); border:none; color:#fff; font:600 15px/1 inherit;
-  border-radius:12px; padding:16px 30px; cursor:pointer;
+  border-radius:12px; padding:14px 26px; cursor:pointer;
 }
 .hide { display:none !important; }
 
@@ -101,11 +103,11 @@ input[type=file] { display:none; }
 </head>
 <body>
 <div class="scan-overlay">
-  <div class="scan-inner"><video class="scan-video" id="video" playsinline muted></video></div>
+  <div class="scan-inner"><video class="scan-video" id="video" playsinline muted autoplay></video></div>
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v12 · format v0.4</div>
+    <div class="v">scanner v13 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -118,17 +120,13 @@ input[type=file] { display:none; }
           <path d="M3 17l5-5 4 4 3.5-3.5L21 18"/>
         </svg>
       </button>
-      <button class="scan-btn" id="stopBtn">Stop</button>
+      <button class="scan-btn" id="stopBtn">Close</button>
     </div>
   </div>
 
-  <div class="start-gate" id="gate">
-    <h1 style="font-size:19px;font-weight:600">Digi<span style="color:var(--ink)">Han</span></h1>
-    <p>Point the camera at a seal. The ring is read on this device and no
-       picture or document is uploaded. To check the signature, the scanner
-       looks up the signer's public record, sending only the 8-byte key id.</p>
+  <div class="cam-msg hide" id="camMsg">
+    <p id="camMsgText">Tap to start the camera.</p>
     <button class="go" id="startBtn">Start camera</button>
-    <button class="scan-btn" id="photoOnly" style="width:auto;padding:12px 22px">Use a photo instead</button>
   </div>
 
   <div class="sheet" id="sheet">
@@ -169,7 +167,7 @@ input[type=file] { display:none; }
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const video = $("video"), statusEl = $("status"), sheet = $("sheet"), gate = $("gate");
+const video = $("video"), statusEl = $("status"), sheet = $("sheet"), camMsg = $("camMsg");
 const work = $("work");
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent || "") ||
                (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -239,7 +237,8 @@ function loop() {
 }
 
 async function startCamera() {
-  gate.classList.add("hide");
+  if (scanning || sheet.classList.contains("up")) return;
+  camMsg.classList.add("hide");
   say("opening camera…");
   try {
     // Rule: iOS gets NO constraints (forcing resolution shifts the
@@ -259,18 +258,20 @@ async function startCamera() {
     }
     // An external stop (iOS red pill) is honest — say so, don't hang.
     if (track) track.addEventListener("ended", () => {
-      scanning = false; say("camera stopped — tap Stop, then Start again");
+      scanning = false; say(""); showCamMsg("The camera was stopped.");
     });
     scanning = true; frames = 0;
     say("scanning…");
     requestAnimationFrame(loop);
   } catch (e) {
-    gate.classList.remove("hide");
     say("");
-    gate.querySelector("p").textContent =
-      "Camera unavailable (" + (e && e.name) + "). Use a photo instead.";
+    stopCamera("failed");
+    showCamMsg(e && e.name === "NotAllowedError"
+      ? "The camera needs your permission. Tap Start camera, or use the photo button below."
+      : "Camera unavailable (" + (e && e.name) + "). Use the photo button below.");
   }
 }
+function showCamMsg(t) { $("camMsgText").textContent = t; camMsg.classList.remove("hide"); }
 
 function stopCamera(reason) {
   scanning = false;
@@ -279,9 +280,10 @@ function stopCamera(reason) {
   stream = null; track = null;
 }
 
-// Backgrounding tears the camera down honestly.
+// Backgrounding tears the camera down; coming back opens it again.
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && scanning) { stopCamera("hidden"); say("paused — tap Start"); gate.classList.remove("hide"); }
+  if (document.hidden) { if (scanning) stopCamera("hidden"); }
+  else if (!sheet.classList.contains("up")) startCamera();
 });
 
 
@@ -529,15 +531,17 @@ $("keySave").addEventListener("click", async () => {
 });
 
 $("startBtn").addEventListener("click", startCamera);
-$("stopBtn").addEventListener("click", () => {
-  stopCamera("user"); say(""); gate.classList.remove("hide");
+$("stopBtn").addEventListener("click", () => {                 // Close: back to where the scanner was opened from
+  stopCamera("user");
+  let same = false; try { same = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) {}
+  if (same && history.length > 1) history.back(); else location.href = "./";
 });
 $("againBtn").addEventListener("click", () => {
-  current = null; sheet.classList.remove("up"); gate.classList.remove("hide"); say("");
+  current = null; sheet.classList.remove("up"); say("");
   $("keyBox").classList.add("hide");
+  startCamera();
 });
 $("photoBtn").addEventListener("click", () => $("fileIn").click());
-$("photoOnly").addEventListener("click", () => $("fileIn").click());
 
 $("fileIn").addEventListener("change", ev => {
   const f = ev.target.files && ev.target.files[0];
@@ -557,6 +561,7 @@ $("fileIn").addEventListener("change", ev => {
   img.onerror = () => say("could not read that image");
   img.src = URL.createObjectURL(f);
 });
+startCamera();                                   // v13: straight to the camera, no start screen
 </script>
 </body>
 </html>

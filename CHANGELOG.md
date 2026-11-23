@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.2 (2026-11-23): straight to the camera
+
+* Scanner v13: no start screen. The camera opens as the scanner opens; a photo is one tap on the photo
+  button in the camera view. If the browser will not open the camera (no permission, no camera), a small
+  notice in the viewfinder offers "Start camera" and the photo button stays. "Stop" is now "Close" (back
+  to where the scanner was opened); "Scan another" and returning to the app reopen the camera.
+* The site menu lists How it works first; "Open the scanner" is now "Open scanner".
+
 ## v0.5.1 (2026-11-23): keep your key offline
 
 * Sealing page v2: step 1 can take only a public key (npub or hex) for a key kept offline. The page shows
