@@ -105,7 +105,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v10 · format v0.4</div>
+    <div class="v">scanner v11 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -212,7 +212,7 @@ async function showResult(r) {
   say("");
   sheet.classList.add("up");
   if (navigator.vibrate) navigator.vibrate(60);
-  current = { payload: p, fp: parsed.fp, keys: null, docs: [], proofs: [], digest: DHV.hex(new Uint8Array(dg)) };
+  current = { payload: p, fp: parsed.fp, keys: null, extraKeys: [], docs: [], proofs: [], digest: DHV.hex(new Uint8Array(dg)) };
   $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
   $("r_proof").textContent = "—";
   await siteProof(current);
@@ -387,8 +387,8 @@ function queryRelays(fp, ms) {
   });
 }
 // Every key that could have made this seal, with its registrations and any known documents.
-async function findKeys(fp) {
-  const out = [];
+async function findKeys(fp, extra) {
+  const out = [...(extra || [])];                  // v11: a key carried inside a picked PDF comes first
   for (const k of loadKeys())
     try { const pub = DHV.unhex(k.pubkey); if (await DHV.fingerprint(pub) === fp) out.push({ pub, regs: k.regs || [], docs: [], source: "saved on this phone" }); } catch (e) {}
   const reg = await registry(), e = reg.entries && reg.entries[fp];
@@ -418,10 +418,11 @@ async function showArt(url, wantHash) {             // only shown if the file's 
 }
 async function runCheck() {
   const c = current; if (!c) return;
-  if (c.keys === null) c.keys = await findKeys(c.fp);
+  if (c.keys === null) { const ks = await findKeys(c.fp, c.extraKeys); if (c.keys === null) c.keys = ks; }
+  for (const k of c.extraKeys) if (!c.keys.some(x => DHV.hex(x.pub) === DHV.hex(k.pub))) c.keys.unshift(k);
   if (c !== current) return;
   if (!c.keys.length) {
-    verdict("warn", "Ring read — signer's key not found", "Add the signer's key (their npub) or registration record to check the signature.");
+    verdict("warn", "Ring read — signer's key not found", "Tap “Check against a document…” and pick the sealed PDF: it carries the signer's key. Or add the signer's key.");
     return;
   }
   $("r_signer").textContent = short(DHV.npubEncode(c.keys[0].pub)) + " · " + c.keys[0].source;
@@ -477,16 +478,34 @@ $("docBtn").addEventListener("click", () => $("docIn").click());
 $("docIn").addEventListener("change", async ev => {
   const f = ev.target.files && ev.target.files[0]; ev.target.value = "";
   if (!f || !current) return;
-  const bytes = new Uint8Array(await f.arrayBuffer());
-  if (DHO.isProof(bytes)) { current.proofs.push({ bytes, from: f.name }); runCheck(); return; }   // a .ots time proof
-  current.docs.push({ name: f.name, sha: await DHV.sha256(bytes) });
+  const bytes = new Uint8Array(await f.arrayBuffer()), c = current;
+  if (DHO.isProof(bytes)) { c.proofs.push({ bytes, from: f.name }); runCheck(); return; }   // a .ots time proof
+  if (await addKeyFrom(c, bytes, "the registration file " + f.name)) { runCheck(); return; }  // a registration.json
+  c.docs.push({ name: f.name, sha: await DHV.sha256(bytes) });
   if (/^%PDF/.test(new TextDecoder("latin1").decode(bytes.slice(0, 5))))
     for (const a of await pdfAttachments(bytes)) {
-      if (DHO.isProof(a)) current.proofs.push({ bytes: a, from: "the proof attached inside " + f.name });
-      else current.docs.push({ name: "the file attached inside " + f.name, sha: await DHV.sha256(a) });
+      if (DHO.isProof(a)) c.proofs.push({ bytes: a, from: "the proof attached inside " + f.name });
+      else if (await addKeyFrom(c, a, "the registration attached inside " + f.name)) continue;
+      else c.docs.push({ name: "the file attached inside " + f.name, sha: await DHV.sha256(a) });
     }
   runCheck();
 });
+// v11: a signer's registration record (sign_pdf.py attaches it to the sealed PDF). Used for this check only,
+// and only when its own signature is valid and its key matches the seal's key id. Not saved on the phone.
+async function addKeyFrom(c, bytes, source) {
+  if (bytes[0] !== 0x7b) return false;                                   // not JSON
+  let ev; try { ev = JSON.parse(new TextDecoder().decode(bytes)); } catch (e) { return false; }
+  if (!ev || ev.kind !== 30078 || typeof ev.pubkey !== "string" || !(await DHV.eventValid(ev))) return false;
+  const pub = DHV.unhex(ev.pubkey);
+  if (await DHV.fingerprint(pub) !== c.fp) return true;                  // a record, but for another key: ignored
+  const k = { pub, regs: [ev], docs: [], source };
+  for (const list of [c.extraKeys, c.keys]) {
+    if (!Array.isArray(list)) continue;
+    const old = list.find(x => DHV.hex(x.pub) === ev.pubkey);
+    if (old) old.regs = [...old.regs, ev]; else list.unshift({ ...k, regs: [ev] });
+  }
+  return true;
+}
 $("keyBtn").addEventListener("click", () => $("keyBox").classList.toggle("hide"));
 $("keySave").addEventListener("click", async () => {
   const t = $("keyIn").value.trim(); let entry = null;

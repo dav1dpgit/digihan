@@ -44,8 +44,9 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
    are published. For anything else, tap **Check against a document…** and pick the file. It is hashed on
    the phone and not uploaded. A sealed PDF works too: the scanner finds the original attached inside it.
 4. The answer is **Signature valid**, **Signature does NOT match**, or what is still missing. The
-   *time proof* line shows the proven window, if the seal has one. A sealed PDF carries its proof
-   inside; a separate `.ots` proof file can be picked the same way as a document.
+   *time proof* line shows the proven window, if the seal has one. A sealed PDF carries the signer's
+   registration record and its time proof inside, so picking it is all the phone needs; a separate
+   `.ots` proof file can be picked the same way as a document.
 
 ## Seal and check PDFs (Python 3.10+)
 
@@ -55,7 +56,7 @@ pip install -r requirements.txt
 python selftest.py
 python make_key.py alice --art sample_center.png
 python sign_pdf.py ../some.pdf sealed --key key_alice
-python verify_pdf.py sealed/some_sealed.pdf key_alice/registration.json --save-original
+python verify_pdf.py sealed/some_sealed.pdf --save-original
 ```
 
 With time proofs (needs the internet; `--anchor node` and `--node` use your own bitcoin-cli instead):
@@ -64,7 +65,7 @@ With time proofs (needs the internet; `--anchor node` and `--node` use your own 
 python sign_pdf.py ../some.pdf sealed --key key_alice --anchor auto --stamp
 python timestamp.py upgrade sealed/some_seal_payload.bin.ots          # a few hours later
 python timestamp.py attach sealed/some_sealed.pdf sealed/some_seal_payload.bin.ots
-python verify_pdf.py sealed/some_sealed_timestamped.pdf key_alice/registration.json
+python verify_pdf.py sealed/some_sealed_timestamped.pdf
 ```
 
 * `make_key.py` makes `key_alice/`: `keyfile.json` (your secret key, encrypted with your password),

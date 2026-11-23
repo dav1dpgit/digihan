@@ -1,8 +1,8 @@
-"""DigiHan — check a sealed PDF. Needs no secret: only the signer's
-public registration.json.
+"""DigiHan — check a sealed PDF. Needs no secret. The signer's public registration record is
+attached to PDFs sealed by sign_pdf.py v0.4.3 and later; for older ones, give registration.json.
 
 Usage:
-  python verify_pdf.py SEALED.pdf REGISTRATION.json [--save-original]
+  python verify_pdf.py SEALED.pdf [REGISTRATION.json] [--save-original]
 
 Checks, in order:
   1. the registration record is signed by the key it names
@@ -23,7 +23,8 @@ import sign_pdf              # noqa: E402
 
 ap = argparse.ArgumentParser()
 ap.add_argument("sealed")
-ap.add_argument("registration")
+ap.add_argument("registration", nargs="?", default=None,
+                help="the signer's registration.json (not needed when the PDF carries it)")
 ap.add_argument("--save-original", action="store_true")
 ap.add_argument("--node", action="store_true", help="take Bitcoin block data from your own bitcoin-cli "
                 "(otherwise two block explorers are asked: mempool.space and blockstream.info)")
@@ -34,8 +35,18 @@ ap.add_argument("--ots", default=None, help="an OpenTimestamps proof (.ots) for 
 a = ap.parse_args()
 
 problems = []
-reg = json.load(open(a.registration))
-print(f"Signer (from registration): {dhsign.bech32('npub', bytes.fromhex(reg['pubkey']))}")
+r = PdfReader(a.sealed)
+md = r.metadata or {}
+if a.registration:
+    reg = json.load(open(a.registration))
+    print(f"Signer (from {os.path.basename(a.registration)}): {dhsign.bech32('npub', bytes.fromhex(reg['pubkey']))}")
+else:
+    reg_name = md.get("/DigiHanRegistration") or sign_pdf.REG_NAME
+    if reg_name not in r.attachments:
+        raise SystemExit("This PDF does not carry the signer's registration record; give registration.json "
+                         "after the PDF's name.")
+    reg = json.loads(r.attachments[reg_name][0])
+    print(f"Signer (from the registration attached to this PDF): {dhsign.bech32('npub', bytes.fromhex(reg['pubkey']))}")
 if not dhsign.check_registration(reg):
     problems.append("the registration record's own signature is not valid")
     print("  registration record: NOT VALID")
@@ -44,8 +55,6 @@ else:
 pk = bytes.fromhex(reg["pubkey"])
 keyring = {dhsign.fingerprint(pk).hex(): pk}
 
-r = PdfReader(a.sealed)
-md = r.metadata or {}
 if "/DigiHanPayload" not in md:
     raise SystemExit("No DigiHan seal data found in this PDF.")
 payload_meta = bytes.fromhex(md["/DigiHanPayload"])

@@ -42,7 +42,7 @@ which proof belongs to which seal.
 python sign_pdf.py doc.pdf sealed --key key_alice --anchor auto --stamp       # seal and stamp at once
 python timestamp.py upgrade sealed/doc_seal_payload.bin.ots                    # a few hours later
 python timestamp.py attach  sealed/doc_sealed.pdf sealed/doc_seal_payload.bin.ots
-python verify_pdf.py sealed/doc_sealed_timestamped.pdf key_alice/registration.json
+python verify_pdf.py sealed/doc_sealed_timestamped.pdf
 ```
 
 * `--stamp` (or `python timestamp.py stamp sealed/doc_seal_payload.bin` later) sends the hash to the

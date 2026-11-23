@@ -23,6 +23,8 @@ import dhsign                 # noqa: E402
 
 NSYM, DPMM = 45, 24.0
 ANCHOR = None   # (block_height, block_hash_bytes) when sealing with --anchor (format v0.4)
+REG_NAME = "digihan-registration.json"   # the signer's public registration record, attached so a verifier
+                                         # (the phone scanner, verify_pdf.py) needs no separate file
 BLOCK = lambda h: ANCHOR[1] if ANCHOR and h == ANCHOR[0] else None
 GEOM = dh.Geometry(45, 5, 0.6, square=False)
 SEAL_MM = 45.0
@@ -174,7 +176,8 @@ def seal_pdf(in_path, out_dir, page_no, kf, password, art_path, reg):
         PdfReader(io.BytesIO(ov.getvalue())).pages[0],
         Transformation().translate(float(mb.left), float(mb.bottom)))
     w.add_attachment("original.pdf", original)
-    w.add_metadata({"/DigiHanPayload": payload.hex(),
+    w.add_attachment(REG_NAME, json.dumps(reg).encode())
+    w.add_metadata({"/DigiHanPayload": payload.hex(), "/DigiHanRegistration": REG_NAME,
                     "/DigiHanSealPage": str(page_no + 1),
                     "/DigiHanSealBox": f"{x_mm:.2f},{y_mm:.2f},{SEAL_MM:.1f},{qz}",
                     "/DigiHanFormat": "DigiHan format v0.4, doc tier 1 (byte-exact)"})
@@ -246,7 +249,8 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
     c.save()
     w = PdfWriter(clone_from=PdfReader(io.BytesIO(b.getvalue())))
     w.add_attachment(name, original)
-    w.add_metadata({"/DigiHanPayload": payload.hex(), "/DigiHanSealedFile": name,
+    w.add_attachment(REG_NAME, json.dumps(reg).encode())
+    w.add_metadata({"/DigiHanPayload": payload.hex(), "/DigiHanSealedFile": name, "/DigiHanRegistration": REG_NAME,
                     "/DigiHanSealPage": "1",
                     "/DigiHanSealBox": f"{x_mm:.2f},{y_mm:.2f},{SEAL_MM:.1f},15",
                     "/DigiHanFormat": "DigiHan format v0.4, cover sheet, doc tier 1 (byte-exact)"})
@@ -413,7 +417,6 @@ if __name__ == "__main__":
             print(f"Time proof not started: {e}. Try later: python timestamp.py stamp \"{pay}\"")
     rpt = unique(os.path.join(a.outdir, f"{st['base']}_verification_report.txt"))
     open(rpt, "w").write("\n".join(st["log"]) + "\n")
-    reg_path = os.path.join(a.key, "registration.json")
     print()
     print(f"Sealed file:  {os.path.abspath(st['sealed_path'])}")
     print(f"Report:       {os.path.abspath(rpt)}")
@@ -425,6 +428,7 @@ if __name__ == "__main__":
     else:
         print(f'For a "no later than" time proof: python timestamp.py stamp "{pay}"')
     print("To check it independently, run:")
-    print(f'  .\\.venv\\Scripts\\python.exe verify_pdf.py "{st["sealed_path"]}" "{reg_path}" --save-original'
+    print(f'  .\\.venv\\Scripts\\python.exe verify_pdf.py "{st["sealed_path"]}" --save-original'
           if os.name == "nt" else
-          f'  python verify_pdf.py "{st["sealed_path"]}" "{reg_path}" --save-original')
+          f'  python verify_pdf.py "{st["sealed_path"]}" --save-original')
+    print("(the signer's registration record is attached to the sealed PDF, so no other file is needed)")

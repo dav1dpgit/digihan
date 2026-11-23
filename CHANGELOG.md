@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.3 (2026-11-23): the sealed PDF carries the signer's key
+
+* `sign_pdf.py` attaches the signer's registration record to the sealed PDF
+  (`digihan-registration.json`, both layouts). `verify_pdf.py` uses it, so the registration file is no
+  longer needed on the command line (it is still accepted, for older PDFs).
+* Phone scanner v11: picking a sealed PDF also gives the scanner the signer's key, so a seal can be
+  checked with no pasting. The key is used for that check only, when its record's signature is valid
+  and its key matches the seal's key id; it is not saved on the phone. A picked `registration.json`
+  works the same way.
+
 ## v0.4.2 (2026-11-23): shorter results
 
 * The phone scanner (v10) and `verify_pdf.py` no longer add "Who holds the key is a separate question"

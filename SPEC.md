@@ -148,6 +148,9 @@ v0.3 defines tier 1: `doc_hash` is over the exact bytes of the file. The referen
 * **Cover sheet.** If the PDF already carries an electronic signature, it is not modified: a cover
   page holds the seal and the signed file is attached unchanged. `/DigiHanSealedFile` names the attachment.
 
+* **Registration record.** The signer's registration record (section 7) MAY be attached as
+  `digihan-registration.json`, named by `/DigiHanRegistration`, so a verifier needs no separate file. A
+  verifier uses it only if its own signature is valid and its key matches the seal's key id.
 * **Time proof.** An OpenTimestamps proof (section 11.2) MAY be attached as `seal.ots`. The reference
   tool writes it into a new file (`python/timestamp.py attach`); the sealed PDF is not changed.
 
