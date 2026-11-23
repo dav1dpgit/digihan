@@ -12,3 +12,5 @@ python/tests/ots/ holds example OpenTimestamps proofs copied unchanged from open
 
 web/sealer/vendor/pdf-lib.min.js is pdf-lib 1.17.1 (https://github.com/Hopding/pdf-lib), MIT License,
 Copyright (c) 2019 Andrew Dillon; its license is in web/sealer/vendor/pdf-lib.LICENSE.md.
+web/sealer/vendor/argon2.umd.min.js is the Argon2 build of hash-wasm 4.12.0 (https://github.com/Daninet/hash-wasm),
+MIT License, Copyright (c) 2020 Dani Biró; its license is in web/sealer/vendor/hash-wasm.LICENSE.md.

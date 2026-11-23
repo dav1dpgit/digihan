@@ -1,0 +1,43 @@
+{
+ "about": "A key file made by web/sealer/dhseal.js (v2, Argon2id). Test data only; the key is throwaway.",
+ "password": "correct horse battery staple",
+ "keyfile": {
+  "format": "digihan-keyfile-v1",
+  "kdf": "argon2id",
+  "memory_cost": 65536,
+  "time_cost": 3,
+  "parallelism": 1,
+  "cipher": "aes-256-gcm",
+  "salt": "b5db928999fce84a2121dda8b6e4a7d0",
+  "nonce": "b380b41b05830eac9459be49",
+  "ciphertext": "b39c2cd4ab7c819a4dc8d5029c8177bf78dbd31c1e934f7159306c1cb0d3b55372d43becd9c2da60d01f541d4a6b1e4c",
+  "pubkey": "8831565aff995a259c5d0deafc95458daee0c8282d6ede9c223446a8da4f892d",
+  "center_png": "iVBORw0KGgo=",
+  "registration": {
+   "pubkey": "8831565aff995a259c5d0deafc95458daee0c8282d6ede9c223446a8da4f892d",
+   "created_at": 1795427751,
+   "kind": 30078,
+   "tags": [
+    [
+     "d",
+     "digihan-center:4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6"
+    ],
+    [
+     "center_hash",
+     "4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6"
+    ],
+    [
+     "f",
+     "a46a3fdd811e7f91"
+    ],
+    [
+     "alt",
+     "DigiHan seal: artwork registration"
+    ]
+   ],
+   "content": "{\"app\":\"DigiHan\",\"format\":\"v0.4\",\"center_hash\":\"4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6\"}",
+   "id": "0ff260fef223fd3604b221a413d817e5fb0d53364667f21c001da77b29f61689",
+   "sig": "7aba5fa320b96864f44c47a884e024804feb0f87d18087d9f43314a0507a38461f3de36c210cd01feea7aae0adfc43b8740e8d3f90192df64af143a01d37cd00"
+  }
+ }
+}

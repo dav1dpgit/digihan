@@ -161,8 +161,19 @@ const DHS = (() => {
     return pub;
   }
 
-  // ---- the key file: the secret key encrypted with a password (PBKDF2-SHA256 -> AES-256-GCM, pubkey as AAD) ----
+  // ---- the key file: the secret key encrypted with a password, then AES-256-GCM (pubkey as AAD) ----
+  // v2 (2026-11-23): new key files use Argon2id (64 MiB, 3 passes, 1 lane; hash-wasm in vendor/), which makes
+  // each password guess cost memory as well as time. Key files from v1 (PBKDF2-SHA256, 600,000 rounds) still
+  // open; the sealing page re-encrypts them with Argon2id the next time they are unlocked (needsUpgrade).
   const ITER = 600000;
+  const ARGON = { memory_cost: 65536, time_cost: 3, parallelism: 1 };
+  async function argonKey(password, salt, p) {
+    const h = globalThis.hashwasm;
+    if (!h || !h.argon2id) throw new Error("The Argon2id code did not load. Reload the page.");
+    const raw = await h.argon2id({ password: enc.encode(password), salt, parallelism: p.parallelism, iterations: p.time_cost,
+                                   memorySize: p.memory_cost, hashLength: 32, outputType: "binary" });
+    try { return await crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]); } finally { raw.fill(0); }
+  }
   async function aesKey(password, salt, iter) {
     const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
     return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
@@ -171,24 +182,30 @@ const DHS = (() => {
   const unb64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
   async function lockKey(sk, pub, password, centerPng, reg) {
     const salt = random(16), nonce = random(12);
-    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, additionalData: pub }, await aesKey(password, salt, ITER), sk));
-    return { format: "digihan-keyfile-v1", kdf: "pbkdf2-sha256", iterations: ITER, cipher: "aes-256-gcm",
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, additionalData: pub }, await argonKey(password, salt, ARGON), sk));
+    return { format: "digihan-keyfile-v1", kdf: "argon2id", ...ARGON, cipher: "aes-256-gcm",
       salt: hex(salt), nonce: hex(nonce), ciphertext: hex(ct), pubkey: hex(pub),
       center_png: b64(centerPng), registration: reg };
   }
   async function unlockKey(kf, password) {
-    if (kf.format !== "digihan-keyfile-v1" || kf.kdf !== "pbkdf2-sha256" || kf.cipher !== "aes-256-gcm")
+    if (kf.format !== "digihan-keyfile-v1" || !["argon2id", "pbkdf2-sha256"].includes(kf.kdf) || kf.cipher !== "aes-256-gcm")
       throw new Error("This key file was made by the Python tools; this page reads key files it made itself.");
+    const k = kf.kdf === "argon2id"
+      ? await argonKey(password, unhex(kf.salt), { memory_cost: +kf.memory_cost, time_cost: +kf.time_cost, parallelism: +kf.parallelism })
+      : await aesKey(password, unhex(kf.salt), kf.iterations);
     try {
       const sk = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unhex(kf.nonce), additionalData: unhex(kf.pubkey) },
-        await aesKey(password, unhex(kf.salt), kf.iterations), unhex(kf.ciphertext)));
+        k, unhex(kf.ciphertext)));
       if (hex(pubFromSecret(sk)) !== kf.pubkey) throw new Error("x");
       return sk;
     } catch (e) { throw new Error("Wrong password for this key file."); }
   }
 
+  // an older key file, to be re-encrypted with the current method after a successful unlock
+  const needsUpgrade = kf => kf.format === "digihan-keyfile-v1" && kf.kdf !== "argon2id";
+
   return { NSYM, GEOM, rsEncode, buildStream, sealSize, drawSeal, pubFromSecret, schnorrSign, newSecret, sealPayload,
            sealMessage, assemble, draftRegistration, finishRegistration, registration, readPublicKey,
-           lockKey, unlockKey, b64, unb64, npubEncode };
+           lockKey, unlockKey, needsUpgrade, ARGON, b64, unb64, npubEncode };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHS;

@@ -4,6 +4,7 @@ reedsolo>=1.7
 pypdf>=5.0
 reportlab>=4.0
 cryptography>=42
+argon2-cffi>=21.3
 pypdfium2>=4.25
 pyhanko>=0.25
 pytest>=8

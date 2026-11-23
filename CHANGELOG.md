@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.6 (2026-11-23): Argon2id key files; DH logo
+
+* Sealing page v4: new key files are encrypted with Argon2id (64 MiB, 3 passes, 1 lane), then AES-256-GCM.
+  Argon2id makes every password guess cost memory as well as time. Older key files (PBKDF2-SHA256) still
+  open, and are re-encrypted with Argon2id the first time they are unlocked to seal; the page then asks
+  for the key file to be saved again. The Argon2 code is hash-wasm 4.12.0 (MIT), in web/sealer/vendor/.
+* Python: dhsign.unlock_key opens the new key files (needs argon2-cffi, now in requirements.txt).
+* Logo: the 判 box is now a carved-hanko DH (D and H overlapped by 70%), also the browser-tab icon; the
+  logo links back to the front page, and "Sample seals" is gone from the menu. Footer credit: a Plotzwerks
+  project (plotzwerks.com). Scanner v15: the same tab icon.
+
 ## v0.5.5 (2026-11-23): menu without sub-text
 
 * Sealing page: the seal menu lists the page names only (no description under each).

@@ -200,3 +200,13 @@ def test_sign_hash_for_an_offline_key(tmp_path, capsys):
     assert bip340.verify(bytes.fromhex(code), pk, bytes.fromhex(sig))
     with pytest.raises(SystemExit):
         sign_hash.main(["xyz", "--key", str(d), "--password", "pw-for-tests"])
+
+
+def test_web_keyfile_argon2id():
+    """A key file from the sealing page (v4: Argon2id -> AES-256-GCM) opens here; a wrong password does not."""
+    v = json.load(open(os.path.join(os.path.dirname(__file__), "web_keyfile_argon2id.json")))
+    sk = dhsign.unlock_key(v["keyfile"], v["password"])
+    assert bip340.pubkey_gen(sk).hex() == v["keyfile"]["pubkey"]
+    from cryptography.exceptions import InvalidTag
+    with pytest.raises(InvalidTag):
+        dhsign.unlock_key(v["keyfile"], "wrong password")

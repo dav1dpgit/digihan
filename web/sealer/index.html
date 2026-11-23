@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f3f4f1">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%23b2382c' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23b2382c'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%23b2382c'/%3E%3Cg transform='translate(50 50) scale(0.92) translate(-50 -50)' fill='none' stroke='%23f3f4f1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='11' y='11' width='78' height='78' rx='7' stroke-width='7'/%3E%3Cg stroke-width='9'%3E%3Cpath d='M25,23 V77'/%3E%3Cpath d='M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25'/%3E%3Cpath d='M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
 <style>
 /* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps */
 :root {
@@ -29,6 +29,7 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .brand { display: flex; align-items: center; gap: 9px; font: 600 17px/1 var(--display); letter-spacing: .03em; color: var(--sumi); text-decoration: none; }
 .brand .han { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 4px;
   background: var(--vermillion); color: var(--paper); font: 700 14px/1 var(--cjk); }
+.brand .han svg { width: 100%; height: 100%; display: block; }   /* logo DH r1 (option C, DP 2026-11-23): carved-hanko D and H, 70% overlapped */
 /* v2: the seal-shaped menu replaces the scanner link */
 /* seal menu v2 (no sub-text): the menu button is a small seal; tapping it opens the menu */
 .seal-menu { position: relative; }
@@ -101,14 +102,13 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 <body>
 <div class="wrap">
 <header>
-  <a class="brand" href="./"><span class="han" aria-hidden="true">判</span>DigiHan</a>
+  <a class="brand" href="./"><span class="han"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="16" fill="#b2382c"/><g transform="translate(50 50) scale(0.9) translate(-50 -50)" fill="none" stroke="#f3f4f1" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="11" width="78" height="78" rx="7" stroke-width="5"/><g stroke-width="6.5"><path d="M25,23 V77"/><path d="M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25"/><path d="M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75"/></g></g></svg></span>DigiHan</a>
   <div class="seal-menu" id="sealMenu">
     <button type="button" aria-label="Menu" aria-expanded="false" aria-controls="sealMenuNav"><svg viewBox='0 0 46 46' aria-hidden='true'><circle cx='23' cy='23' r='21' fill='none' stroke='currentColor' stroke-width='2.3'/><circle cx='23' cy='23' r='17.2' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='0.01 3.05'/><circle cx='23' cy='23' r='12.6' fill='currentColor'/><g stroke='#f3f4f1' stroke-width='2' stroke-linecap='round'><line class='bar b1' x1='17.6' y1='19.2' x2='28.4' y2='19.2'/><line class='bar b2' x1='17.6' y1='23' x2='28.4' y2='23'/><line class='bar b3' x1='17.6' y1='26.8' x2='28.4' y2='26.8'/></g></svg></button>
     <nav id="sealMenuNav" aria-label="Menu">
       <a href="how"><b>How it works</b></a>
       <a href="seal" aria-current="page"><b>Seal a document</b></a>
       <a href="scan"><b>Open scanner</b></a>
-      <a href="./"><b>Sample seals</b></a>
       <a href="https://github.com/dav1dpgit/digihan"><b>Source code</b></a>
     </nav>
   </div>
@@ -200,7 +200,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>sealing page v3 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a></footer>
+<footer>sealing page v4 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -221,6 +221,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 <script src="digihan.js"></script>
 <script src="verify.js"></script>
 <script src="ots.js"></script>
+<script src="vendor/argon2.umd.min.js"></script>
 <script src="dhseal.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>if ("serviceWorker" in navigator && window.isSecureContext) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
@@ -352,7 +353,7 @@ $("keyIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
   try {
     const kf = JSON.parse(await f.text());
-    if (kf.kdf !== "pbkdf2-sha256" && kf.format !== "digihan-pubkey-v1") throw new Error("This key file was made by the Python tools. This page opens key files it made itself; to use that key, choose “Use a key I keep offline” and sign the codes with sign_hash.py.");
+    if (!["argon2id", "pbkdf2-sha256"].includes(kf.kdf) && kf.format !== "digihan-pubkey-v1") throw new Error("This key file was made by the Python tools. This page opens key files it made itself; to use that key, choose “Use a key I keep offline” and sign the codes with sign_hash.py.");
     await useKey(kf, true);
   } catch (e) { show($("keyMsg"), "bad", e.message.startsWith("Unexpected") ? "That is not a DigiHan key file." : e.message); $("noKey").classList.remove("hide"); }
 });
@@ -461,6 +462,7 @@ async function buildPdf(o) {
 }
 // sealing: prepare the message, sign it (here, or elsewhere for a key kept offline), then draw, stamp and build
 let pending = null;     // {msg, docHash, ts, anchor, wantStamp, done, k}
+let rekeyed = false;    // v4: the key file was re-encrypted with Argon2id during this seal
 $("doSeal").addEventListener("click", async () => {
   hide($("sealMsg")); $("sealResult").classList.add("hide"); $("sealSignBox").classList.add("hide"); pending = null;
   if (!key) return show($("sealMsg"), "bad", "Make your seal or open your key file first (step 1).");
@@ -472,7 +474,19 @@ $("doSeal").addEventListener("click", async () => {
   $("doSeal").disabled = true;
   let k = 0, sk = null;
   try {
-    if (!key.offline) { sk = await DHS.unlockKey(key.kf, $("pwSeal").value); done(k++); }
+    if (!key.offline) {
+      const pw = $("pwSeal").value;
+      sk = await DHS.unlockKey(key.kf, pw); done(k++);
+      // v4: an older key file (PBKDF2) is re-encrypted with Argon2id now that the password is known to be right
+      if (DHS.needsUpgrade(key.kf)) try {
+        const kf2 = await DHS.lockKey(sk, key.pub, pw, key.png, key.reg);
+        let stored = null; try { stored = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
+        if (stored && stored.pubkey === kf2.pubkey) try { localStorage.setItem(STORE, JSON.stringify(kf2)); } catch (e) {}
+        key.kf = kf2; rekeyed = true;
+        show($("keyMsg"), "warn", "Your key file was re-encrypted with a stronger method (Argon2id). Tap “Save key file” to replace "
+          + "your saved copy; the old copy still opens with the same password, but is easier to attack if someone gets it.");
+      } catch (e) {}
+    }
     const docHash = await DHV.sha256(doc.bytes); done(k++);
     const anchor = wantAnchor ? await anchorBlock() : null; if (wantAnchor) done(k++);
     const ts = Math.floor(Date.now() / 1000);
@@ -525,7 +539,9 @@ async function finishSeal(payload) {
       const d = document.createElement("div"); d.innerHTML = "<b></b> <span></span>"; d.firstChild.textContent = b; d.lastChild.textContent = t; $("sealInfo").appendChild(d);
     }
     $("sealResult").classList.remove("hide");
-    show($("sealMsg"), stampNote ? "warn" : "ok", "Sealed." + stampNote);
+    show($("sealMsg"), stampNote ? "warn" : "ok", "Sealed." + stampNote
+      + (rekeyed ? " Your key file was also re-encrypted with a stronger method: save it again in step 1." : ""));
+    rekeyed = false;
   } catch (e) { show($("sealMsg"), "bad", e.message); }
   pending = null; $("doSeal").disabled = false;
 }
