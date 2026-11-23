@@ -350,7 +350,8 @@ if __name__ == "__main__":
     ap.add_argument("--mode", choices=["auto", "overlay", "cover"], default="auto",
                     help="auto: cover sheet if the PDF already has an e-signature")
     ap.add_argument("--key", required=True,
-                    help="folder made by make_key.py: keyfile.json, registration.json, center_art.png")
+                    help="folder made by make_key.py (keyfile.json, registration.json, center_art.png), "
+                         "or a key file saved from the sealing page")
     ap.add_argument("--anchor", default=None, metavar="auto|node|HEIGHT:HASH",
                     help="prove the seal was made no earlier than a Bitcoin block: 'auto' asks two block "
                          "explorers, 'node' asks your bitcoin-cli, or give HEIGHT:HASH")
@@ -364,11 +365,18 @@ if __name__ == "__main__":
         ANCHOR = _anchor.parse_anchor_arg(a.anchor)
         print(f"Anchoring to Bitcoin block {ANCHOR[0]} ({ANCHOR[1].hex()[:16]}...): the seal will prove it was "
               f"made no earlier than this block.")
-    kf = json.load(open(os.path.join(a.key, "keyfile.json")))
-    reg = json.load(open(os.path.join(a.key, "registration.json")))
-    art = os.path.join(a.key, "center_art.png")
-    if not os.path.exists(art):
-        art = os.path.join(HERE, "sample_center.png")
+    if os.path.isfile(a.key):                    # one key file from the sealing page: key, artwork and record
+        import base64, tempfile
+        kf = json.load(open(a.key))
+        reg = kf["registration"]
+        art = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
+        open(art, "wb").write(base64.b64decode(kf["center_png"]))
+    else:
+        kf = json.load(open(os.path.join(a.key, "keyfile.json")))
+        reg = json.load(open(os.path.join(a.key, "registration.json")))
+        art = os.path.join(a.key, "center_art.png")
+        if not os.path.exists(art):
+            art = os.path.join(HERE, "sample_center.png")
     a.art = art
     pw = a.password or getpass.getpass("Key password (typing is hidden): ")
     try:

@@ -46,6 +46,11 @@ def lock_key(sk: bytes, pubkey: bytes, password: str) -> dict:
 
 
 def unlock_key(kf: dict, password: str) -> bytes:
+    if kf.get("kdf") == "pbkdf2-sha256":            # a key file made by the sealing page (web/sealer)
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        k = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(kf["salt"]), int(kf["iterations"]), 32)
+        return AESGCM(k).decrypt(bytes.fromhex(kf["nonce"]), bytes.fromhex(kf["ciphertext"]),
+                                 bytes.fromhex(kf["pubkey"]))
     k = hashlib.scrypt(password.encode(), salt=bytes.fromhex(kf["salt"]),
                        n=kf["n"], r=kf["r"], p=kf["p"],
                        maxmem=64 * 1024 * 1024, dklen=32)

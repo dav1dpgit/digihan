@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DigiHan Sealing</title>
+<meta name="description" content="Seal a document with your DigiHan seal: your key stays on this device, the document is hashed here and never uploaded, and the seal is bookended between two Bitcoin blocks.">
+<meta name="theme-color" content="#f3f4f1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%23b2382c' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23b2382c'/%3E%3C/svg%3E">
+<style>
+/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps */
+:root {
+  --paper: #f3f4f1; --card: #fbfbf9; --vermillion: #b2382c; --sumi: #23201d; --sumi-soft: #6b6660;
+  --rule: rgba(35, 32, 29, .12); --ok: #2f7d4f; --warn: #9a6a12; --bad: #b2382c;
+  --display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, "Noto Serif", Georgia, serif;
+  --text: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --cjk: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", "Noto Serif JP", serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body { margin: 0; background: var(--paper); color: var(--sumi); font: 15px/1.5 var(--text);
+  padding: 0 max(16px, env(safe-area-inset-left)) 48px max(16px, env(safe-area-inset-right)); }
+.wrap { max-width: 640px; margin: 0 auto; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 18px 0 8px; }
+.brand { display: flex; align-items: center; gap: 9px; font: 600 17px/1 var(--display); letter-spacing: .03em; color: var(--sumi); text-decoration: none; }
+.brand .han { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 4px;
+  background: var(--vermillion); color: var(--paper); font: 700 14px/1 var(--cjk); }
+header nav a { color: var(--vermillion); font-size: 13px; font-weight: 600; text-decoration: none; border-bottom: 1px solid currentColor; }
+h1 { font: 500 30px/1.15 var(--display); margin: 22px 0 6px; text-wrap: balance; }
+.lead { color: var(--sumi-soft); margin: 0 0 22px; text-wrap: pretty; }
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 18px 20px; margin: 0 0 16px; }
+.card h2 { font: 600 18px/1.3 var(--display); margin: 0 0 4px; display: flex; gap: 10px; align-items: baseline; }
+.card h2 .n { font: 600 12px/1 var(--mono); color: var(--vermillion); border: 1px solid currentColor; border-radius: 50%;
+  width: 22px; height: 22px; display: inline-grid; place-items: center; flex: none; transform: translateY(-2px); }
+.card > p { margin: 4px 0 12px; color: var(--sumi-soft); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+label.field { display: block; margin: 10px 0; font-size: 13px; color: var(--sumi-soft); }
+label.field input { display: block; width: 100%; margin-top: 4px; }
+input[type=text], input[type=password] { font: 16px var(--text); padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: #fff; color: var(--sumi); }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--vermillion); outline-offset: 2px; }
+button { font: 600 14px var(--text); border-radius: 8px; padding: 10px 14px; cursor: pointer; border: 1px solid var(--rule); background: #fff; color: var(--sumi); }
+button.primary { background: var(--vermillion); border-color: var(--vermillion); color: #fff; }
+button.link { background: none; border: 0; padding: 0; color: var(--vermillion); text-decoration: underline; font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; font-size: 14px; }
+.check input { margin-top: 3px; accent-color: var(--vermillion); width: 18px; height: 18px; flex: none; }
+.check small { display: block; color: var(--sumi-soft); }
+.seal-row { display: flex; gap: 16px; align-items: center; margin: 10px 0; }
+.seal-row canvas, .seal-row img { width: 132px; height: 132px; flex: none; }
+.kv { font-size: 13px; color: var(--sumi-soft); min-width: 0; }
+.kv b { color: var(--sumi); font-weight: 600; }
+.mono { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+.copy { cursor: copy; border-bottom: 1px dotted var(--sumi-soft); }
+.note { font-size: 13px; color: var(--sumi-soft); margin: 8px 0 0; }
+.msg { font-size: 14px; margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: rgba(35,32,29,.04); }
+.msg.ok { color: var(--ok); background: rgba(47,125,79,.08); }
+.msg.warn { color: var(--warn); background: rgba(154,106,18,.08); }
+.msg.bad { color: var(--bad); background: rgba(178,56,44,.08); }
+ol.steps { margin: 12px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--sumi-soft); }
+ol.steps li.done { color: var(--sumi); }
+ol.steps li.done::marker { color: var(--ok); }
+a.download { display: inline-block; background: var(--vermillion); color: #fff; text-decoration: none; font-weight: 600; padding: 11px 16px; border-radius: 8px; }
+.hide { display: none !important; }
+input[type=file] { display: none; }
+footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
+@media (max-width: 420px) { .seal-row { flex-direction: column; align-items: flex-start; } h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="./"><span class="han" aria-hidden="true">判</span>DigiHan</a>
+  <nav><a href="scan">Open the scanner</a></nav>
+</header>
+
+<h1>Seal a document</h1>
+<p class="lead">Your key is made and kept on this device. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
+
+<!-- 1. the key -->
+<section class="card" id="keyCard">
+  <h2><span class="n">1</span>Your seal</h2>
+  <div id="noKey">
+    <p>Your seal is a key and the artwork in its center. Make one, or open a key file you saved before.</p>
+    <label class="field">Characters for the center (up to four)
+      <input type="text" id="artText" maxlength="4" value="印" autocomplete="off"></label>
+    <div class="row"><button id="artImageBtn">Use an image instead…</button><span class="note" id="artImageName"></span></div>
+    <div class="seal-row"><canvas id="artPreview" width="368" height="368" aria-label="preview of your seal"></canvas>
+      <div class="kv">This is how your seal will look. The dots in the ring change with every document.</div></div>
+    <label class="field">Choose a password (10 or more characters)
+      <input type="password" id="pw1" autocomplete="new-password"></label>
+    <label class="field">The same password again
+      <input type="password" id="pw2" autocomplete="new-password"></label>
+    <div class="row"><button class="primary" id="makeKey">Make my seal</button>
+      <button class="link" id="openKeyBtn">Open a key file…</button></div>
+    <div class="msg hide" id="keyMsg"></div>
+  </div>
+  <div id="haveKey" class="hide">
+    <div class="seal-row"><canvas id="keyPreview" width="368" height="368" aria-label="your seal"></canvas>
+      <div class="kv"><div><b>Key id</b> <span class="mono copy" id="keyId" title="tap to copy"></span></div>
+        <div style="margin-top:6px"><b>Public key</b> <span class="mono copy" id="keyNpub" title="tap to copy"></span></div></div></div>
+    <div class="row"><button id="saveKey">Save key file</button>
+      <button id="forgetKey">Forget on this device</button>
+      <button class="link" id="openKeyBtn2">Open another key file…</button></div>
+    <p class="note" id="keyNote">Save the key file and keep the password. With both you can seal on any device. This page keeps the key file on this device, encrypted with your password.</p>
+  </div>
+</section>
+
+<!-- 2. sealing -->
+<section class="card" id="sealCard">
+  <h2><span class="n">2</span>Your document</h2>
+  <p>Any file: a PDF, a picture, a spreadsheet. You get back a PDF with the seal on its first page and your file attached unchanged.</p>
+  <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
+  <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was sealed no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
+  <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was sealed no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
+  <label class="field">Key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
+  <div class="row"><button class="primary" id="doSeal">Seal</button></div>
+  <ol class="steps hide" id="sealSteps"></ol>
+  <div class="msg hide" id="sealMsg"></div>
+  <div id="sealResult" class="hide">
+    <div class="seal-row"><img id="sealImg" alt="the seal"><div class="kv" id="sealInfo"></div></div>
+    <div class="row"><a class="download" id="sealDl" download>Download the sealed PDF</a></div>
+    <p class="note">To check it: open the scanner, scan the seal, then tap “Check against a document…” and pick this PDF.</p>
+  </div>
+</section>
+
+<!-- 3. finishing the time proof -->
+<section class="card" id="finishCard">
+  <h2><span class="n">3</span>Finish the time proof</h2>
+  <p>A few hours after sealing, pick the sealed PDF. The page fetches the Bitcoin part of the proof and gives you the finished PDF.</p>
+  <div class="row"><button id="pickFinish">Choose a sealed PDF…</button></div>
+  <div class="msg hide" id="finishMsg"></div>
+  <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
+</section>
+
+<footer>sealing page v1 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a></footer>
+</div>
+
+<input type="file" id="artImageIn" accept="image/*">
+<input type="file" id="keyIn" accept=".json,application/json">
+<input type="file" id="docIn">
+<input type="file" id="finishIn" accept="application/pdf,.pdf">
+
+<script src="digihan.js"></script>
+<script src="verify.js"></script>
+<script src="ots.js"></script>
+<script src="dhseal.js"></script>
+<script src="vendor/pdf-lib.min.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const enc = new TextEncoder();
+const STORE = "digihan.sealkey";
+const ART_PX = 600, DPMM = 24, MM = 72 / 25.4, SEAL_MM = 45;
+const EXPLORERS = ["https://mempool.space/api", "https://blockstream.info/api"];
+let key = null;          // {kf, pub, png, reg, art}
+let doc = null;          // {name, bytes, type}
+let artImage = null;     // an uploaded image for the center, if chosen
+
+function show(el, kind, text) { el.className = "msg" + (kind ? " " + kind : ""); el.textContent = text; el.classList.remove("hide"); }
+function hide(el) { el.classList.add("hide"); }
+const utc = t => new Date(t * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+const num = n => n.toLocaleString("en-US");
+function save(bytes, name, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type })); a.download = name; return a.href; }
+
+// ---------------- the center artwork ----------------
+async function makeArtPng() {
+  const cv = document.createElement("canvas"); cv.width = cv.height = ART_PX;
+  const g = cv.getContext("2d");
+  if (artImage) {                                          // an image: cropped to a square, centred
+    const s = Math.min(artImage.width, artImage.height);
+    g.drawImage(artImage, (artImage.width - s) / 2, (artImage.height - s) / 2, s, s, 0, 0, ART_PX, ART_PX);
+  } else {                                                 // characters: white on a vermilion disc
+    const t = ($("artText").value || "印").trim().slice(0, 4) || "印";
+    g.fillStyle = "rgb(178,56,44)"; g.beginPath(); g.arc(ART_PX / 2, ART_PX / 2, ART_PX / 2, 0, 2 * Math.PI); g.fill();
+    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "alphabetic";
+    const font = s => `600 ${s}px "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", "Noto Serif JP", "Iowan Old Style", Palatino, Georgia, serif`;
+    let size = 420; g.font = font(size);
+    let m = g.measureText(t);
+    const fit = () => { const w = m.width, h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent; return Math.min(1, ART_PX * .62 / w, ART_PX * .58 / h); };
+    size = Math.floor(size * fit()); g.font = font(size); m = g.measureText(t);
+    const y = ART_PX / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;   // the ink's centre, not the baseline
+    const x = ART_PX / 2 + (m.actualBoundingBoxLeft - m.actualBoundingBoxRight) / 2;      // and not the advance width
+    g.fillText(t, x, y);
+  }
+  return new Uint8Array(await (await new Promise(r => cv.toBlob(r, "image/png"))).arrayBuffer());
+}
+async function pngImage(png) { return createImageBitmap(new Blob([png], { type: "image/png" })); }
+function preview(canvas, art, payload) {
+  const dpmm = 8, S = DHS.sealSize(dpmm); canvas.width = canvas.height = S;
+  DHS.drawSeal(canvas.getContext("2d"), payload || new Uint8Array(78).map((_, i) => (i * 97 + 31) % 256), art, dpmm);
+}
+let artTimer = 0;
+async function refreshArtPreview() { preview($("artPreview"), await pngImage(await makeArtPng())); }
+$("artText").addEventListener("input", () => { artImage = null; $("artImageName").textContent = ""; clearTimeout(artTimer); artTimer = setTimeout(refreshArtPreview, 150); });
+$("artImageBtn").addEventListener("click", () => $("artImageIn").click());
+$("artImageIn").addEventListener("change", async ev => {
+  const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+  try { artImage = await createImageBitmap(f); $("artImageName").textContent = f.name; refreshArtPreview(); }
+  catch (e) { show($("keyMsg"), "bad", "That image could not be read."); }
+});
+
+// ---------------- the key ----------------
+async function useKey(kf, remember) {
+  const pub = DHV.unhex(kf.pubkey), png = DHS.unb64(kf.center_png), reg = kf.registration;
+  if (!(await DHV.eventValid(reg)) || reg.pubkey !== kf.pubkey || DHV.tag(reg, "center_hash") !== DHV.hex(await DHV.sha256(png)))
+    throw new Error("This key file is damaged: its record does not match its key or artwork.");
+  key = { kf, pub, png, reg, art: await pngImage(png) };
+  if (remember) try { localStorage.setItem(STORE, JSON.stringify(kf)); } catch (e) {}
+  const fp = await DHV.fingerprint(pub);
+  $("keyId").textContent = fp.replace(/(.{4})(?=.)/g, "$1 "); $("keyId").dataset.copy = fp;
+  const npub = DHV.npubEncode(pub); $("keyNpub").textContent = npub; $("keyNpub").dataset.copy = npub;
+  preview($("keyPreview"), key.art);
+  $("noKey").classList.add("hide"); $("haveKey").classList.remove("hide");
+}
+$("makeKey").addEventListener("click", async () => {
+  const p1 = $("pw1").value, p2 = $("pw2").value;
+  if (p1.length < 10) return show($("keyMsg"), "bad", "Use a password of at least 10 characters.");
+  if (p1 !== p2) return show($("keyMsg"), "bad", "The two passwords are not the same.");
+  $("makeKey").disabled = true; show($("keyMsg"), "", "Making your key…");
+  try {
+    const png = await makeArtPng(), sk = DHS.newSecret(), pub = DHS.pubFromSecret(sk);
+    const reg = await DHS.registration(sk, pub, png);
+    const kf = await DHS.lockKey(sk, pub, p1, png, reg);
+    sk.fill(0);
+    await useKey(kf, true);
+    $("pw1").value = $("pw2").value = ""; hide($("keyMsg"));
+    $("keyNote").textContent = "Your seal is made. Save the key file now and keep the password: with both you can seal on any device, and without them this seal cannot be used again. This page also keeps the key file on this device, encrypted with your password.";
+  } catch (e) { show($("keyMsg"), "bad", e.message); }
+  $("makeKey").disabled = false;
+});
+$("saveKey").addEventListener("click", async () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(key.kf, null, 1)], { type: "application/json" }));
+  a.download = "digihan-key-" + (await DHV.fingerprint(key.pub)) + ".json"; a.click();
+});
+$("forgetKey").addEventListener("click", () => {
+  try { localStorage.removeItem(STORE); } catch (e) {}
+  key = null; $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide");
+});
+for (const id of ["openKeyBtn", "openKeyBtn2"]) $(id).addEventListener("click", () => $("keyIn").click());
+$("keyIn").addEventListener("change", async ev => {
+  const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+  try {
+    const kf = JSON.parse(await f.text());
+    if (kf.kdf !== "pbkdf2-sha256") throw new Error("This key file was made by the Python tools. This page opens key files it made itself.");
+    await useKey(kf, true);
+  } catch (e) { show($("keyMsg"), "bad", e.message.startsWith("Unexpected") ? "That is not a DigiHan key file." : e.message); $("noKey").classList.remove("hide"); }
+});
+document.addEventListener("click", ev => {
+  const t = ev.target.closest(".copy"); if (!t) return;
+  navigator.clipboard && navigator.clipboard.writeText(t.dataset.copy || t.textContent).then(() => { const o = t.textContent; t.textContent = "copied"; setTimeout(() => t.textContent = o, 900); }, () => {});
+});
+
+// ---------------- Bitcoin blocks: two explorers, an answer they disagree on is refused ----------------
+async function agree(path, parse) {
+  const got = (await Promise.all(EXPLORERS.map(async b => { try { const r = await fetch(b + path); return r.ok ? parse((await r.text()).trim()) : null; } catch (e) { return null; } }))).filter(v => v !== null);
+  if (!got.length) throw new Error("The block explorers did not answer.");
+  if (got.some(v => v !== got[0])) throw new Error("The block explorers disagree.");
+  return got[0];
+}
+const hashText = t => /^[0-9a-f]{64}$/.test(t) ? t : null;
+async function anchorBlock() {
+  const tips = (await Promise.all(EXPLORERS.map(async b => { try { const r = await fetch(b + "/blocks/tip/height"); return r.ok ? +(await r.text()) : null; } catch (e) { return null; } }))).filter(Boolean);
+  if (!tips.length) throw new Error("The block explorers did not answer.");
+  const height = Math.max(...tips) - 2;                    // two below the tip: a short reorganization cannot drop it
+  const hash = await agree("/block-height/" + height, hashText);
+  const time = await agree("/block/" + hash, t => JSON.parse(t).timestamp);
+  return { height, hash: DHV.unhex(hash), hashHex: hash, time };
+}
+async function merkleAt(h) {
+  try {
+    const bh = await agree("/block-height/" + h, hashText);
+    const v = await agree("/block/" + bh, t => { const j = JSON.parse(t); return j.merkle_root + " " + j.timestamp; });
+    const [root, time] = v.split(" "); return { root, time: +time };
+  } catch (e) { return null; }
+}
+
+// ---------------- sealing ----------------
+$("pickDoc").addEventListener("click", () => $("docIn").click());
+$("docIn").addEventListener("change", async ev => {
+  const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+  doc = { name: f.name, type: f.type || "application/octet-stream", bytes: new Uint8Array(await f.arrayBuffer()) };
+  $("docName").textContent = f.name + " · " + num(doc.bytes.length) + " bytes";
+});
+function steps(list) { const ol = $("sealSteps"); ol.innerHTML = ""; for (const s of list) { const li = document.createElement("li"); li.textContent = s; ol.appendChild(li); } ol.classList.remove("hide"); return i => ol.children[i] && ol.children[i].classList.add("done"); }
+const ascii = s => String(s).replace(/[^\x20-\x7e]/g, "?");
+// the seal drawn at print size, then read back as a scanner would before it is used
+async function drawAndCheck(payload) {
+  const S = DHS.sealSize(DPMM), cv = document.createElement("canvas"); cv.width = cv.height = S;
+  DHS.drawSeal(cv.getContext("2d"), payload, key.art, DPMM);
+  const F = 900, chk = document.createElement("canvas"); chk.width = chk.height = F;
+  const g = chk.getContext("2d", { willReadFrequently: true }); g.fillStyle = "#fff"; g.fillRect(0, 0, F, F); g.drawImage(cv, 150, 150, 600, 600);
+  const d = g.getImageData(0, 0, F, F).data, gray = new Uint8Array(F * F);
+  for (let i = 0, j = 0; j < gray.length; i += 4, j++) gray[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0;
+  const r = decodeGray(gray, F, F);
+  if (!r || DHV.hex(r.data) !== DHV.hex(payload)) throw new Error("The drawn seal did not read back. Nothing was saved.");
+  return new Uint8Array(await (await new Promise(res => cv.toBlob(res, "image/png"))).arrayBuffer());
+}
+async function buildPdf(o) {
+  const { PDFDocument, StandardFonts, PDFName, PDFString, PDFHexString, rgb } = PDFLib;
+  let src = null;
+  if (o.isPdf) try { src = await PDFDocument.load(o.doc.bytes, { updateMetadata: false }); } catch (e) { src = null; }
+  const out = await PDFDocument.create();
+  const size = src ? src.getPage(0).getSize() : { width: 612, height: 792 };
+  const W = size.width, H = size.height, page = out.addPage([W, H]);
+  const bold = await out.embedFont(StandardFonts.HelveticaBold), font = await out.embedFont(StandardFonts.Helvetica);
+  page.drawText("DigiHan seal", { x: 25 * MM, y: H - 28 * MM, size: 15, font: bold, color: rgb(.14, .13, .11) });
+  const lines = ["Sealed file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes",
+    "SHA-256: " + DHV.hex(o.docHash), "Key id: " + o.fp + "    Signer: " + o.npub.slice(0, 24) + "..." + o.npub.slice(-6),
+    o.anchor ? "Sealed no earlier than Bitcoin block " + num(o.anchor.height) + " (mined " + utc(o.anchor.time) + ")" : "Sealed (time stated by the signer): " + utc(o.ts),
+    o.proof ? "No-later-than proof: OpenTimestamps, attached as seal.ots (finished a few hours after sealing)" : "", "",
+    "The seal below is calculated from the attached file's exact bytes.",
+    "To check: open digihan.org/scan, scan the seal, then pick this PDF.",
+    "DigiHan format v0.4. It proves which key sealed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || a[i - 1] !== "");
+  lines.forEach((t, i) => page.drawText(t, { x: 25 * MM, y: H - 40 * MM - i * 5.2 * MM, size: 9.5, font, color: rgb(.14, .13, .11) }));
+  const xmm = (W / MM - SEAL_MM) / 2, ymm = H / MM - 30 - SEAL_MM - 15;      // centred low, 15 mm clear around
+  page.drawImage(await out.embedPng(o.sealPng), { x: xmm * MM, y: H - (ymm + SEAL_MM) * MM, width: SEAL_MM * MM, height: SEAL_MM * MM });
+  if (src) try { (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p)); } catch (e) {}
+  const now = new Date();
+  await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The sealed file, exact bytes", creationDate: now, modificationDate: now });
+  await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
+  await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
+  if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan sealing page v1 (format v0.4)");
+  const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
+  set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
+  set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
+  set("DigiHanSealBox", PDFString.of(`${xmm.toFixed(2)},${ymm.toFixed(2)},${SEAL_MM.toFixed(1)},15`));
+  set("DigiHanFormat", PDFString.of("DigiHan format v0.4, cover sheet, doc tier 1 (byte-exact)"));
+  return out.save({ useObjectStreams: false });
+}
+$("doSeal").addEventListener("click", async () => {
+  hide($("sealMsg")); $("sealResult").classList.add("hide");
+  if (!key) return show($("sealMsg"), "bad", "Make your seal or open your key file first (step 1).");
+  if (!doc) return show($("sealMsg"), "bad", "Choose a document first.");
+  const wantAnchor = $("optAnchor").checked, wantStamp = $("optStamp").checked;
+  const done = steps(["Opening your key", "Reading the document", ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), "Signing and drawing the seal", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF"]);
+  $("doSeal").disabled = true;
+  let k = 0, sk = null;
+  try {
+    sk = await DHS.unlockKey(key.kf, $("pwSeal").value); done(k++);
+    const docHash = await DHV.sha256(doc.bytes); done(k++);
+    const anchor = wantAnchor ? await anchorBlock() : null; if (wantAnchor) done(k++);
+    const ts = Math.floor(Date.now() / 1000);
+    const payload = await DHS.sealPayload(sk, key.pub, docHash, ts, await DHV.sha256(key.png), anchor);
+    sk.fill(0); sk = null;
+    const sealPng = await drawAndCheck(payload); done(k++);
+    let proof = null, stampNote = "";
+    if (wantStamp) {
+      try { proof = (await DHO.stamp(payload)).bytes; } catch (e) { stampNote = " The timestamp proof could not be started now (" + e.message + "); step 3 can start it later."; }
+      done(k++);
+    }
+    const fp = await DHV.fingerprint(key.pub), npub = DHV.npubEncode(key.pub);
+    const isPdf = /^%PDF/.test(new TextDecoder("latin1").decode(doc.bytes.slice(0, 5)));
+    const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub }); done(k++);
+    const base = doc.name.replace(/\.[^.]+$/, "") || "document";
+    $("sealDl").href = save(pdf, base + "_sealed.pdf", "application/pdf"); $("sealDl").download = base + "_sealed.pdf";
+    $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
+    const dg = DHV.hex((await DHV.sha256(payload)).slice(0, 4));
+    $("sealInfo").innerHTML = "";
+    for (const [b, t] of [["Digest", dg], ["Key id", fp], ["Time", anchor ? "no earlier than Bitcoin block " + num(anchor.height) + " (mined " + utc(anchor.time) + ")" : utc(ts) + ", stated by you"], ["Time proof", proof ? "started; finish it in step 3 in a few hours" : "none"]]) {
+      const d = document.createElement("div"); d.innerHTML = "<b></b> <span></span>"; d.firstChild.textContent = b; d.lastChild.textContent = t; $("sealInfo").appendChild(d);
+    }
+    $("sealResult").classList.remove("hide");
+    show($("sealMsg"), stampNote ? "warn" : "ok", "Sealed." + stampNote);
+  } catch (e) {
+    if (sk) sk.fill(0);
+    show($("sealMsg"), "bad", e.message);
+  }
+  $("pwSeal").value = ""; $("doSeal").disabled = false;
+});
+
+// ---------------- finishing the time proof ----------------
+function attachments(pdf) {                               // [{name, bytes, index}] from the EmbeddedFiles name tree
+  const { PDFName, PDFDict, PDFArray, decodePDFRawStream } = PDFLib, out = [];
+  const names = pdf.catalog.lookupMaybe(PDFName.of("Names"), PDFDict); if (!names) return { list: out, arr: null };
+  const ef = names.lookupMaybe(PDFName.of("EmbeddedFiles"), PDFDict); if (!ef) return { list: out, arr: null };
+  const arr = ef.lookupMaybe(PDFName.of("Names"), PDFArray); if (!arr) return { list: out, arr: null };
+  for (let i = 0; i + 1 < arr.size(); i += 2) {
+    try {
+      const name = arr.lookup(i).decodeText(), spec = arr.lookup(i + 1, PDFDict);
+      const stream = spec.lookup(PDFName.of("EF"), PDFDict).lookup(PDFName.of("F"));
+      out.push({ name, bytes: decodePDFRawStream(stream).decode(), index: i });
+    } catch (e) {}
+  }
+  return { list: out, arr };
+}
+$("pickFinish").addEventListener("click", () => $("finishIn").click());
+$("finishIn").addEventListener("change", async ev => {
+  const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+  const msg = $("finishMsg"); $("finishDlRow").classList.add("hide");
+  show(msg, "", "Reading " + f.name + "…");
+  try {
+    const { PDFDocument, PDFName } = PDFLib;
+    const pdf = await PDFDocument.load(new Uint8Array(await f.arrayBuffer()), { updateMetadata: false });
+    const info = pdf.getInfoDict(), pl = info.lookup(PDFName.of("DigiHanPayload"));
+    if (!pl) throw new Error("This PDF has no DigiHan seal data.");
+    const payload = DHV.unhex(pl.decodeText()), parsed = DHV.parse(payload), anchored = (parsed.flags & 1) ? parsed.ts : null;
+    const { list, arr } = attachments(pdf);
+    const old = list.find(a => DHO.isProof(a.bytes));
+    let proof, started = false;
+    if (!old) { show(msg, "", "No time proof inside; starting one now…"); proof = (await DHO.stamp(payload)).bytes; started = true; }
+    else {
+      const p0 = await DHO.parse(old.bytes);
+      if (p0.bitcoin.length) proof = old.bytes;
+      else {
+        show(msg, "", "Asking the timestamp servers for the Bitcoin part…");
+        const up = await DHO.upgrade(old.bytes);
+        if (!up.added) return show(msg, "warn", "Not ready yet: the timestamp servers' transaction is not in a Bitcoin block yet. Try again in an hour or two.");
+        proof = up.bytes;
+      }
+    }
+    let line = "";
+    if (!started) {
+      const v = await DHO.verify(proof, payload, merkleAt);
+      if (anchored !== null && v.height < anchored) throw new Error("The time proofs contradict each other.");
+      line = anchored !== null ? "Sometime between and including Block " + num(anchored) + " and Block " + num(v.height) + " (Bitcoin; Block " + num(v.height) + " was mined " + utc(v.time) + ")."
+                               : "Sealed no later than Bitcoin block " + num(v.height) + ", mined " + utc(v.time) + ".";
+      if (old && proof === old.bytes) return show(msg, "ok", "This PDF's time proof is already finished. " + line);
+    }
+    if (old && arr) { arr.remove(old.index); arr.remove(old.index); }
+    const now = new Date();
+    await pdf.attach(proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
+    const bytes = await pdf.save({ useObjectStreams: false });
+    const base = f.name.replace(/\.pdf$/i, "").replace(/_(sealed|finished|timestamped)$/, "");
+    const name = base + (started ? "_sealed.pdf" : "_finished.pdf");
+    $("finishDl").href = save(bytes, name, "application/pdf"); $("finishDl").download = name;
+    $("finishDl").textContent = started ? "Download the PDF with the proof started" : "Download the finished PDF";
+    $("finishDlRow").classList.remove("hide");
+    show(msg, "ok", started ? "The timestamp proof is started. Come back in a few hours and pick the new PDF here to finish it." : "Finished. " + line);
+  } catch (e) { show(msg, "bad", e.message); }
+});
+
+// ---------------- start ----------------
+(async () => {
+  let kf = null; try { kf = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
+  if (kf) try { await useKey(kf, false); } catch (e) {}
+  if (!key) refreshArtPreview();
+})();
+</script>
+</body>
+</html>

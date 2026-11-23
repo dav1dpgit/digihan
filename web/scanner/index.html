@@ -105,7 +105,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v11 · format v0.4</div>
+    <div class="v">scanner v12 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -212,7 +212,7 @@ async function showResult(r) {
   say("");
   sheet.classList.add("up");
   if (navigator.vibrate) navigator.vibrate(60);
-  current = { payload: p, fp: parsed.fp, keys: null, extraKeys: [], docs: [], proofs: [], digest: DHV.hex(new Uint8Array(dg)) };
+  current = { payload: p, fp: parsed.fp, keys: null, extraKeys: [], docs: [], proofs: [], pngs: [], digest: DHV.hex(new Uint8Array(dg)) };
   $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
   $("r_proof").textContent = "—";
   await siteProof(current);
@@ -410,6 +410,7 @@ async function findKeys(fp, extra) {
   }
   return out;
 }
+function showArtBytes(b) { $("r_art").src = URL.createObjectURL(new Blob([b], { type: "image/png" })); $("r_artbox").classList.remove("hide"); }
 async function showArt(url, wantHash) {             // only shown if the file's hash is the registered hash
   try { const b = new Uint8Array(await (await fetch(url)).arrayBuffer());
     if (DHV.hex(await DHV.sha256(b)) !== wantHash) return;
@@ -446,7 +447,11 @@ async function runCheck() {
       $("r_proof").textContent = tw.text;
       if (tw.bad) verdict("bad", "Time proofs contradict", tw.why); else verdict("ok", "Signature valid", tw.why);
       const ch = r.reg ? DHV.tag(r.reg, "center_hash") : null;
-      if (ch) { if (k.center && k.center.sha256 === ch) showArt(k.center.url, ch); else if (k.image) showArt(k.image, ch); }
+      if (ch) {
+        if (k.center && k.center.sha256 === ch) showArt(k.center.url, ch);
+        else if (k.image) showArt(k.image, ch);
+        else for (const png of c.pngs) if (DHV.hex(await DHV.sha256(png)) === ch) { showArtBytes(png); break; }   // v12: artwork attached to the PDF
+      }
       return;
     }
     last = r.reason;
@@ -459,10 +464,12 @@ async function pdfAttachments(bytes) {
   const out = [], txt = new TextDecoder("latin1").decode(bytes);
   const re = /\/Type\s*\/EmbeddedFile/g; let m;
   while ((m = re.exec(txt))) {
-    const objStart = txt.lastIndexOf(" obj", m.index), st = txt.indexOf("stream", m.index);
+    // the keyword "stream" right after the dictionary's ">>"; "/Subtype /application#2Foctet-stream" must not count (v12)
+    const sre = />>\s*stream\r?\n/g; sre.lastIndex = m.index; const sm = sre.exec(txt);
+    const objStart = txt.lastIndexOf(" obj", m.index), st = sm ? sm.index + 2 : -1;
     if (objStart < 0 || st < 0) continue;
     const dict = txt.slice(objStart, st);
-    let s0 = st + 6; if (txt[s0] === "\r") s0++; if (txt[s0] === "\n") s0++;
+    const s0 = sm.index + sm[0].length;
     const lm = dict.match(/\/Length\s+(\d+)(?!\s+\d+\s+R)/);
     let s1 = lm ? s0 + parseInt(lm[1], 10) : txt.indexOf("endstream", s0);
     if (!lm) { while (s1 > s0 && (txt[s1 - 1] === "\n" || txt[s1 - 1] === "\r")) s1--; }
@@ -486,6 +493,7 @@ $("docIn").addEventListener("change", async ev => {
     for (const a of await pdfAttachments(bytes)) {
       if (DHO.isProof(a)) c.proofs.push({ bytes: a, from: "the proof attached inside " + f.name });
       else if (await addKeyFrom(c, a, "the registration attached inside " + f.name)) continue;
+      else if (a[0] === 0x89 && a[1] === 0x50 && a[2] === 0x4e && a[3] === 0x47) c.pngs.push(a);   // the center artwork
       else c.docs.push({ name: "the file attached inside " + f.name, sha: await DHV.sha256(a) });
     }
   runCheck();

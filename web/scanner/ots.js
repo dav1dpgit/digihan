@@ -1,7 +1,8 @@
-// OpenTimestamps proofs for the phone scanner: "this seal existed no later than Bitcoin block H".
-// Reads the standard .ots format (opentimestamps.org); the proof is over SHA-256 of the seal's 78-byte
-// payload. Verification only. Runs in browsers and in Node 20+ (globalThis.crypto.subtle). See
-// docs/TIME-PROOF.md and python/ots.py (the same reader in Python).
+// OpenTimestamps proofs: "this seal existed no later than Bitcoin block H".
+// Reads and writes the standard .ots format (opentimestamps.org); the proof is over SHA-256 of the seal's
+// 78-byte payload. The scanner verifies; the sealing page also stamps (asks the calendars) and upgrades
+// (fetches the Bitcoin part). Runs in browsers and in Node 20+ (globalThis.crypto.subtle). See
+// docs/TIME-PROOF.md and python/ots.py (the same code in Python; both write byte-identical proofs).
 "use strict";
 
 const DHO = (() => {
@@ -30,7 +31,7 @@ const DHO = (() => {
     let att;
     if (tag === PENDING) att = { kind: "pending", uri: new TextDecoder().decode(p.varbytes(MAX_URI)) };
     else if (tag === BITCOIN) att = { kind: "bitcoin", height: p.varuint() };
-    else return { kind: "other", tag };
+    else return { kind: "other", tag, payload };
     if (p.pos() !== payload.length) fail("attestation has extra bytes");
     return att;
   }
@@ -42,9 +43,9 @@ const DHO = (() => {
   // Parse the tree first (structure only); messages are worked out afterwards (hashing is async here).
   function readTree(rd, depth) {
     if (depth <= 0) fail("proof is nested too deeply");
-    const node = { atts: [], ops: [] };
+    const node = { msg: null, atts: [], ops: [] };
     const one = tag => {
-      if (tag === 0x00) node.atts.push(readAtt(rd));
+      if (tag === 0x00) { const a = readAtt(rd); if (!node.atts.some(x => cmpAtt(x, a) === 0)) node.atts.push(a); }
       else node.ops.push({ op: readOp(rd, tag), next: readTree(rd, depth - 1) });
     };
     let tag = rd.bytes(1)[0];
@@ -103,13 +104,58 @@ const DHO = (() => {
     if (r.length > MAX_LEN) fail("result too long");
     return r;
   }
-  async function walk(node, msg, out) {
-    for (const a of node.atts) out.push({ msg, att: a });
-    for (const { op, next } of node.ops) await walk(next, msg === null ? null : await apply(op, msg), out);
+  async function fill(node, msg) {                     // work out every node's message
+    node.msg = msg;
+    for (const { op, next } of node.ops) await fill(next, msg === null ? null : await apply(op, msg));
+    return node;
+  }
+  function walk(node, out) {
+    for (const a of node.atts) out.push({ msg: node.msg, att: a });
+    for (const { next } of node.ops) walk(next, out);
+    return out;
   }
 
-  // parse(bytes) -> {digest, hashOp, bitcoin: [{height, root}], pending: [uri]}; root in display order
-  async function parse(b) {
+  // ---- writing: the reference client's order, so a proof read and written back is byte-identical ----
+  const enc = new TextEncoder();
+  const concat = (...a) => { const o = new Uint8Array(a.reduce((s, x) => s + x.length, 0)); let k = 0; for (const x of a) { o.set(x, k); k += x.length; } return o; };
+  const unhex = h => Uint8Array.from(h.match(/../g) || [], x => parseInt(x, 16));
+  const varuintB = v => { const out = []; do { const c = v % 128; v = Math.floor(v / 128); out.push(c | (v ? 0x80 : 0)); } while (v); return Uint8Array.from(out); };
+  const varbytesB = b => concat(varuintB(b.length), b);
+  const cmpBytes = (a, b) => { for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) return a[i] - b[i]; return a.length - b.length; };
+  const tagOf = a => a.kind === "pending" ? PENDING : a.kind === "bitcoin" ? BITCOIN : a.tag;
+  function cmpAtt(a, b) {
+    const ta = tagOf(a), tb = tagOf(b);
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    if (a.kind === "pending") return a.uri < b.uri ? -1 : a.uri > b.uri ? 1 : 0;
+    if (a.kind === "bitcoin") return a.height - b.height;
+    return cmpBytes(a.payload, b.payload);
+  }
+  const cmpOp = (a, b) => a.tag !== b.tag ? a.tag - b.tag : cmpBytes(a.arg || new Uint8Array(0), b.arg || new Uint8Array(0));
+  function attBytes(a) {
+    const payload = a.kind === "pending" ? varbytesB(enc.encode(a.uri)) : a.kind === "bitcoin" ? varuintB(a.height) : a.payload;
+    return concat(unhex(tagOf(a)), varbytesB(payload));
+  }
+  const opBytes = op => (op.tag === APPEND || op.tag === PREPEND) ? concat(Uint8Array.of(op.tag), varbytesB(op.arg)) : Uint8Array.of(op.tag);
+  function serialize(node) {
+    const atts = [...node.atts].sort(cmpAtt), ops = [...node.ops].sort((x, y) => cmpOp(x.op, y.op)), out = [];
+    if (!atts.length && !ops.length) fail("empty timestamp");
+    for (const a of atts.slice(0, -1)) out.push(Uint8Array.of(0xff, 0x00), attBytes(a));
+    if (!ops.length) { out.push(Uint8Array.of(0x00), attBytes(atts.at(-1))); return concat(...out); }
+    if (atts.length) out.push(Uint8Array.of(0xff, 0x00), attBytes(atts.at(-1)));
+    ops.forEach((o, i) => out.push(...(i < ops.length - 1 ? [Uint8Array.of(0xff)] : []), opBytes(o.op), serialize(o.next)));
+    return concat(...out);
+  }
+  function merge(a, b) {                              // b's attestations and branches into a (same message)
+    for (const x of b.atts) if (!a.atts.some(y => cmpAtt(x, y) === 0)) a.atts.push(x);
+    for (const o of b.ops) {
+      const same = a.ops.find(p => cmpOp(p.op, o.op) === 0);
+      if (same) merge(same.next, o.next); else a.ops.push(o);
+    }
+  }
+  const detached = (hashOp, digest, tree) => concat(Uint8Array.from(MAGIC), varuintB(1), Uint8Array.of(hashOp), digest, serialize(tree));
+
+  // load(bytes) -> {hashOp, digest, tree} with every node's message worked out
+  async function load(b) {
     const rd = reader(b);
     if (!isProof(b)) fail("not an OpenTimestamps proof");
     rd.bytes(MAGIC.length);
@@ -119,7 +165,61 @@ const DHO = (() => {
     const digest = rd.bytes(HASH_LEN[hashOp]);
     const tree = readTree(rd, MAX_DEPTH);
     if (rd.pos() !== b.length) fail("extra bytes after the proof");
-    const all = []; await walk(tree, digest, all);
+    await fill(tree, digest);
+    return { hashOp, digest, tree };
+  }
+  const write = p => detached(p.hashOp, p.digest, p.tree);
+
+  // ---- asking the calendars (the sealing page) ----
+  // These three accept requests from a web page (checked 2026-11-23); catallaxy does not.
+  const CALENDARS = ["https://a.pool.opentimestamps.org", "https://b.pool.opentimestamps.org", "https://a.pool.eternitywall.com"];
+  const CALENDAR_OK = /^https:\/\/([a-z0-9-]+\.)*(calendar\.opentimestamps\.org|calendar\.eternitywall\.com|calendar\.catallaxy\.com|pool\.opentimestamps\.org|pool\.eternitywall\.com|btc\.catallaxy\.com)\/?$/;
+  const ACCEPT = { Accept: "application/vnd.opentimestamps.v1" };   // a CORS-safe header: no preflight
+  async function readReply(r, msg) {
+    const body = new Uint8Array(await r.arrayBuffer()), rd = reader(body);
+    const t = readTree(rd, MAX_DEPTH);
+    if (rd.pos() !== body.length) fail("calendar reply has extra bytes");
+    return fill(t, msg);
+  }
+  // stamp(payload) -> pending proof bytes (SHA-256 of the payload sent to the calendars; no nonce: a seal is public)
+  async function stamp(payload, opts = {}) {
+    const f = opts.fetch || globalThis.fetch, need = opts.need || 2;
+    const digest = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", payload));
+    const root = { msg: digest, atts: [], ops: [] }, ok = [];
+    await Promise.all((opts.calendars || CALENDARS).map(async cal => {
+      try {
+        const r = await f(cal + "/digest", { method: "POST", body: digest, headers: ACCEPT });
+        if (!r.ok) return;
+        merge(root, await readReply(r, digest)); ok.push(cal);
+      } catch (e) {}
+    }));
+    if (ok.length < need) fail("Only " + ok.length + " of the timestamp servers answered (need " + need + ").");
+    return { bytes: detached(SHA256, digest, root), calendars: ok };
+  }
+  // upgrade(proof bytes) -> {bytes, added}: asks each known calendar for the Bitcoin part of a pending proof
+  async function upgrade(b, opts = {}) {
+    const f = opts.fetch || globalThis.fetch, p = await load(b);
+    let added = 0;
+    const leaves = []; (function collect(n) { if (n.atts.length) leaves.push(n); n.ops.forEach(o => collect(o.next)); })(p.tree);
+    for (const node of leaves) {
+      if (node.msg === null) continue;
+      for (const a of [...node.atts]) {
+        if (a.kind !== "pending" || !CALENDAR_OK.test(a.uri)) continue;
+        try {
+          const r = await f(a.uri.replace(/\/$/, "") + "/timestamp/" + hex(node.msg), { headers: ACCEPT });
+          if (!r.ok) continue;                                   // not ready yet (404)
+          const t = await readReply(r, node.msg);
+          if (walk(t, []).some(x => x.att.kind === "bitcoin")) { merge(node, t); added++; }
+        } catch (e) {}
+      }
+    }
+    return { bytes: write(p), added };
+  }
+
+  // parse(bytes) -> {digest, hashOp, bitcoin: [{height, root}], pending: [uri]}; root in display order
+  async function parse(b) {
+    const { hashOp, digest, tree } = await load(b);
+    const all = walk(tree, []);
     const seen = new Set(), bitcoin = [], pending = [];
     for (const { msg, att } of all) {
       if (att.kind === "bitcoin" && msg && msg.length === 32) {
@@ -148,6 +248,6 @@ const DHO = (() => {
     fail("Time proof not confirmed: " + errs.join("; ") + ".");
   }
 
-  return { isProof, parse, verify, ripemd160 };
+  return { isProof, parse, verify, ripemd160, load, write, stamp, upgrade, CALENDARS };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHO;

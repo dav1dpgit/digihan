@@ -9,3 +9,6 @@ python/bip340.py implements the algorithm specified in BIP340.
 
 python/tests/ots/ holds example OpenTimestamps proofs copied unchanged from opentimestamps-client
 (https://github.com/opentimestamps/opentimestamps-client, LGPL-3.0), used only as test data.
+
+web/sealer/vendor/pdf-lib.min.js is pdf-lib 1.17.1 (https://github.com/Hopding/pdf-lib), MIT License,
+Copyright (c) 2019 Andrew Dillon; its license is in web/sealer/vendor/pdf-lib.LICENSE.md.

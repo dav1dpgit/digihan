@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.0 (2026-11-23): seal in a browser
+
+* The sealing page (`web/sealer/`, digihan.org/seal): make a seal (key and center artwork) on the device,
+  seal any file, bookended by default (block anchor plus an OpenTimestamps proof started at once), and
+  finish the proof a few hours later. Nothing is uploaded; the key file is encrypted with a password
+  (PBKDF2-SHA256 and AES-256-GCM, WebCrypto). Every drawn seal is read back before it is used.
+* `web/sealer/dhseal.js`: the ring's bit stream (checked against Python on 12 payloads), the seal drawing,
+  BIP340 signing (checked against the official vectors), payloads, registration records, key files.
+* `web/scanner/ots.js` now also writes proofs (byte-identical to Python on every example and sample proof),
+  starts them with the timestamp servers that accept web pages, and finishes them.
+* Python: `dhsign.unlock_key` and `sign_pdf.py --key` read key files saved from the sealing page.
+* Scanner v12: shows the artwork attached to a sealed PDF; reads attached files whose type contains the
+  word "stream" (it missed them before).
+* PDFs from the sealing page attach the artwork as `digihan-center.png` (SPEC section 9).
+
 ## v0.4.3 (2026-11-23): the sealed PDF carries the signer's key
 
 * `sign_pdf.py` attaches the signer's registration record to the sealed PDF

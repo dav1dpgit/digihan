@@ -8,7 +8,8 @@ whether that key sealed that document. There is no account and no company in the
 the seal is free artwork (a signature, lettering, a crest); only the ring follows the format.
 
 **Try it:** open [digihan.org/scan](https://digihan.org/scan) on a phone and point it at any seal on
-[digihan.org](https://digihan.org). It should say **Signature valid**.
+[digihan.org](https://digihan.org). It should say **Signature valid**. To make your own seal and seal a
+document, open [digihan.org/seal](https://digihan.org/seal): it works in any browser, phone or computer.
 
 ## What a seal proves
 
@@ -34,6 +35,7 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
 | Phone scanner: reads the ring (camera or photo, including screenshots) **and checks the signature** | Document tiers beyond exact bytes |
 | Keys are Nostr keys (npub); the phone can find a key on Nostr relays from the seal's key id, once the signer has published their registration | |
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
+| Sealing page: make a seal and seal any file in a browser, bookended; finish the proof later | |
 
 ## Check a seal on a phone
 
@@ -47,6 +49,23 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
    *time proof* line shows the proven window, if the seal has one. A sealed PDF carries the signer's
    registration record and its time proof inside, so picking it is all the phone needs; a separate
    `.ots` proof file can be picked the same way as a document.
+
+## Seal a document in a browser
+
+[digihan.org/seal](https://digihan.org/seal) (`web/sealer/`) does everything on the device: nothing is uploaded.
+
+1. **Your seal.** Type up to four characters for the center, or pick an image, and choose a password. The
+   page makes your key, signs a registration record for your artwork, and keeps the key file on the
+   device, encrypted with the password. Save the key file to seal on another device.
+2. **Your document.** Any file. The page anchors the seal to a recent Bitcoin block (two block explorers
+   must agree), signs, draws the seal and reads it back, starts the OpenTimestamps proof, and gives you a
+   PDF: a cover page with the seal, then the document's own pages if it is a PDF, with the file attached
+   unchanged, the registration record, the artwork and the pending proof.
+3. **Finish the time proof.** A few hours later, pick that PDF again. The page fetches the Bitcoin part of
+   the proof and gives you the finished PDF: "Sometime between and including Block A and Block B".
+
+The scanner and `verify_pdf.py` check these PDFs with nothing else needed. `sign_pdf.py --key` also takes
+a key file saved from the page.
 
 ## Seal and check PDFs (Python 3.10+)
 
@@ -85,7 +104,8 @@ docs/TIME-PROOF.md   proving when a seal was made: block anchors and OpenTimesta
 nip/NIP-DIGIHAN.md   draft Nostr NIP for the seal registration
 python/              codec, signing, keys, PDF tools, time proofs (anchor.py, ots.py, timestamp.py), tests
 web/scanner/         the phone scanner: index.html, digihan.js (reads rings), verify.js (checks signatures),
-                     ots.js (checks time proofs)
+                     ots.js (time proofs: checks, starts and finishes them)
+web/sealer/          the sealing page: index.html, dhseal.js (draws rings, signs, key files), vendor/pdf-lib
 tests/               camera-stress and screenshot rigs for the phone decoder
 ```
 
@@ -95,7 +115,8 @@ tests/               camera-stress and screenshot rigs for the phone decoder
 cd python && python -m pytest tests     # BIP340 vectors, round trips, signing, tampering, anchors, OpenTimestamps
 cd python && python -m pytest tests -m online   # the example proof against two live block explorers
 node web/scanner/verify.test.js         # the phone's signature check against the BIP340 vectors
-node web/scanner/ots.test.js            # the phone's OpenTimestamps reader
+node web/scanner/ots.test.js            # the OpenTimestamps code: reading, writing, stamping, finishing
+node web/sealer/dhseal.test.js          # the sealing page's rings (vs Python), signing (BIP340 vectors), key files
 cd tests && python make_frames.py && node decode_frames.js          # 220 camera-damaged frames
 cd tests && python make_screens.py && node decode_frames.js photo screens   # 60 phone screenshots
 ```

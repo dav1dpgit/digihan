@@ -151,6 +151,8 @@ v0.3 defines tier 1: `doc_hash` is over the exact bytes of the file. The referen
 * **Registration record.** The signer's registration record (section 7) MAY be attached as
   `digihan-registration.json`, named by `/DigiHanRegistration`, so a verifier needs no separate file. A
   verifier uses it only if its own signature is valid and its key matches the seal's key id.
+* **Center artwork.** The registered artwork MAY be attached as `digihan-center.png` (its exact bytes,
+  so a verifier can show it beside the scanned seal after checking its hash against the registration).
 * **Time proof.** An OpenTimestamps proof (section 11.2) MAY be attached as `seal.ots`. The reference
   tool writes it into a new file (`python/timestamp.py attach`); the sealed PDF is not changed.
 

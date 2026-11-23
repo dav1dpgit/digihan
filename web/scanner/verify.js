@@ -125,6 +125,8 @@ const DHV = (() => {
       ? { ok: true, reg: null, anchored } : { ok: false, reason: "The signature does not match this document." };
   }
 
-  return { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, npubDecode, eventValid, tag, fingerprint, parse, signedMessage, checkSeal };
+  // curve: the arithmetic the sealing page's signer uses (dhseal.js); verification itself needs none of it exposed
+  const curve = { P, N, G: [GX, GY, 1n], mod, mul, affine, liftX, toInt, toBytes32 };
+  return { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, npubDecode, eventValid, tag, fingerprint, parse, signedMessage, checkSeal, curve };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHV;
