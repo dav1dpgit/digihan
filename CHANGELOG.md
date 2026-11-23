@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.1 (2026-11-23): wording for bookended seals
+
+* A seal with both time proofs (bookended) is now reported as "Sometime between and including Block A
+  and Block B", followed by the dates the blocks were mined: phone scanner v9 and `verify_pdf.py`.
+  SPEC.md section 11.2 recommends the wording.
+* GitHub workflows moved to the current action versions (the old ones ran on Node.js 20, which GitHub
+  is retiring).
+
 ## v0.4.0 (2026-11-22): time proofs, no earlier than and no later than
 
 * Format v0.4 (frozen): flag bit 0 defined. An anchored seal signs a Bitcoin block's hash and so was made

@@ -105,7 +105,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v8 · format v0.4</div>
+    <div class="v">scanner v9 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -333,9 +333,12 @@ async function timeWindow(c, anchored) {
   const a = anchored !== null ? await merkleAt(anchored) : null;          // only for the anchored block's date
   const A = anchored !== null ? "Bitcoin block " + num(anchored) + (a ? " (mined " + utc(a.time) + ")" : "") : "";
   const B = later ? "Bitcoin block " + num(later.height) + " (mined " + utc(later.time) + ")" : "";
-  if (anchored !== null && later)
-    return { text: "after " + A + ", before " + B,
-             why: "This exact document was sealed by this key after " + A + " and before " + B + ". Both are proven." + KEY };
+  if (anchored !== null && later) {                    // a bookended seal: both ends proven
+    const span = "Sometime between and including Block " + num(anchored) + " and Block " + num(later.height);
+    const dates = a ? " Block " + num(anchored) + " was mined " + utc(a.time) + "; Block " + num(later.height) + " was mined " + utc(later.time) + "."
+                    : " Block " + num(later.height) + " was mined " + utc(later.time) + ".";
+    return { text: span, why: "This exact document was sealed by this key. " + span + " (Bitcoin), both proven." + dates + KEY };
+  }
   if (later) {
     const off = parsePayload(c.payload).ts > later.time + 7200 ? " The stated time is after that block, so the stated time is wrong." : "";
     return { text: "no later than " + B,

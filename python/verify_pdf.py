@@ -138,12 +138,15 @@ if problems:
     sys.exit(1)
 f = dhsign.parse_payload(payload)
 print("RESULT: VALID — the attached file is exactly what this key sealed.")
-if f["flags"] & dhsign.FLAG_ANCHOR:
-    print(f"        Made no earlier than Bitcoin block {f['ts']} (proven: the block's hash is signed).")
+when = lambda t: time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(t))
+if f["flags"] & dhsign.FLAG_ANCHOR and later:          # a bookended seal: both ends proven
+    print(f"        Sometime between and including Block {f['ts']:,} and Block {later[0]:,} (Bitcoin), both proven:")
+    print(f"        the block anchor for Block {f['ts']:,}, OpenTimestamps for Block {later[0]:,} (mined {when(later[1])}).")
+elif f["flags"] & dhsign.FLAG_ANCHOR:
+    print(f"        Made no earlier than Bitcoin block {f['ts']:,} (proven: the block's hash is signed).")
 else:
-    print(f"        Time stated by the signer: {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(f['ts']))} (not proven).")
-if later:
-    print(f"        Made no later than Bitcoin block {later[0]}, mined "
-          f"{time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(later[1]))} (proven: OpenTimestamps).")
+    print(f"        Time stated by the signer: {when(f['ts'])} (not proven).")
+if later and not f["flags"] & dhsign.FLAG_ANCHOR:
+    print(f"        Made no later than Bitcoin block {later[0]:,}, mined {when(later[1])} (proven: OpenTimestamps).")
 print("        This proves which KEY sealed it. Who holds the key is a separate question")
 print("        (a notary's job), and the attached file is what you should read.")

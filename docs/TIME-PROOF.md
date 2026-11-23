@@ -9,8 +9,10 @@ that place the seal between two Bitcoin blocks. Both are built, in the Python to
 | **No earlier than** | The seal was made after Bitcoin block A was mined | Block A's hash is part of what is signed. Nobody can know a block's hash before the block exists. |
 | **No later than** | The seal existed when Bitcoin block B was mined | An OpenTimestamps proof that the seal's 78 bytes were recorded in block B |
 
-With both, the phone says: *sealed after Bitcoin block A (mined ...) and before Bitcoin block B (mined ...)*.
-The window is usually one to a few hours. Either proof can be used alone.
+A seal with both is **bookended**. The phone and `verify_pdf.py` then say:
+*Sometime between and including Block A and Block B*, followed by the dates the blocks were mined.
+"Including" because the seal can be made in the minutes right after block A, and the proof can be in
+block B itself. The window is usually one to a few hours. Either proof can be used alone.
 
 ## No earlier than: the block anchor
 

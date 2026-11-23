@@ -20,8 +20,8 @@ the seal is free artwork (a signature, lettering, a crest); only the ring follow
 
 **Time.** In a plain seal the time is the signer's statement. Two proofs place a seal between two
 Bitcoin blocks: an *anchored* seal was made **no earlier than** block A (the block's hash is signed), and
-an OpenTimestamps proof shows it existed **no later than** block B. The phone then says "sealed after
-block A and before block B". See [docs/TIME-PROOF.md](docs/TIME-PROOF.md).
+an OpenTimestamps proof shows it existed **no later than** block B. With both (a bookended seal) the
+phone says "Sometime between and including Block A and Block B". See [docs/TIME-PROOF.md](docs/TIME-PROOF.md).
 
 ## Status
 

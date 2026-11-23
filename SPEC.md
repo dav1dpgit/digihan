@@ -195,6 +195,8 @@ file hash is SHA-256 over the seal's 78-byte payload. A verifier:
 3. gets block B's merkle root (section 11.3) and compares; the lowest block number that matches is the
    bound: the seal existed no later than block B;
 4. if the seal is also anchored at block A, requires A ≤ B; otherwise the seal is reported as not valid.
+   A seal with both proofs is **bookended**; a verifier SHOULD state its window as "Sometime between and
+   including Block A and Block B".
 
 Pending attestations (calendar addresses) prove nothing until completed. Where proofs are kept:
 
