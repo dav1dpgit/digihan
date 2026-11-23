@@ -27,7 +27,36 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .brand { display: flex; align-items: center; gap: 9px; font: 600 17px/1 var(--display); letter-spacing: .03em; color: var(--sumi); text-decoration: none; }
 .brand .han { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 4px;
   background: var(--vermillion); color: var(--paper); font: 700 14px/1 var(--cjk); }
-header nav a { color: var(--vermillion); font-size: 13px; font-weight: 600; text-decoration: none; border-bottom: 1px solid currentColor; }
+/* v2: the seal-shaped menu replaces the scanner link */
+/* seal menu v1: the menu button is a small seal; tapping it opens the menu */
+.seal-menu { position: relative; }
+.seal-menu > button { width: 46px; height: 46px; padding: 0; border: 0; background: none; color: var(--vermillion);
+  cursor: pointer; border-radius: 50%; display: grid; place-items: center; transition: transform .28s ease;
+  -webkit-tap-highlight-color: transparent; }
+.seal-menu > button:hover { transform: rotate(-8deg); }
+.seal-menu > button[aria-expanded="true"] { transform: rotate(-18deg) scale(.92); }
+.seal-menu > button:focus-visible { outline: 2px solid var(--vermillion); outline-offset: 3px; }
+.seal-menu svg { width: 46px; height: 46px; display: block; overflow: visible; }
+.seal-menu .bar { transition: transform .28s ease, opacity .2s ease; transform-box: fill-box; transform-origin: center; }
+.seal-menu button[aria-expanded="true"] .b1 { transform: translateY(3.8px) rotate(45deg); }
+.seal-menu button[aria-expanded="true"] .b2 { opacity: 0; }
+.seal-menu button[aria-expanded="true"] .b3 { transform: translateY(-3.8px) rotate(-45deg); }
+.seal-menu nav { position: absolute; right: 0; top: 54px; width: min(272px, calc(100vw - 32px)); background: #fbfbf9;
+  border: 1px solid rgba(35,32,29,.14); border-radius: 12px; padding: 6px; box-shadow: 0 12px 32px rgba(35,32,29,.14);
+  opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98); transform-origin: top right; z-index: 20;
+  transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s; text-align: left; }
+.seal-menu.open nav { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.seal-menu nav a { display: block; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--sumi); }
+.seal-menu nav a:hover, .seal-menu nav a:focus-visible { background: rgba(178,56,44,.07); outline: none; }
+.seal-menu nav a b { display: block; font: 600 15.5px/1.25 var(--display); }
+.seal-menu nav a span { display: block; font: 12px/1.35 var(--text); color: var(--sumi-soft); margin-top: 2px; }
+.seal-menu nav a[aria-current="page"] b { color: var(--vermillion); }
+@media (prefers-reduced-motion: reduce) { .seal-menu > button, .seal-menu .bar, .seal-menu nav { transition: none; } }
+
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 9px; padding: 3px; background: #fff; margin: 14px 0 4px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 8px 12px; border-radius: 7px; font-weight: 600; color: var(--sumi-soft); }
+.seg button[aria-pressed="true"] { background: var(--vermillion); color: #fff; }
+.code { background: #fff; border: 1px dashed var(--vermillion); border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 13px; }
 h1 { font: 500 30px/1.15 var(--display); margin: 22px 0 6px; text-wrap: balance; }
 .lead { color: var(--sumi-soft); margin: 0 0 22px; text-wrap: pretty; }
 .card { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 18px 20px; margin: 0 0 16px; }
@@ -72,28 +101,56 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 <div class="wrap">
 <header>
   <a class="brand" href="./"><span class="han" aria-hidden="true">判</span>DigiHan</a>
-  <nav><a href="scan">Open the scanner</a></nav>
+  <div class="seal-menu" id="sealMenu">
+    <button type="button" aria-label="Menu" aria-expanded="false" aria-controls="sealMenuNav"><svg viewBox='0 0 46 46' aria-hidden='true'><circle cx='23' cy='23' r='21' fill='none' stroke='currentColor' stroke-width='2.3'/><circle cx='23' cy='23' r='17.2' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='0.01 3.05'/><circle cx='23' cy='23' r='12.6' fill='currentColor'/><g stroke='#f3f4f1' stroke-width='2' stroke-linecap='round'><line class='bar b1' x1='17.6' y1='19.2' x2='28.4' y2='19.2'/><line class='bar b2' x1='17.6' y1='23' x2='28.4' y2='23'/><line class='bar b3' x1='17.6' y1='26.8' x2='28.4' y2='26.8'/></g></svg></button>
+    <nav id="sealMenuNav" aria-label="Menu">
+      <a href="./"><b>Sample seals</b><span>Twenty-one seals with real signatures</span></a>
+      <a href="seal" aria-current="page"><b>Seal a document</b><span>Make your seal and seal any file</span></a>
+      <a href="how"><b>How it works</b><span>What the ring holds and how it is checked</span></a>
+      <a href="scan"><b>Open the scanner</b><span>Check a seal with your camera</span></a>
+      <a href="https://github.com/dav1dpgit/digihan"><b>Source code</b><span>Open source, on GitHub</span></a>
+    </nav>
+  </div>
 </header>
 
 <h1>Seal a document</h1>
-<p class="lead">Your key is made and kept on this device. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
+<p class="lead">Your key is made and kept on this device, or stays offline on your own computer. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
 
 <!-- 1. the key -->
 <section class="card" id="keyCard">
   <h2><span class="n">1</span>Your seal</h2>
   <div id="noKey">
-    <p>Your seal is a key and the artwork in its center. Make one, or open a key file you saved before.</p>
+    <p>Your seal is a key and the artwork in its center. Make one here, use a key you keep offline, or open a key file you saved before.</p>
     <label class="field">Characters for the center (up to four)
       <input type="text" id="artText" maxlength="4" value="印" autocomplete="off"></label>
     <div class="row"><button id="artImageBtn">Use an image instead…</button><span class="note" id="artImageName"></span></div>
     <div class="seal-row"><canvas id="artPreview" width="368" height="368" aria-label="preview of your seal"></canvas>
       <div class="kv">This is how your seal will look. The dots in the ring change with every document.</div></div>
-    <label class="field">Choose a password (10 or more characters)
-      <input type="password" id="pw1" autocomplete="new-password"></label>
-    <label class="field">The same password again
-      <input type="password" id="pw2" autocomplete="new-password"></label>
-    <div class="row"><button class="primary" id="makeKey">Make my seal</button>
-      <button class="link" id="openKeyBtn">Open a key file…</button></div>
+    <div class="seg" role="group" aria-label="Where your key is kept">
+      <button type="button" id="modeHere" aria-pressed="true">Make a key here</button>
+      <button type="button" id="modeOffline" aria-pressed="false">Use a key I keep offline</button></div>
+    <div id="hereFields">
+      <label class="field">Choose a password (10 or more characters)
+        <input type="password" id="pw1" autocomplete="new-password"></label>
+      <label class="field">The same password again
+        <input type="password" id="pw2" autocomplete="new-password"></label>
+      <div class="row"><button class="primary" id="makeKey">Make my seal</button>
+        <button class="link" id="openKeyBtn">Open a key file…</button></div>
+    </div>
+    <div id="offlineFields" class="hide">
+      <p class="note">Your private key stays on your own computer. This page needs only your public key, and asks you to sign a short code whenever it needs a signature.</p>
+      <label class="field">Your public key (npub1… or 64 hex characters)
+        <input type="text" id="offPub" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+      <div class="row"><button class="primary" id="offPrep">Prepare my seal</button></div>
+      <div id="offSignBox" class="hide">
+        <p class="note">Sign this code with your offline key. It is the fingerprint of the record that ties your artwork to your key.</p>
+        <div class="code mono copy" id="offCode" title="tap to copy"></div>
+        <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span>. Any BIP340 signer works.</p>
+        <label class="field">The signature (128 characters)
+          <input type="text" id="offSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+        <div class="row"><button class="primary" id="offFinish">Finish</button></div>
+      </div>
+    </div>
     <div class="msg hide" id="keyMsg"></div>
   </div>
   <div id="haveKey" class="hide">
@@ -114,9 +171,16 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was sealed no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
   <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was sealed no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
-  <label class="field">Key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
+  <label class="field" id="pwSealField">Key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
   <div class="row"><button class="primary" id="doSeal">Seal</button></div>
   <ol class="steps hide" id="sealSteps"></ol>
+  <div id="sealSignBox" class="hide">
+    <p class="note">Sign this code with your offline key, then paste the signature. The code is the fingerprint of this document, the time and your artwork, together.</p>
+    <div class="code mono copy" id="sealCode" title="tap to copy"></div>
+    <label class="field">The signature (128 characters)
+      <input type="text" id="sealSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+    <div class="row"><button class="primary" id="sealFinish">Finish sealing</button><button id="sealCancel">Cancel</button></div>
+  </div>
   <div class="msg hide" id="sealMsg"></div>
   <div id="sealResult" class="hide">
     <div class="seal-row"><img id="sealImg" alt="the seal"><div class="kv" id="sealInfo"></div></div>
@@ -134,7 +198,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>sealing page v1 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a></footer>
+<footer>sealing page v2 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -142,6 +206,16 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 <input type="file" id="docIn">
 <input type="file" id="finishIn" accept="application/pdf,.pdf">
 
+<script>
+(() => {
+  const m = document.getElementById('sealMenu'), b = m.querySelector('button');
+  const set = o => { m.classList.toggle('open', o); b.setAttribute('aria-expanded', String(o));
+    if (o) setTimeout(() => { const a = m.querySelector('nav a'); a && a.focus({ preventScroll: true }); }, 60); };
+  b.addEventListener('click', e => { e.stopPropagation(); set(!m.classList.contains('open')); });
+  document.addEventListener('click', e => { if (!m.contains(e.target)) set(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && m.classList.contains('open')) { set(false); b.focus(); } });
+})();
+</script>
 <script src="digihan.js"></script>
 <script src="verify.js"></script>
 <script src="ots.js"></script>
@@ -206,8 +280,13 @@ async function useKey(kf, remember) {
   const pub = DHV.unhex(kf.pubkey), png = DHS.unb64(kf.center_png), reg = kf.registration;
   if (!(await DHV.eventValid(reg)) || reg.pubkey !== kf.pubkey || DHV.tag(reg, "center_hash") !== DHV.hex(await DHV.sha256(png)))
     throw new Error("This key file is damaged: its record does not match its key or artwork.");
-  key = { kf, pub, png, reg, art: await pngImage(png) };
+  key = { kf, pub, png, reg, art: await pngImage(png), offline: kf.format === "digihan-pubkey-v1" };
   if (remember) try { localStorage.setItem(STORE, JSON.stringify(kf)); } catch (e) {}
+  $("pwSealField").classList.toggle("hide", key.offline);
+  $("saveKey").textContent = key.offline ? "Save seal file" : "Save key file";
+  $("keyNote").textContent = key.offline
+    ? "Your private key stays offline. For each seal this page shows a code to sign with it. Save the seal file to use this seal on another device: it holds only public parts."
+    : "Save the key file and keep the password. With both you can seal on any device. This page keeps the key file on this device, encrypted with your password.";
   const fp = await DHV.fingerprint(pub);
   $("keyId").textContent = fp.replace(/(.{4})(?=.)/g, "$1 "); $("keyId").dataset.copy = fp;
   const npub = DHV.npubEncode(pub); $("keyNpub").textContent = npub; $("keyNpub").dataset.copy = npub;
@@ -233,18 +312,44 @@ $("makeKey").addEventListener("click", async () => {
 $("saveKey").addEventListener("click", async () => {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(key.kf, null, 1)], { type: "application/json" }));
-  a.download = "digihan-key-" + (await DHV.fingerprint(key.pub)) + ".json"; a.click();
+  a.download = (key.offline ? "digihan-seal-" : "digihan-key-") + (await DHV.fingerprint(key.pub)) + ".json"; a.click();
 });
 $("forgetKey").addEventListener("click", () => {
   try { localStorage.removeItem(STORE); } catch (e) {}
   key = null; $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide");
+});
+// a key kept offline: the page drafts the artwork record, the signature is made elsewhere and pasted back
+function setMode(offline) {
+  $("modeHere").setAttribute("aria-pressed", String(!offline)); $("modeOffline").setAttribute("aria-pressed", String(offline));
+  $("hereFields").classList.toggle("hide", offline); $("offlineFields").classList.toggle("hide", !offline); hide($("keyMsg"));
+}
+$("modeHere").addEventListener("click", () => setMode(false));
+$("modeOffline").addEventListener("click", () => setMode(true));
+const readSig = t => { t = (t || "").trim().toLowerCase(); return /^[0-9a-f]{128}$/.test(t) ? DHV.unhex(t) : null; };
+let offDraft = null;
+$("offPrep").addEventListener("click", async () => {
+  const pub = DHS.readPublicKey($("offPub").value);
+  if (!pub) return show($("keyMsg"), "bad", "That is not a public key. Paste an npub (npub1…) or 64 hex characters.");
+  const png = await makeArtPng();
+  offDraft = { pub, png, draft: await DHS.draftRegistration(pub, png) };
+  $("offCode").textContent = DHV.hex(offDraft.draft.id); $("offSignBox").classList.remove("hide"); hide($("keyMsg"));
+});
+$("offFinish").addEventListener("click", async () => {
+  const sig = readSig($("offSig").value);
+  if (!offDraft) return;
+  if (!sig) return show($("keyMsg"), "bad", "The signature is 128 characters, 0-9 and a-f.");
+  try {
+    const reg = await DHS.finishRegistration(offDraft.draft, sig);
+    await useKey({ format: "digihan-pubkey-v1", pubkey: DHV.hex(offDraft.pub), center_png: DHS.b64(offDraft.png), registration: reg }, true);
+    offDraft = null; $("offSig").value = ""; $("offSignBox").classList.add("hide"); hide($("keyMsg"));
+  } catch (e) { show($("keyMsg"), "bad", e.message + " Check that you signed this exact code with the key whose public key you entered."); }
 });
 for (const id of ["openKeyBtn", "openKeyBtn2"]) $(id).addEventListener("click", () => $("keyIn").click());
 $("keyIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
   try {
     const kf = JSON.parse(await f.text());
-    if (kf.kdf !== "pbkdf2-sha256") throw new Error("This key file was made by the Python tools. This page opens key files it made itself.");
+    if (kf.kdf !== "pbkdf2-sha256" && kf.format !== "digihan-pubkey-v1") throw new Error("This key file was made by the Python tools. This page opens key files it made itself; to use that key, choose “Use a key I keep offline” and sign the codes with sign_hash.py.");
     await useKey(kf, true);
   } catch (e) { show($("keyMsg"), "bad", e.message.startsWith("Unexpected") ? "That is not a DigiHan key file." : e.message); $("noKey").classList.remove("hide"); }
 });
@@ -331,21 +436,52 @@ async function buildPdf(o) {
   set("DigiHanFormat", PDFString.of("DigiHan format v0.4, cover sheet, doc tier 1 (byte-exact)"));
   return out.save({ useObjectStreams: false });
 }
+// sealing: prepare the message, sign it (here, or elsewhere for a key kept offline), then draw, stamp and build
+let pending = null;     // {msg, docHash, ts, anchor, wantStamp, done, k}
 $("doSeal").addEventListener("click", async () => {
-  hide($("sealMsg")); $("sealResult").classList.add("hide");
+  hide($("sealMsg")); $("sealResult").classList.add("hide"); $("sealSignBox").classList.add("hide"); pending = null;
   if (!key) return show($("sealMsg"), "bad", "Make your seal or open your key file first (step 1).");
   if (!doc) return show($("sealMsg"), "bad", "Choose a document first.");
   const wantAnchor = $("optAnchor").checked, wantStamp = $("optStamp").checked;
-  const done = steps(["Opening your key", "Reading the document", ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), "Signing and drawing the seal", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF"]);
+  const done = steps([key.offline ? "Reading the document" : "Opening your key", ...(key.offline ? [] : ["Reading the document"]),
+    ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), key.offline ? "Waiting for your signature" : "Signing",
+    "Drawing the seal and reading it back", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF"]);
   $("doSeal").disabled = true;
   let k = 0, sk = null;
   try {
-    sk = await DHS.unlockKey(key.kf, $("pwSeal").value); done(k++);
+    if (!key.offline) { sk = await DHS.unlockKey(key.kf, $("pwSeal").value); done(k++); }
     const docHash = await DHV.sha256(doc.bytes); done(k++);
     const anchor = wantAnchor ? await anchorBlock() : null; if (wantAnchor) done(k++);
     const ts = Math.floor(Date.now() / 1000);
-    const payload = await DHS.sealPayload(sk, key.pub, docHash, ts, await DHV.sha256(key.png), anchor);
+    const msg = await DHS.sealMessage(key.pub, docHash, ts, await DHV.sha256(key.png), anchor);
+    pending = { msg, docHash, ts, anchor, wantStamp, done, k };
+    if (key.offline) {
+      $("sealCode").textContent = DHV.hex(msg.m); $("sealSig").value = ""; $("sealSignBox").classList.remove("hide");
+      $("sealSig").focus({ preventScroll: true });
+      return;                                              // continues in "Finish sealing"
+    }
+    const sig = await DHS.schnorrSign(msg.m, sk, crypto.getRandomValues(new Uint8Array(32)));
     sk.fill(0); sk = null;
+    await finishSeal(await DHS.assemble(key.pub, msg, sig));
+  } catch (e) {
+    if (sk) sk.fill(0);
+    show($("sealMsg"), "bad", e.message);
+    $("doSeal").disabled = false;
+  }
+  $("pwSeal").value = "";
+});
+$("sealFinish").addEventListener("click", async () => {
+  if (!pending) return;
+  const sig = readSig($("sealSig").value);
+  if (!sig) return show($("sealMsg"), "bad", "The signature is 128 characters, 0-9 and a-f.");
+  try { const payload = await DHS.assemble(key.pub, pending.msg, sig); $("sealSignBox").classList.add("hide"); await finishSeal(payload); }
+  catch (e) { show($("sealMsg"), "bad", e.message + " Check that you signed this exact code with your seal's key."); }
+});
+$("sealCancel").addEventListener("click", () => { pending = null; $("sealSignBox").classList.add("hide"); $("sealSteps").classList.add("hide"); $("doSeal").disabled = false; });
+async function finishSeal(payload) {
+  const { docHash, ts, anchor, wantStamp, done } = pending; let k = pending.k;
+  try {
+    done(k++);                                             // signed
     const sealPng = await drawAndCheck(payload); done(k++);
     let proof = null, stampNote = "";
     if (wantStamp) {
@@ -365,12 +501,9 @@ $("doSeal").addEventListener("click", async () => {
     }
     $("sealResult").classList.remove("hide");
     show($("sealMsg"), stampNote ? "warn" : "ok", "Sealed." + stampNote);
-  } catch (e) {
-    if (sk) sk.fill(0);
-    show($("sealMsg"), "bad", e.message);
-  }
-  $("pwSeal").value = ""; $("doSeal").disabled = false;
-});
+  } catch (e) { show($("sealMsg"), "bad", e.message); }
+  pending = null; $("doSeal").disabled = false;
+}
 
 // ---------------- finishing the time proof ----------------
 function attachments(pdf) {                               // [{name, bytes, index}] from the EmbeddedFiles name tree

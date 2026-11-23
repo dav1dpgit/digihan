@@ -57,6 +57,9 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
 1. **Your seal.** Type up to four characters for the center, or pick an image, and choose a password. The
    page makes your key, signs a registration record for your artwork, and keeps the key file on the
    device, encrypted with the password. Save the key file to seal on another device.
+   **Or keep your key offline:** give the page only your public key. Whenever it needs a signature it
+   shows a 64-character code; sign it on your own computer (`python sign_hash.py CODE --key YOUR_KEY`, or
+   any BIP340 signer) and paste the signature back. The private key never touches the browser.
 2. **Your document.** Any file. The page anchors the seal to a recent Bitcoin block (two block explorers
    must agree), signs, draws the seal and reads it back, starts the OpenTimestamps proof, and gives you a
    PDF: a cover page with the seal, then the document's own pages if it is a PDF, with the file attached
@@ -102,7 +105,8 @@ python verify_pdf.py sealed/some_sealed_timestamped.pdf
 SPEC.md              the format (public domain)
 docs/TIME-PROOF.md   proving when a seal was made: block anchors and OpenTimestamps
 nip/NIP-DIGIHAN.md   draft Nostr NIP for the seal registration
-python/              codec, signing, keys, PDF tools, time proofs (anchor.py, ots.py, timestamp.py), tests
+python/              codec, signing, keys, PDF tools, time proofs (anchor.py, ots.py, timestamp.py),
+                     sign_hash.py (signs the sealing page's codes with a key kept offline), tests
 web/scanner/         the phone scanner: index.html, digihan.js (reads rings), verify.js (checks signatures),
                      ots.js (time proofs: checks, starts and finishes them)
 web/sealer/          the sealing page: index.html, dhseal.js (draws rings, signs, key files), vendor/pdf-lib

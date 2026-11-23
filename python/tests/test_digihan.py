@@ -1,5 +1,5 @@
 """DigiHan format v0.4 tests. Run from the python/ folder:  python -m pytest tests"""
-import csv, hashlib, os, sys
+import csv, hashlib, json, os, sys
 import numpy as np
 import pytest
 
@@ -187,3 +187,16 @@ def test_ots_online_block_358391():
     assert got is not None and got[0] == HELLO_ROOT
     assert ots.verify(ots.Proof.from_bytes(_read("hello-world.txt.ots")), _read("hello-world.txt"),
                       anchor.explorer_merkle_at)[0] == 358391
+
+
+def test_sign_hash_for_an_offline_key(tmp_path, capsys):
+    """sign_hash.py signs a sealing-page code with a key folder; the signature checks against the key."""
+    import sign_hash, bip340
+    sk, pk = dhsign.new_key()
+    d = tmp_path / "key_t"; d.mkdir()
+    (d / "keyfile.json").write_text(json.dumps(dhsign.lock_key(sk, pk, "pw-for-tests")))
+    code = hashlib.sha256(b"a code from the page").hexdigest()
+    sig = sign_hash.main([code, "--key", str(d), "--password", "pw-for-tests"])
+    assert bip340.verify(bytes.fromhex(code), pk, bytes.fromhex(sig))
+    with pytest.raises(SystemExit):
+        sign_hash.main(["xyz", "--key", str(d), "--password", "pw-for-tests"])

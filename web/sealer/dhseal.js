@@ -116,24 +116,49 @@ const DHS = (() => {
   function newSecret() { for (;;) { const sk = random(32), d = toInt(sk); if (d >= 1n && d < N) return sk; } }
 
   // ---- the payload (78 bytes) and the registration record ----
-  // anchor = {height, hash: Uint8Array(32) in display order} makes an anchored seal (flag bit 0)
-  async function sealPayload(sk, pub, docHash, ts, centerHash, anchor) {
+  // anchor = {height, hash: Uint8Array(32) in display order} makes an anchored seal (flag bit 0).
+  // sealMessage gives the 32-byte message to sign, so a key kept offline can sign it elsewhere; assemble
+  // puts the payload together once the signature is back (it is checked first).
+  async function sealMessage(pub, docHash, ts, centerHash, anchor) {
     const fp = (await sha256(pub)).slice(0, 8);
     if (anchor) ts = anchor.height;
     const tsB = new Uint8Array(5); let v = ts; for (let i = 4; i >= 0; i--) { tsB[i] = v % 256; v = Math.floor(v / 256); }
     const parts = [docHash, tsB, fp]; if (centerHash) parts.push(centerHash); if (anchor) parts.push(anchor.hash);
-    const sig = await schnorrSign(await taggedHash("DigiHan/v1", cat(...parts)), sk, random(32));
-    const flags = (centerHash ? 4 : 0) | (anchor ? 1 : 0);
-    return cat(Uint8Array.of(0x10 | flags), fp, tsB, sig);
+    return { m: await taggedHash("DigiHan/v1", cat(...parts)), fp, tsB, flags: (centerHash ? 4 : 0) | (anchor ? 1 : 0) };
   }
-  async function registration(sk, pub, centerPng, createdAt) {
+  async function assemble(pub, msg, sig) {
+    if (sig.length !== 64 || !(await schnorrVerify(msg.m, pub, sig))) throw new Error("That signature does not match this code and key.");
+    return cat(Uint8Array.of(0x10 | msg.flags), msg.fp, msg.tsB, sig);
+  }
+  async function sealPayload(sk, pub, docHash, ts, centerHash, anchor) {
+    const msg = await sealMessage(pub, docHash, ts, centerHash, anchor);
+    return assemble(pub, msg, await schnorrSign(msg.m, sk, random(32)));
+  }
+  // the record before its signature: {ev, id}; finishRegistration adds a signature made anywhere
+  async function draftRegistration(pub, centerPng, createdAt) {
     const ch = hex(await sha256(centerPng)), pk = hex(pub);
     const ev = { pubkey: pk, created_at: createdAt || Math.floor(Date.now() / 1000), kind: 30078,
       tags: [["d", "digihan-center:" + ch], ["center_hash", ch], ["f", await fingerprint(pub)], ["alt", "DigiHan seal: artwork registration"]],
       content: JSON.stringify({ app: "DigiHan", format: "v0.4", center_hash: ch }) };
     const id = await sha256(enc.encode(JSON.stringify([0, ev.pubkey, ev.created_at, ev.kind, ev.tags, ev.content])));
-    ev.id = hex(id); ev.sig = hex(await schnorrSign(id, sk, random(32)));
-    return ev;
+    ev.id = hex(id);
+    return { ev, id };
+  }
+  async function finishRegistration(draft, sig) {
+    if (sig.length !== 64 || !(await schnorrVerify(draft.id, unhex(draft.ev.pubkey), sig))) throw new Error("That signature does not match this code and key.");
+    return { ...draft.ev, sig: hex(sig) };
+  }
+  async function registration(sk, pub, centerPng, createdAt) {
+    const d = await draftRegistration(pub, centerPng, createdAt);
+    return finishRegistration(d, await schnorrSign(d.id, sk, random(32)));
+  }
+  // a public key typed or pasted: npub1... or 64 hex characters -> Uint8Array(32), or null
+  function readPublicKey(t) {
+    t = (t || "").trim();
+    const pub = t.toLowerCase().startsWith("npub") ? DHV.npubDecode(t) : (/^[0-9a-f]{64}$/i.test(t) ? unhex(t.toLowerCase()) : null);
+    if (!pub) return null;
+    try { if (!DHV.curve.liftX(toInt(pub))) return null; } catch (e) { return null; }
+    return pub;
   }
 
   // ---- the key file: the secret key encrypted with a password (PBKDF2-SHA256 -> AES-256-GCM, pubkey as AAD) ----
@@ -163,6 +188,7 @@ const DHS = (() => {
   }
 
   return { NSYM, GEOM, rsEncode, buildStream, sealSize, drawSeal, pubFromSecret, schnorrSign, newSecret, sealPayload,
-           registration, lockKey, unlockKey, b64, unb64, npubEncode };
+           sealMessage, assemble, draftRegistration, finishRegistration, registration, readPublicKey,
+           lockKey, unlockKey, b64, unb64, npubEncode };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHS;

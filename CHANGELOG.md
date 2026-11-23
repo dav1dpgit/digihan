@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.1 (2026-11-23): keep your key offline
+
+* Sealing page v2: step 1 can take only a public key (npub or hex) for a key kept offline. The page shows
+  a 64-character code for the artwork record and for each seal; the signature is made elsewhere and
+  pasted back, and checked before it is used. The page then keeps only public parts on the device.
+* `python/sign_hash.py`: signs those codes with a key folder from `make_key.py` or a key file from the page.
+* `dhseal.js` splits signing into prepare (`sealMessage`, `draftRegistration`) and finish (`assemble`,
+  `finishRegistration`); tests cover both, and a pasted signature that does not match.
+* The sealing page has the site's menu (a small seal, top right).
+
 ## v0.5.0 (2026-11-23): seal in a browser
 
 * The sealing page (`web/sealer/`, digihan.org/seal): make a seal (key and center artwork) on the device,

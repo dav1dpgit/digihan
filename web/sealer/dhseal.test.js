@@ -36,6 +36,18 @@ const h2b = h => Uint8Array.from(Buffer.from(h, "hex")), b2h = b => Buffer.from(
   const kf = await DHS.lockKey(sk, pub, "correct horse battery", png, reg);
   assert.strictEqual(b2h(await DHS.unlockKey(kf, "correct horse battery")), b2h(sk)); n++;
   await assert.rejects(DHS.unlockKey(kf, "wrong password"), /Wrong password/); n++;
+  // 5. a key kept offline: the page drafts, someone else signs, the page assembles and checks
+  const d = await DHS.draftRegistration(pub, png);
+  const reg2 = await DHS.finishRegistration(d, await DHS.schnorrSign(d.id, sk, new Uint8Array(32)));
+  assert.ok(await DHV.eventValid(reg2)); n++;
+  await assert.rejects(DHS.finishRegistration(d, new Uint8Array(64)), /does not match/); n++;
+  const msg = await DHS.sealMessage(pub, doc, 0, ch, anchor);
+  const p3 = await DHS.assemble(pub, msg, await DHS.schnorrSign(msg.m, sk, new Uint8Array(32)));
+  assert.ok((await DHV.checkSeal(p3, pub, doc, [reg2], async h => h === 977124 ? anchor.hash : null)).ok); n++;
+  await assert.rejects(DHS.assemble(pub, msg, new Uint8Array(64)), /does not match/); n++;
+  assert.strictEqual(b2h(DHS.readPublicKey(DHS.npubEncode(pub))), b2h(pub)); n++;
+  assert.strictEqual(b2h(DHS.readPublicKey(b2h(pub).toUpperCase())), b2h(pub)); n++;
+  assert.strictEqual(DHS.readPublicKey("npub1notakey"), null); n++;
   if (process.env.SEAL_OUT) fs.writeFileSync(process.env.SEAL_OUT, JSON.stringify({ kf, password: "correct horse battery", p1: b2h(p1), p2: b2h(p2), sk: b2h(sk) }));
   console.log(`dhseal.test.js: ${n} checks passed`);
 })().catch(e => { console.error("FAIL", e); process.exit(1); });
