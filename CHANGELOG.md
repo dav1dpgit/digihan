@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.5.18 (2026-11-23): offline signing instructions say what is signed
+
+* Stamping page v15, key kept offline. Setting up the seal: the instructions now say what the code is made
+  from (the seal's public record: public key, time, key id, the artwork's SHA-256 hash; the code is also the
+  record's Nostr id), that sign_hash.py asks for the key's password, that a BIP340 signer must sign the 32
+  bytes exactly as given (a tool that hashes the code again, or Bitcoin's older signed-message method,
+  gives a signature the page rejects), and to sign only codes the page shows. Stamping: the code's parts
+  are listed fully (with the block proof, the block number takes the place of the time, and the block's
+  hash is added), "key's fingerprint" is now "key id", the signature is said to go into the ring, and the
+  sign_hash.py command is shown here too.
+* How it works (site): with a key kept offline, a code is signed once when the seal is set up and once for
+  each document.
+
 ## v0.5.17 (2026-11-23): larger logo
 
 * Stamping page v14: the shared site header's DH logo is larger (38 px, was 24 px) and the name beside it

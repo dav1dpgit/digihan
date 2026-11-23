@@ -194,9 +194,9 @@ html { scrollbar-gutter: stable; }
         <input type="text" id="offPub" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <div class="row"><button class="primary" id="offPrep">Prepare my seal</button></div>
       <div id="offSignBox" class="hide">
-        <p class="note">Sign this code with your offline key. It is the SHA-256 hash (32 bytes) of the record that ties your artwork to your key.</p>
+        <p class="note">Sign this code with your offline key. The code is the SHA-256 hash (32 bytes) of your seal's public record, which ties your artwork to your key. The record holds your public key, the time, your key id (the first 8 bytes of your public key's SHA-256 hash) and your artwork's SHA-256 hash. The code is also the record's Nostr id.</p>
         <div class="code mono copy" id="offCode" title="tap to copy"></div>
-        <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span>. Any BIP340 signer works.</p>
+        <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span> (it asks for your key's password). Any BIP340 signer works if it signs the 32 bytes exactly as given. A tool that hashes the code again, or uses Bitcoin's older signed-message method, gives a signature this page will not accept. Sign only codes this page shows you: a signature over a code counts as a signature over whatever made it.</p>
         <label class="field">The signature (128 characters)
           <input type="text" id="offSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
         <div class="row"><button class="primary" id="offFinish">Finish</button></div>
@@ -243,8 +243,9 @@ html { scrollbar-gutter: stable; }
   <div class="row"><button class="primary" id="doSeal">Stamp</button></div>
   <ol class="steps hide" id="sealSteps"></ol>
   <div id="sealSignBox" class="hide">
-    <p class="note">Sign this code with your offline key, then paste the signature. The code is one SHA-256 hash (32 bytes) made from this document's hash, the time, your key's fingerprint, your artwork's hash and, if chosen, the Bitcoin block's hash.</p>
+    <p class="note">Sign this code with your offline key, then paste the signature. The code is one SHA-256 hash (32 bytes) made from: this document's SHA-256 hash; the time, or the Bitcoin block number if you chose the block proof; your key id; your artwork's SHA-256 hash; and, with the block proof, the block's hash. The signature goes into the seal's ring.</p>
     <div class="code mono copy" id="sealCode" title="tap to copy"></div>
+    <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span>. Sign only codes this page shows you.</p>
     <label class="field">The signature (128 characters)
       <input type="text" id="sealSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
     <div class="row"><button class="primary" id="sealFinish">Finish stamping</button><button id="sealCancel">Cancel</button></div>
@@ -268,7 +269,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v14 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v15 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -727,7 +728,7 @@ async function buildPdf(o) {
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v14 (format v0.4)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v15 (format v0.4)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
