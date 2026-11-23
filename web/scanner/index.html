@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>DigiHan seal scanner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
 /* scanner v5 (format v0.3) — viewfinder layout: full-bleed viewfinder, controls
    float over it, zero clutter in the frame, safe-area-aware footer. */
@@ -107,7 +109,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v13 · format v0.4</div>
+    <div class="v">scanner v14 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -164,6 +166,7 @@ input[type=file] { display:none; }
 <script src="digihan.js"></script>
 <script src="verify.js"></script>
 <script src="ots.js"></script>
+<script>if ("serviceWorker" in navigator && window.isSecureContext) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -429,6 +432,8 @@ async function runCheck() {
     return;
   }
   $("r_signer").textContent = short(DHV.npubEncode(c.keys[0].pub)) + " · " + c.keys[0].source;
+  // v14: more than one different full key with this key id (the 8 bytes match, the keys do not)
+  const distinct = [...new Map(c.keys.map(k => [DHV.hex(k.pub), k])).values()];
   const docs = [...c.docs];
   for (const k of c.keys) for (const d of k.docs || []) docs.push({ name: d.name, sha: DHV.unhex(d.sha256), url: d.url });
   if (!docs.length) {
@@ -447,7 +452,13 @@ async function runCheck() {
       const tw = await timeWindow(c, anchored);
       if (c !== current) return;
       $("r_proof").textContent = tw.text;
-      if (tw.bad) verdict("bad", "Time proofs contradict", tw.why); else verdict("ok", "Signature valid", tw.why);
+      if (tw.bad) verdict("bad", "Time proofs contradict", tw.why);
+      else if (distinct.length > 1) {
+        const others = distinct.filter(x => DHV.hex(x.pub) !== DHV.hex(k.pub)).map(x => short(DHV.npubEncode(x.pub)) + " (" + x.source + ")");
+        verdict("warn", "Signature valid — check the signer",
+          "Different keys share this seal's key id. The seal was signed by " + short(DHV.npubEncode(k.pub)) + " (" + k.source
+          + "), not by " + others.join(", ") + ". Make sure the full key is the signer you expect. " + tw.why);
+      } else verdict("ok", "Signature valid", tw.why);
       const ch = r.reg ? DHV.tag(r.reg, "center_hash") : null;
       if (ch) {
         if (k.center && k.center.sha256 === ch) showArt(k.center.url, ch);

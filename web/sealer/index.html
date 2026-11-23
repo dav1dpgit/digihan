@@ -6,6 +6,8 @@
 <title>DigiHan Sealing</title>
 <meta name="description" content="Seal a document with your DigiHan seal: your key stays on this device, the document is hashed here and never uploaded, and the seal is bookended between two Bitcoin blocks.">
 <meta name="theme-color" content="#f3f4f1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%23b2382c' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23b2382c'/%3E%3C/svg%3E">
 <style>
 /* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps */
@@ -171,6 +173,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was sealed no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
   <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was sealed no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
+  <div class="msg warn hide" id="netNote"></div>
   <label class="field" id="pwSealField">Key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
   <div class="row"><button class="primary" id="doSeal">Seal</button></div>
   <ol class="steps hide" id="sealSteps"></ol>
@@ -198,7 +201,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>sealing page v2 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a></footer>
+<footer>sealing page v3 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -221,6 +224,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 <script src="ots.js"></script>
 <script src="dhseal.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
+<script>if ("serviceWorker" in navigator && window.isSecureContext) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -359,16 +363,36 @@ document.addEventListener("click", ev => {
 });
 
 // ---------------- Bitcoin blocks: two explorers, an answer they disagree on is refused ----------------
+// v3: with no internet the two Bitcoin boxes are turned off, with a plain note, so sealing still works offline.
+const noAnswer = () => Object.assign(new Error("The Bitcoin block sites (mempool.space, blockstream.info) did not answer."), { noAnswer: true });
+let netAutoOff = false;                                   // the boxes were turned off by this page, not by the person
+function bitcoinOff(why) {
+  if (!$("optAnchor").checked && !$("optStamp").checked && !netAutoOff) return false;
+  $("optAnchor").checked = false; $("optStamp").checked = false; netAutoOff = true;
+  show($("netNote"), "warn", why + " The two Bitcoin proofs are off, so the seal will carry the time this device states. "
+    + "Once you are online again, step 3 can still add the “no later than” proof.");
+  return true;
+}
+function bitcoinBackOn() {
+  if (!netAutoOff) return;
+  $("optAnchor").checked = true; $("optStamp").checked = true; netAutoOff = false;
+  show($("netNote"), "ok", "Back online: the two Bitcoin proofs are on again.");
+  setTimeout(() => { if (!netAutoOff) hide($("netNote")); }, 6000);
+}
+for (const id of ["optAnchor", "optStamp"]) $(id).addEventListener("change", () => { netAutoOff = false; hide($("netNote")); });
+addEventListener("offline", () => bitcoinOff("No internet connection."));
+addEventListener("online", bitcoinBackOn);
+if (navigator.onLine === false) bitcoinOff("No internet connection.");
 async function agree(path, parse) {
   const got = (await Promise.all(EXPLORERS.map(async b => { try { const r = await fetch(b + path); return r.ok ? parse((await r.text()).trim()) : null; } catch (e) { return null; } }))).filter(v => v !== null);
-  if (!got.length) throw new Error("The block explorers did not answer.");
-  if (got.some(v => v !== got[0])) throw new Error("The block explorers disagree.");
+  if (!got.length) throw noAnswer();
+  if (got.some(v => v !== got[0])) throw new Error("The two Bitcoin block sites (mempool.space, blockstream.info) gave different answers. Try again in a minute.");
   return got[0];
 }
 const hashText = t => /^[0-9a-f]{64}$/.test(t) ? t : null;
 async function anchorBlock() {
   const tips = (await Promise.all(EXPLORERS.map(async b => { try { const r = await fetch(b + "/blocks/tip/height"); return r.ok ? +(await r.text()) : null; } catch (e) { return null; } }))).filter(Boolean);
-  if (!tips.length) throw new Error("The block explorers did not answer.");
+  if (!tips.length) throw noAnswer();
   const height = Math.max(...tips) - 2;                    // two below the tip: a short reorganization cannot drop it
   const hash = await agree("/block-height/" + height, hashText);
   const time = await agree("/block/" + hash, t => JSON.parse(t).timestamp);
@@ -465,7 +489,9 @@ $("doSeal").addEventListener("click", async () => {
     await finishSeal(await DHS.assemble(key.pub, msg, sig));
   } catch (e) {
     if (sk) sk.fill(0);
-    show($("sealMsg"), "bad", e.message);
+    if (e.noAnswer && bitcoinOff("The Bitcoin block sites did not answer, so there seems to be no internet connection.")) {
+      hide($("sealSteps")); show($("sealMsg"), "warn", "Nothing was sealed yet. Tap Seal again to seal without the Bitcoin proofs.");
+    } else show($("sealMsg"), "bad", e.message);
     $("doSeal").disabled = false;
   }
   $("pwSeal").value = "";

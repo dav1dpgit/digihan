@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.5.4 (2026-11-23): works offline; a warning for keys that share a key id
+
+* Sealing page v3: with no internet connection, the two Bitcoin proof boxes are turned off with a plain
+  note, so a seal can still be made; the note says step 3 can add the "no later than" proof once online.
+  The same happens when the Bitcoin block sites do not answer although the phone says it is online.
+  They turn back on when the connection returns (unless the person changed them). Messages no longer
+  say "block explorers".
+* Scanner v14: if different full keys with the seal's key id are found (the 8 bytes match, the keys do
+  not), the result says "Signature valid — check the signer", names the key that signed and where it came
+  from, and the other key(s). No format change.
+* Both pages ask the browser to save them for offline use where the site provides `sw.js` (digihan.org
+  does), and link the site's app manifest and icon. Served elsewhere, both steps fail quietly.
+
 ## v0.5.3 (2026-11-23): one meaning for "fingerprint"
 
 * "Fingerprint" now means only the key id: the first 8 bytes of the SHA-256 hash of the public key, as
