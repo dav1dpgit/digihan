@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.13 (2026-11-23): up to 21 seals on one device
+
+* Stamping page v11: a device keeps up to 21 seals (each its encrypted key file, or the public parts of a
+  key kept offline) in the browser's database storage (IndexedDB), listed at the top of step 1 ("Your seals
+  on this device, n of 21"); tap one to use it. "Make another seal" and "Open a key file…" add to the
+  list and never replace a seal; opening a key file already kept just selects it; at 21 the page asks for
+  one to be erased first. "Erase from this device" erases the seal in use (second tap). The one seal kept
+  by earlier versions (localStorage) moves into the list the first time the page opens.
+  Fixed: "Open another key file…" silently replaced the seal kept on the device.
+* Stamped picture: the white disc behind the seal is now 1.2 times the seal's width (was 1.07). With the
+  narrower disc a busy photo next to it could stop the seal being found (seen in tests in one corner in
+  every try); 72 stamped pictures in all four corners now read back every time.
+* Scanner v21: if a file is loaded but the signer's key is not found (an original file does not carry the
+  key), the scanner says so: "Seal read · file loaded", and asks for the stamped PDF or picture instead.
+
 ## v0.5.12 (2026-11-23): wording for the two files; a gentler tilt
 
 * "Original" means the file as it was before stamping; the file you get back is "the stamped PDF" or

@@ -92,6 +92,16 @@ button:disabled { opacity: .5; cursor: default; }
 .msg.ok { color: var(--ok); background: rgba(47,125,79,.08); }
 .msg.warn { color: var(--warn); background: rgba(154,106,18,.08); }
 .msg.bad { color: var(--bad); background: rgba(178,56,44,.08); }
+/* v11: the seals kept on this device (up to 21) */
+#sealsBox { margin: 6px 0 16px; }
+.seals-h { font-size: 13.5px; margin-bottom: 8px; } .seals-h span { color: var(--sumi-soft); margin-left: 8px; }
+.seals { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
+.seal-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 6px; border: 1px solid var(--rule);
+  border-radius: 10px; background: #fff; cursor: pointer; font: inherit; }
+.seal-item img { width: 44px; height: 44px; border-radius: 50%; object-fit: contain; background: var(--paper); }
+.seal-item span { font: 11px/1.2 var(--mono); color: var(--sumi-soft); }
+.seal-item[aria-pressed="true"] { border-color: var(--vermillion); box-shadow: inset 0 0 0 1px var(--vermillion); }
+.seal-item[aria-pressed="true"] span { color: var(--vermillion); font-weight: 600; }
 /* v8: the key on this device */
 .device { margin: 12px 0 4px; padding: 10px 12px; border-radius: 8px; background: rgba(35,32,29,.04); font-size: 13.5px; }
 .device b { display: block; font-weight: 600; margin-bottom: 2px; }
@@ -155,6 +165,10 @@ html { scrollbar-gutter: stable; }
 <!-- 1. the key -->
 <section class="card" id="keyCard">
   <h2><span class="n">1</span>Your seal</h2>
+  <div id="sealsBox" class="hide">
+    <div class="seals-h"><b>Your seals on this device</b><span id="sealsCount"></span></div>
+    <div class="seals" id="sealsList"></div>
+  </div>
   <div id="noKey">
     <p>Your seal is a key and the artwork in its center. Make one here, use a key you keep offline, or open a key file you saved before.</p>
     <label class="field">Characters for the center (up to four)
@@ -189,8 +203,9 @@ html { scrollbar-gutter: stable; }
       </div>
     </div>
     </div>
-    <div class="msg hide" id="keyMsg"></div>
+    <div class="row hide" id="backRow"><button class="link" id="backToSeals">Back to your seals</button></div>
   </div>
+  <div class="msg hide" id="keyMsg"></div>
   <div id="haveKey" class="hide">
     <div class="seal-row"><canvas id="keyPreview" width="368" height="368" aria-label="your seal"></canvas>
       <div class="kv"><div><b>Key id</b> <span class="mono copy" id="keyId" title="tap to copy"></span></div>
@@ -200,8 +215,9 @@ html { scrollbar-gutter: stable; }
       <div id="deviceState"></div>
     </div>
     <div class="row"><button id="saveKey">Save key file</button>
-      <button id="forgetKey">Erase from this device</button>
-      <button class="link" id="openKeyBtn2">Open another key file…</button></div>
+      <button id="forgetKey">Erase from this device</button></div>
+    <div class="row"><button id="newSeal">Make another seal</button>
+      <button class="link" id="openKeyBtn2">Open a key file…</button></div>
     <p class="note" id="keyNote">Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password.</p>
   </div>
 </section>
@@ -247,7 +263,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v10 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v11 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -276,7 +292,6 @@ html { scrollbar-gutter: stable; }
 "use strict";
 const $ = id => document.getElementById(id);
 const enc = new TextEncoder();
-const STORE = "digihan.sealkey";
 const ART_PX = 600, DPMM = 24, MM = 72 / 25.4, SEAL_MM = 45;
 const EXPLORERS = ["https://mempool.space/api", "https://blockstream.info/api"];
 let key = null;          // {kf, pub, png, reg, art}
@@ -328,13 +343,93 @@ $("artImageIn").addEventListener("change", async ev => {
   catch (e) { show($("keyMsg"), "bad", "That image could not be read."); }
 });
 
+// ---------------- v11: up to 21 seals on this device, in the browser's database storage (IndexedDB) ----------------
+// Each seal is its key file (encrypted with its password) or, for a key kept offline, its public parts. Adding never
+// replaces another seal; at 21 the page asks for one to be erased first. Pages v1 to v10 kept one seal in
+// localStorage ("digihan.sealkey"); it is moved here the first time this page opens.
+const MAX_SEALS = 21;
+const Seals = (() => {
+  let db = null, mem = null;                               // mem: no lasting storage (a private window, for example)
+  const open = () => new Promise(res => {
+    try {
+      const rq = indexedDB.open("digihan", 1);
+      rq.onupgradeneeded = () => { const d = rq.result;
+        if (!d.objectStoreNames.contains("seals")) d.createObjectStore("seals", { keyPath: "pubkey" });
+        if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta"); };
+      rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); rq.onblocked = () => res(null);
+    } catch (e) { res(null); }
+  });
+  const run = (store, mode, fn) => new Promise((res, rej) => {
+    const t = db.transaction(store, mode), rq = fn(t.objectStore(store));
+    t.oncomplete = () => res(rq ? rq.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("The seal could not be kept on this device."));
+  });
+  const api = {
+    async init() {
+      db = await open(); if (!db) mem = { seals: new Map(), current: null };
+      let old = null; try { old = JSON.parse(localStorage.getItem("digihan.sealkey") || "null"); } catch (e) {}
+      if (old && old.pubkey) {
+        if (!(await api.get(old.pubkey))) await api.put(old);
+        if (!(await api.current())) await api.setCurrent(old.pubkey);
+        if (db) try { localStorage.removeItem("digihan.sealkey"); } catch (e) {}
+      }
+    },
+    lasting: () => !!db,
+    async all() { const l = db ? (await run("seals", "readonly", s => s.getAll())) || [] : [...mem.seals.values()]; return l.sort((a, b) => a.added - b.added); },
+    async get(pk) { return db ? (await run("seals", "readonly", s => s.get(pk))) || null : mem.seals.get(pk) || null; },
+    async put(kf) {
+      const old = await api.get(kf.pubkey), rec = { pubkey: kf.pubkey, kf, added: old ? old.added : Date.now() };
+      if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(kf.pubkey, rec);
+    },
+    async del(pk) { if (db) await run("seals", "readwrite", s => s.delete(pk)); else mem.seals.delete(pk); },
+    async current() { return db ? (await run("meta", "readonly", s => s.get("current"))) || null : mem.current; },
+    async setCurrent(pk) { if (db) await run("meta", "readwrite", s => pk ? s.put(pk, "current") : s.delete("current")); else mem.current = pk; },
+  };
+  return api;
+})();
+async function renderSeals() {
+  const list = await Seals.all(), cur = key && key.kf.pubkey, box = $("sealsList");
+  $("sealsBox").classList.toggle("hide", !list.length);
+  $("sealsCount").textContent = list.length + " of " + MAX_SEALS;
+  box.innerHTML = "";
+  for (const r of list) {
+    const b = document.createElement("button"), img = document.createElement("img"), t = document.createElement("span");
+    const fp = await DHV.fingerprint(DHV.unhex(r.pubkey));
+    b.type = "button"; b.className = "seal-item"; b.dataset.pk = r.pubkey; b.setAttribute("aria-pressed", String(r.pubkey === cur));
+    b.title = "Key id " + fp.replace(/(.{4})(?=.)/g, "$1 ") + (r.kf.format === "digihan-pubkey-v1" ? " (key kept offline)" : "");
+    img.alt = ""; img.src = "data:image/png;base64," + r.kf.center_png; t.textContent = fp.slice(0, 4) + " " + fp.slice(4, 8);
+    b.append(img, t); box.appendChild(b);
+  }
+}
+$("sealsList").addEventListener("click", async ev => {
+  const b = ev.target.closest(".seal-item"); if (!b) return;
+  const r = await Seals.get(b.dataset.pk); if (!r) return;
+  try { await useKey(r.kf); await Seals.setCurrent(r.pubkey); hide($("keyMsg")); } catch (e) { show($("keyMsg"), "bad", e.message); }
+  await renderSeals();
+});
+// add a seal (or pick it, if this device already keeps it); never replaces another seal
+async function addSeal(kf) {
+  await checkKf(kf);
+  const have = await Seals.get(kf.pubkey);
+  if (!have) {
+    if ((await Seals.all()).length >= MAX_SEALS) throw new Error("This device already keeps " + MAX_SEALS + " seals, the most it keeps. Erase one first: pick it above, then “Erase from this device”.");
+    await Seals.put(kf);
+  }
+  await Seals.setCurrent(kf.pubkey);
+  await useKey(have ? have.kf : kf); await renderSeals();
+  return !!have;
+}
+async function sealsFull() { return (await Seals.all()).length >= MAX_SEALS; }
+
 // ---------------- the key ----------------
-async function useKey(kf, remember) {
-  const pub = DHV.unhex(kf.pubkey), png = DHS.unb64(kf.center_png), reg = kf.registration;
+async function checkKf(kf) {
+  const png = DHS.unb64(kf.center_png), reg = kf.registration;
   if (!(await DHV.eventValid(reg)) || reg.pubkey !== kf.pubkey || DHV.tag(reg, "center_hash") !== DHV.hex(await DHV.sha256(png)))
     throw new Error("This key file is damaged: its record does not match its key or artwork.");
+}
+async function useKey(kf) {
+  await checkKf(kf);
+  const pub = DHV.unhex(kf.pubkey), png = DHS.unb64(kf.center_png), reg = kf.registration;
   key = { kf, pub, png, reg, art: await pngImage(png), offline: kf.format === "digihan-pubkey-v1" };
-  if (remember) try { localStorage.setItem(STORE, JSON.stringify(kf)); } catch (e) {}
   $("pwSealField").classList.toggle("hide", key.offline);
   $("saveKey").textContent = key.offline ? "Save seal file" : "Save key file";
   $("keyNote").textContent = key.offline
@@ -345,19 +440,20 @@ async function useKey(kf, remember) {
   const npub = DHV.npubEncode(pub); $("keyNpub").textContent = npub; $("keyNpub").dataset.copy = npub;
   preview($("keyPreview"), key.art);
   $("noKey").classList.add("hide"); $("haveKey").classList.remove("hide");
-  deviceState();
+  await deviceState();
 }
 $("makeKey").addEventListener("click", async () => {
   const p1 = $("pw1").value, p2 = $("pw2").value;
   if (p1.length < 10) return show($("keyMsg"), "bad", "Use a password of at least 10 characters.");
   if (p1 !== p2) return show($("keyMsg"), "bad", "The two passwords are not the same.");
+  if (await sealsFull()) return show($("keyMsg"), "bad", "This device already keeps " + MAX_SEALS + " seals, the most it keeps. Erase one first: pick it above, then “Erase from this device”.");
   $("makeKey").disabled = true; show($("keyMsg"), "", "Making your key…");
   try {
     const png = await makeArtPng(), sk = DHS.newSecret(), pub = DHS.pubFromSecret(sk);
     const reg = await DHS.registration(sk, pub, png);
     const kf = await DHS.lockKey(sk, pub, p1, png, reg);
     sk.fill(0);
-    await useKey(kf, true);
+    await addSeal(kf);
     $("pw1").value = $("pw2").value = ""; hide($("keyMsg"));
     $("keyNote").textContent = "Your seal is made. Save the key file now and keep the password: with both you can stamp on any device, and without them this seal cannot be used again. This page also keeps the key file on this device, encrypted with your password.";
   } catch (e) { show($("keyMsg"), "bad", e.message); }
@@ -369,26 +465,38 @@ $("saveKey").addEventListener("click", async () => {
   a.download = (key.offline ? "digihan-seal-" : "digihan-key-") + (await DHV.fingerprint(key.pub)) + ".json"; a.click();
 });
 // v8: what this device keeps, and erasing it (a second tap confirms)
-function deviceState() {
-  let kept = null; try { kept = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
-  const here = kept && key && kept.pubkey === key.kf.pubkey;
+async function deviceState() {
+  const here = key && Seals.lasting() && !!(await Seals.get(key.kf.pubkey));
   const how = { "argon2id": "Argon2id", "pbkdf2-sha256": "PBKDF2, an older method; it changes to Argon2id the next time you stamp" }[key.kf.kdf];
-  $("deviceState").textContent = !here ? "Not kept on this device: it is open on this page only, and is gone when you close it."
+  $("deviceState").textContent = !here ? (Seals.lasting() ? "Not kept on this device: it is open on this page only, and is gone when you close it."
+      : "Not kept: this browser gives the page no lasting storage (a private window, for example), so the seal is gone when you close the page. Save the key file.")
     : key.offline ? "Kept: the public parts of your seal (key id, public key, artwork). Your private key is not on this device."
     : "Kept: your key file, encrypted with your password (" + how + "). Your password is not kept.";
-  $("forgetKey").classList.toggle("hide", !here);
+  $("forgetKey").classList.toggle("hide", !(key && (await Seals.get(key.kf.pubkey))));
 }
 let eraseArmed = 0;
-$("forgetKey").addEventListener("click", () => {
+$("forgetKey").addEventListener("click", async () => {
   if (!eraseArmed) {
     $("forgetKey").textContent = "Tap again to erase"; $("forgetKey").classList.add("danger");
     eraseArmed = setTimeout(() => { eraseArmed = 0; $("forgetKey").textContent = "Erase from this device"; $("forgetKey").classList.remove("danger"); }, 5000);
     return;
   }
   clearTimeout(eraseArmed); eraseArmed = 0; $("forgetKey").textContent = "Erase from this device"; $("forgetKey").classList.remove("danger");
-  try { localStorage.removeItem(STORE); } catch (e) {}
-  key = null; $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide");
-  show($("keyMsg"), "ok", "Erased from this device. A key file you saved still works with its password.");
+  const gone = key && key.kf.pubkey;
+  if (gone) await Seals.del(gone);
+  key = null;
+  const rest = await Seals.all(), next = rest[rest.length - 1];         // the most recently added seal left, if any
+  if (next) { await Seals.setCurrent(next.pubkey); try { await useKey(next.kf); } catch (e) {} }
+  else { await Seals.setCurrent(null); $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide"); $("backRow").classList.add("hide"); refreshArtPreview(); }
+  await renderSeals();
+  show($("keyMsg"), "ok", "That seal is erased from this device. A key file you saved still works with its password.");
+});
+// v11: make another seal, or go back to the seals kept here
+$("newSeal").addEventListener("click", () => {
+  hide($("keyMsg")); $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide"); $("backRow").classList.remove("hide"); refreshArtPreview();
+});
+$("backToSeals").addEventListener("click", () => {
+  hide($("keyMsg")); $("noKey").classList.add("hide"); if (key) $("haveKey").classList.remove("hide");
 });
 // a key kept offline: the page drafts the artwork record, the signature is made elsewhere and pasted back
 function setMode(offline) {
@@ -412,7 +520,7 @@ $("offFinish").addEventListener("click", async () => {
   if (!sig) return show($("keyMsg"), "bad", "The signature is 128 characters, 0-9 and a-f.");
   try {
     const reg = await DHS.finishRegistration(offDraft.draft, sig);
-    await useKey({ format: "digihan-pubkey-v1", pubkey: DHV.hex(offDraft.pub), center_png: DHS.b64(offDraft.png), registration: reg }, true);
+    await addSeal({ format: "digihan-pubkey-v1", pubkey: DHV.hex(offDraft.pub), center_png: DHS.b64(offDraft.png), registration: reg });
     offDraft = null; $("offSig").value = ""; $("offSignBox").classList.add("hide"); hide($("keyMsg"));
   } catch (e) { show($("keyMsg"), "bad", e.message + " Check that you signed this exact code with the key whose public key you entered."); }
 });
@@ -422,8 +530,9 @@ $("keyIn").addEventListener("change", async ev => {
   try {
     const kf = JSON.parse(await f.text());
     if (!["argon2id", "pbkdf2-sha256"].includes(kf.kdf) && kf.format !== "digihan-pubkey-v1") throw new Error("This key file was made by the Python tools. This page opens key files it made itself; to use that key, choose “Use a key I keep offline” and sign the codes with sign_hash.py.");
-    await useKey(kf, true);
-  } catch (e) { show($("keyMsg"), "bad", e.message.startsWith("Unexpected") ? "That is not a DigiHan key file." : e.message); $("noKey").classList.remove("hide"); }
+    const already = await addSeal(kf);
+    if (already) show($("keyMsg"), "ok", "This seal is already on this device. It is now the one in use.");
+  } catch (e) { show($("keyMsg"), "bad", e.message.startsWith("Unexpected") ? "That is not a DigiHan key file." : e.message); }
 });
 document.addEventListener("click", ev => {
   const t = ev.target.closest(".copy"); if (!t) return;
@@ -563,8 +672,7 @@ $("doSeal").addEventListener("click", async () => {
       // v4: an older key file (PBKDF2) is re-encrypted with Argon2id now that the password is known to be right
       if (DHS.needsUpgrade(key.kf)) try {
         const kf2 = await DHS.lockKey(sk, key.pub, pw, key.png, key.reg);
-        let stored = null; try { stored = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
-        if (stored && stored.pubkey === kf2.pubkey) try { localStorage.setItem(STORE, JSON.stringify(kf2)); } catch (e) {}
+        if (await Seals.get(kf2.pubkey)) try { await Seals.put(kf2); } catch (e) {}
         key.kf = kf2; rekeyed = true;
         show($("keyMsg"), "warn", "Your key file was re-encrypted with a stronger method (Argon2id). Tap “Save key file” to replace "
           + "your saved copy; the old copy still opens with the same password, but is easier to attack if someone gets it.");
@@ -688,6 +796,7 @@ function withInside(pngBytes, payload, files) {           // the picture's own c
                 ...files.map(f => fileChunk(f.name, f.bytes))];
   return pngBuild([...cs.slice(0, end), ...ours, ...cs.slice(end)]);
 }
+const OVERLAY_PLATE = 1.2;                                 // v11: the white disc, 1.2 x the seal: 1.07 left too little clear space and a busy photo next to it stopped the seal being found
 const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
 async function buildOverlay(doc, payload, proof) {
   const bmp = await createImageBitmap(new Blob([doc.bytes], { type: "image/png" }));
@@ -695,7 +804,7 @@ async function buildOverlay(doc, payload, proof) {
   const margin = Math.max(8, Math.round(short * 0.03)), corner = $("overlayCorner").value;
   let S = Math.max(Math.round(short * 0.28), Math.ceil(MIN_READ_PX / shrink));
   for (let attempt = 0; attempt < 3; attempt++, S = Math.round(S * 1.25)) {
-    const plate = Math.round(S * 1.07);
+    const plate = Math.round(S * OVERLAY_PLATE);
     if (plate + 2 * margin > short) break;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     const ctx = cv.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
@@ -808,8 +917,11 @@ $("finishIn").addEventListener("change", async ev => {
 
 // ---------------- start ----------------
 (async () => {
-  let kf = null; try { kf = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
-  if (kf) try { await useKey(kf, false); } catch (e) {}
+  await Seals.init();
+  const cur = await Seals.current(), all = await Seals.all();
+  const r = (cur && all.find(x => x.pubkey === cur)) || all[all.length - 1];
+  if (r) try { await useKey(r.kf); await Seals.setCurrent(r.pubkey); } catch (e) {}
+  await renderSeals();
   if (!key) refreshArtPreview();
 })();
 </script>
