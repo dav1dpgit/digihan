@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.9 (2026-11-23): one header everywhere; the stamping page uses a wide screen
+
+* Stamping page v7: the site's shared header (logo and menu, full width), so the logo and the menu sit in
+  exactly the same place as on the front page and How it works, on phones and desktops. On a screen
+  1,100 px or wider, the steps sit side by side: your seal and the time proof on the left, stamping on
+  the right.
+
 ## v0.5.8 (2026-11-23): a picture with the seal in a corner
 
 * Stamping page v6: for a PNG file, an option makes a copy of the picture with the seal in a chosen
