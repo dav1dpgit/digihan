@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.5 (2026-11-23): menu without sub-text
+
+* Sealing page: the seal menu lists the page names only (no description under each).
+
 ## v0.5.4 (2026-11-23): works offline; a warning for keys that share a key id
 
 * Sealing page v3: with no internet connection, the two Bitcoin proof boxes are turned off with a plain

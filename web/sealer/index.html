@@ -30,7 +30,7 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .brand .han { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 4px;
   background: var(--vermillion); color: var(--paper); font: 700 14px/1 var(--cjk); }
 /* v2: the seal-shaped menu replaces the scanner link */
-/* seal menu v1: the menu button is a small seal; tapping it opens the menu */
+/* seal menu v2 (no sub-text): the menu button is a small seal; tapping it opens the menu */
 .seal-menu { position: relative; }
 .seal-menu > button { width: 46px; height: 46px; padding: 0; border: 0; background: none; color: var(--vermillion);
   cursor: pointer; border-radius: 50%; display: grid; place-items: center; transition: transform .28s ease;
@@ -43,7 +43,7 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .seal-menu button[aria-expanded="true"] .b1 { transform: translateY(3.8px) rotate(45deg); }
 .seal-menu button[aria-expanded="true"] .b2 { opacity: 0; }
 .seal-menu button[aria-expanded="true"] .b3 { transform: translateY(-3.8px) rotate(-45deg); }
-.seal-menu nav { position: absolute; right: 0; top: 54px; width: min(272px, calc(100vw - 32px)); background: #fbfbf9;
+.seal-menu nav { position: absolute; right: 0; top: 54px; width: max-content; min-width: 180px; max-width: calc(100vw - 32px); background: #fbfbf9;
   border: 1px solid rgba(35,32,29,.14); border-radius: 12px; padding: 6px; box-shadow: 0 12px 32px rgba(35,32,29,.14);
   opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98); transform-origin: top right; z-index: 20;
   transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s; text-align: left; }
@@ -51,7 +51,6 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .seal-menu nav a { display: block; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--sumi); }
 .seal-menu nav a:hover, .seal-menu nav a:focus-visible { background: rgba(178,56,44,.07); outline: none; }
 .seal-menu nav a b { display: block; font: 600 15.5px/1.25 var(--display); }
-.seal-menu nav a span { display: block; font: 12px/1.35 var(--text); color: var(--sumi-soft); margin-top: 2px; }
 .seal-menu nav a[aria-current="page"] b { color: var(--vermillion); }
 @media (prefers-reduced-motion: reduce) { .seal-menu > button, .seal-menu .bar, .seal-menu nav { transition: none; } }
 
@@ -106,11 +105,11 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div class="seal-menu" id="sealMenu">
     <button type="button" aria-label="Menu" aria-expanded="false" aria-controls="sealMenuNav"><svg viewBox='0 0 46 46' aria-hidden='true'><circle cx='23' cy='23' r='21' fill='none' stroke='currentColor' stroke-width='2.3'/><circle cx='23' cy='23' r='17.2' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='0.01 3.05'/><circle cx='23' cy='23' r='12.6' fill='currentColor'/><g stroke='#f3f4f1' stroke-width='2' stroke-linecap='round'><line class='bar b1' x1='17.6' y1='19.2' x2='28.4' y2='19.2'/><line class='bar b2' x1='17.6' y1='23' x2='28.4' y2='23'/><line class='bar b3' x1='17.6' y1='26.8' x2='28.4' y2='26.8'/></g></svg></button>
     <nav id="sealMenuNav" aria-label="Menu">
-      <a href="how"><b>How it works</b><span>What the ring holds and how it is checked</span></a>
-      <a href="seal" aria-current="page"><b>Seal a document</b><span>Make your seal and seal any file</span></a>
-      <a href="scan"><b>Open scanner</b><span>Check a seal with your camera</span></a>
-      <a href="./"><b>Sample seals</b><span>Twenty-one seals with real signatures</span></a>
-      <a href="https://github.com/dav1dpgit/digihan"><b>Source code</b><span>Open source, on GitHub</span></a>
+      <a href="how"><b>How it works</b></a>
+      <a href="seal" aria-current="page"><b>Seal a document</b></a>
+      <a href="scan"><b>Open scanner</b></a>
+      <a href="./"><b>Sample seals</b></a>
+      <a href="https://github.com/dav1dpgit/digihan"><b>Source code</b></a>
     </nav>
   </div>
 </header>
