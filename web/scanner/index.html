@@ -88,6 +88,16 @@ input[type=file] { display:none; }
 .sheet.up { transform:translateY(0); }
 .verdict { font-size:15.5px; font-weight:700; color:var(--ok); margin-bottom:4px; }
 .verdict.warn { color:#e6b450; } .verdict.bad { color:#ff6b6b; }
+/* v18: after the ring is read and before the document is loaded: a next step, not a warning */
+.verdict.neutral { color:var(--fg); }
+.next { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); border-radius:12px; padding:12px 14px 14px; margin:2px 0 14px; }
+.next-h { font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#e2705f; margin-bottom:4px; }
+.next p { font-size:13.5px; line-height:1.45; color:var(--fg); margin:0; }
+.sheet .scan-btn.primary { background:var(--ink); color:#fff; }
+.dots { display:inline-flex; gap:4px; margin-left:8px; vertical-align:middle; }
+.dots i { width:5px; height:5px; border-radius:50%; background:#e2705f; opacity:.25; animation:dhdot 1.1s infinite ease-in-out; }
+.dots i:nth-child(2) { animation-delay:.18s; } .dots i:nth-child(3) { animation-delay:.36s; }
+@keyframes dhdot { 0%, 80%, 100% { opacity:.25; transform:scale(.85); } 40% { opacity:1; transform:scale(1.1); } }
 .why { font-size:12.5px; color:var(--dim); margin-bottom:12px; }
 .art { display:flex; align-items:center; gap:10px; margin:2px 0 12px; font-size:11.5px; color:var(--dim); }
 .art img { width:64px; height:64px; border-radius:50%; background:#f3f4f1; object-fit:contain; }
@@ -110,7 +120,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v17 · format v0.4</div>
+    <div class="v">scanner v18 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -135,6 +145,8 @@ input[type=file] { display:none; }
   <div class="sheet" id="sheet">
     <div class="verdict" id="r_verdict"></div>
     <div class="why" id="r_why"></div>
+    <div class="next hide" id="r_next"><div class="next-h">Next step</div><p id="r_nextText"></p>
+      <button class="scan-btn primary" id="nextBtn">Load the document…</button></div>
     <div class="art hide" id="r_artbox"><img id="r_art" alt="registered artwork"><span>registered artwork: compare it with the seal's center</span></div>
     <div class="digest-big" id="r_digest"></div>
     <div class="digest-cap">digest — compare with the label under the seal</div>
@@ -219,7 +231,7 @@ async function showResult(r, inside) {
   $("r_proof").textContent = "—";
   if (inside) await useInside(current, inside.list, inside.from);   // v17: a stamped picture carries its files
   await siteProof(current);
-  verdict("warn", "Ring read — checking the signature…", "Looking up the signer's public key.");
+  verdict("work", "Seal read — looking up the signer's key", "");
   runCheck();
 }
 
@@ -287,8 +299,10 @@ function stopCamera(reason) {
 
 // Backgrounding tears the camera down; coming back opens it again.
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { if (scanning) stopCamera("hidden"); }
-  else if (!sheet.classList.contains("up")) startCamera();
+  if (document.hidden) { hiddenAt = Date.now(); if (scanning) stopCamera("hidden"); return; }
+  // v18: coming back to the scanner (another app, the home screen) starts a fresh scan, unless a file was being picked
+  if (picking && Date.now() - picking < 600000) { picking = 0; if (!sheet.classList.contains("up")) startCamera(); return; }
+  resetScan(); startCamera();
 });
 
 
@@ -359,8 +373,13 @@ async function timeWindow(c, anchored) {
 let current = null, registryCache = null;
 const short = s => s.length > 20 ? s.slice(0, 12) + "…" + s.slice(-6) : s;
 function verdict(kind, title, why) {
-  const v = $("r_verdict"); v.className = "verdict" + (kind === "ok" ? "" : " " + kind);
+  const v = $("r_verdict"); v.className = "verdict" + (kind === "ok" ? "" : kind === "work" || kind === "next" ? " neutral" : " " + kind);
   v.textContent = title; $("r_why").textContent = why || "";
+  if (kind === "work") { const d = document.createElement("span"); d.className = "dots"; d.innerHTML = "<i></i><i></i><i></i>"; v.appendChild(d); }
+  if (kind !== "next") $("r_next").classList.add("hide");
+}
+function nextStep(text, label) {          // v18: what to do after the ring is read, with its own button
+  $("r_nextText").textContent = text; $("nextBtn").textContent = label; $("r_next").classList.remove("hide");
 }
 function loadKeys() { try { return JSON.parse(localStorage.getItem("digihan.keys") || "[]"); } catch (e) { return []; } }
 function saveKeys(k) { try { localStorage.setItem("digihan.keys", JSON.stringify(k)); return true; } catch (e) { return false; } }
@@ -404,7 +423,7 @@ async function findKeys(fp, extra) {
     if (await DHV.fingerprint(pub) === fp) out.push({ pub, regs: e.registrations || [], docs: e.documents || [], center: e.center, source: "digihan.org sample list" });
   }
   if (!out.length) {
-    verdict("warn", "Ring read — checking the signature…", "Asking Nostr relays for the signer's record (key id only).");
+    verdict("work", "Seal read — looking up the signer's key", "Asking Nostr relays for the signer's record (key id only).");
     const evs = await queryRelays(fp);
     const byKey = new Map();
     for (const { ev, relay } of evs) {
@@ -430,7 +449,9 @@ async function runCheck() {
   for (const k of c.extraKeys) if (!c.keys.some(x => DHV.hex(x.pub) === DHV.hex(k.pub))) c.keys.unshift(k);
   if (c !== current) return;
   if (!c.keys.length) {
-    verdict("warn", "Ring read — signer's key not found", "Tap “Check against a document…” and pick the stamped PDF: it carries the signer's key. Or add the signer's key.");
+    verdict("next", "Seal read", "The ring is read. The signer's key is not on this phone yet.");
+    nextStep("Load the stamped PDF or stamped picture. It carries the signer's key and the original file, so nothing else is needed. "
+      + "Or add the signer's key below.", "Load the stamped file…");
     return;
   }
   $("r_signer").textContent = short(DHV.npubEncode(c.keys[0].pub)) + " · " + c.keys[0].source;
@@ -439,7 +460,9 @@ async function runCheck() {
   const docs = [...c.docs];
   for (const k of c.keys) for (const d of k.docs || []) docs.push({ name: d.name, sha: DHV.unhex(d.sha256), url: d.url });
   if (!docs.length) {
-    verdict("warn", "Ring read — key found, document needed", "The signature covers the document. Tap “Check against a document…” and pick the file; it is checked on this phone.");
+    verdict("next", "Seal read · signer's key found", "The signature covers the document, so the document is needed to check it.");
+    nextStep("Load the original file, or the stamped PDF or picture that carries it. It is checked on this phone; your file is not uploaded.",
+      "Load the document…");
     return;
   }
   let last = "The signature does not match this document.";
@@ -496,7 +519,7 @@ async function pdfAttachments(bytes) {
   }
   return out;
 }
-$("docBtn").addEventListener("click", () => $("docIn").click());
+$("docBtn").addEventListener("click", () => { picking = Date.now(); $("docIn").click(); });
 $("docIn").addEventListener("change", async ev => {
   const f = ev.target.files && ev.target.files[0]; ev.target.value = "";
   if (!f || !current) return;
@@ -565,16 +588,23 @@ $("keySave").addEventListener("click", async () => {
 
 $("startBtn").addEventListener("click", startCamera);
 $("stopBtn").addEventListener("click", () => {                 // Close: back to where the scanner was opened from
-  stopCamera("user");
+  stopCamera("user"); resetScan();
   let same = false; try { same = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) {}
   if (same && history.length > 1) history.back(); else location.href = "./";
 });
-$("againBtn").addEventListener("click", () => {
-  current = null; sheet.classList.remove("up"); say("");
-  $("keyBox").classList.add("hide");
-  startCamera();
-});
-$("photoBtn").addEventListener("click", () => $("fileIn").click());
+// v18: one reset for "Scan another", Close, leaving the page and coming back to it
+function resetScan() {
+  current = null; frames = 0; sheet.classList.remove("up"); say("");
+  $("keyBox").classList.add("hide"); $("r_next").classList.add("hide"); $("r_artbox").classList.add("hide");
+  for (const id of ["r_verdict", "r_why", "r_digest", "r_signer", "r_doc", "r_ts", "r_proof", "r_fp", "r_geom", "r_ver", "r_sig", "r_corr", "r_frames"]) $(id).textContent = "";
+}
+$("againBtn").addEventListener("click", () => { resetScan(); startCamera(); });
+$("nextBtn").addEventListener("click", () => { picking = Date.now(); $("docIn").click(); });
+// A file picker can hide the page for a while on some phones: no reset while one is open (10 minutes at most)
+let picking = 0, hiddenAt = 0;
+addEventListener("pageshow", ev => { if (ev.persisted) { resetScan(); startCamera(); } });   // reopened from the back/forward cache
+addEventListener("pagehide", () => { stopCamera("closed"); resetScan(); });
+$("photoBtn").addEventListener("click", () => { picking = Date.now(); $("fileIn").click(); });
 
 $("fileIn").addEventListener("change", async ev => {
   const f = ev.target.files && ev.target.files[0];

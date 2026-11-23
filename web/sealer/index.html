@@ -50,8 +50,12 @@ body { margin: 0; background: var(--paper); color: var(--sumi); font: 15px/1.5 v
 .seal-menu nav a[aria-current="page"] b { color: var(--vermillion); }
 @media (prefers-reduced-motion: reduce) { .seal-menu > button, .seal-menu .bar, .seal-menu nav { transition: none; } }
 
-.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 9px; padding: 3px; background: #fff; margin: 14px 0 4px; flex-wrap: wrap; }
-.seg button { border: 0; background: none; padding: 8px 12px; border-radius: 7px; font-weight: 600; color: var(--sumi-soft); }
+/* v8: two equal buttons; both panels sit in one grid cell, so switching never changes the box's size */
+.seg { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 3px; max-width: 100%; border: 1px solid var(--rule); border-radius: 9px; padding: 3px; background: #fff; margin: 14px 0 4px; }
+.seg button { border: 0; background: none; padding: 9px 14px; border-radius: 7px; font-weight: 600; color: var(--sumi-soft); text-align: center; line-height: 1.25; }
+.modes { display: grid; }
+.modes > div { grid-area: 1 / 1; min-width: 0; }
+.modes > .off { visibility: hidden; }
 .seg button[aria-pressed="true"] { background: var(--vermillion); color: #fff; }
 .code { background: #fff; border: 1px dashed var(--vermillion); border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 13px; }
 h1 { font: 500 30px/1.15 var(--display); margin: 22px 0 6px; text-wrap: balance; }
@@ -88,9 +92,25 @@ button:disabled { opacity: .5; cursor: default; }
 .msg.ok { color: var(--ok); background: rgba(47,125,79,.08); }
 .msg.warn { color: var(--warn); background: rgba(154,106,18,.08); }
 .msg.bad { color: var(--bad); background: rgba(178,56,44,.08); }
-ol.steps { margin: 12px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--sumi-soft); }
+/* v8: the key on this device */
+.device { margin: 12px 0 4px; padding: 10px 12px; border-radius: 8px; background: rgba(35,32,29,.04); font-size: 13.5px; }
+.device b { display: block; font-weight: 600; margin-bottom: 2px; }
+button.danger { background: var(--bad) !important; color: #fff !important; border-color: var(--bad) !important; }
+/* v8: steps with a checkmark when done and moving dots on the step in progress */
+ol.steps { list-style: none; margin: 14px 0 0; padding: 0; font-size: 14px; color: var(--sumi-soft); }
+ol.steps li { position: relative; padding: 3px 0 3px 28px; }
+ol.steps li::before { content: ""; position: absolute; left: 0; top: 5px; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--rule); background: #fff; }
+ol.steps li.now { color: var(--sumi); }
+ol.steps li.now::before { border-color: var(--vermillion); }
 ol.steps li.done { color: var(--sumi); }
-ol.steps li.done::marker { color: var(--ok); }
+ol.steps li.done::before { border-color: var(--vermillion); background: var(--vermillion) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5 9.3l2.6 2.6L13 6.5' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat; }
+ol.steps li.stopped::before { border-color: var(--sumi-soft); }
+.dots { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--vermillion); opacity: .25; animation: dhdot 1.1s infinite ease-in-out; }
+.dots i:nth-child(2) { animation-delay: .18s; } .dots i:nth-child(3) { animation-delay: .36s; }
+@keyframes dhdot { 0%, 80%, 100% { opacity: .25; transform: scale(.85); } 40% { opacity: 1; transform: scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .dots i { animation: none; opacity: .7; } }
+
 a.download { display: inline-block; background: var(--vermillion); color: #fff; text-decoration: none; font-weight: 600; padding: 11px 16px; border-radius: 8px; }
 .hide { display: none !important; }
 input[type=file] { display: none; }
@@ -107,13 +127,8 @@ html { scrollbar-gutter: stable; }
 .site-top .brand .han { display: block; width: 24px; height: 24px; flex: none; }
 .site-top .brand .han svg { width: 100%; height: 100%; display: block; }
 
-/* v7: on a wide screen the steps sit side by side: your seal and the time proof on the left, stamping on the right */
-@media (min-width: 1100px) {
-  .wrap { max-width: 1240px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); column-gap: 24px; align-items: start; }
-  .wrap > h1, .wrap > .lead, .wrap > footer { grid-column: 1 / -1; }
-  #keyCard { grid-column: 1; grid-row: 3; } #finishCard { grid-column: 1; grid-row: 4; }
-  #sealCard { grid-column: 2; grid-row: 3 / span 2; } .wrap > footer { grid-row: 5; }
-}
+/* v8: one column at every width (no side-by-side steps); a wider column on a desktop */
+@media (min-width: 1024px) { .wrap { max-width: 912px; } }
 </style>
 </head>
 <body>
@@ -146,6 +161,7 @@ html { scrollbar-gutter: stable; }
     <div class="seg" role="group" aria-label="Where your key is kept">
       <button type="button" id="modeHere" aria-pressed="true">Make a key here</button>
       <button type="button" id="modeOffline" aria-pressed="false">Use a key I keep offline</button></div>
+    <div class="modes">
     <div id="hereFields">
       <label class="field">Choose a password (10 or more characters)
         <input type="password" id="pw1" autocomplete="new-password"></label>
@@ -154,7 +170,7 @@ html { scrollbar-gutter: stable; }
       <div class="row"><button class="primary" id="makeKey">Make my seal</button>
         <button class="link" id="openKeyBtn">Open a key file…</button></div>
     </div>
-    <div id="offlineFields" class="hide">
+    <div id="offlineFields" class="off">
       <p class="note">Your private key stays on your own computer. This page needs only your public key, and asks you to sign a short code whenever it needs a signature.</p>
       <label class="field">Your public key (npub1… or 64 hex characters)
         <input type="text" id="offPub" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
@@ -168,14 +184,19 @@ html { scrollbar-gutter: stable; }
         <div class="row"><button class="primary" id="offFinish">Finish</button></div>
       </div>
     </div>
+    </div>
     <div class="msg hide" id="keyMsg"></div>
   </div>
   <div id="haveKey" class="hide">
     <div class="seal-row"><canvas id="keyPreview" width="368" height="368" aria-label="your seal"></canvas>
       <div class="kv"><div><b>Key id</b> <span class="mono copy" id="keyId" title="tap to copy"></span></div>
         <div style="margin-top:6px"><b>Public key</b> <span class="mono copy" id="keyNpub" title="tap to copy"></span></div></div></div>
+    <div class="device" id="deviceBox">
+      <b>On this device</b>
+      <div id="deviceState"></div>
+    </div>
     <div class="row"><button id="saveKey">Save key file</button>
-      <button id="forgetKey">Forget on this device</button>
+      <button id="forgetKey">Erase from this device</button>
       <button class="link" id="openKeyBtn2">Open another key file…</button></div>
     <p class="note" id="keyNote">Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password.</p>
   </div>
@@ -222,7 +243,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v7 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v8 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -258,7 +279,9 @@ let key = null;          // {kf, pub, png, reg, art}
 let doc = null;          // {name, bytes, type}
 let artImage = null;     // an uploaded image for the center, if chosen
 
-function show(el, kind, text) { el.className = "msg" + (kind ? " " + kind : ""); el.textContent = text; el.classList.remove("hide"); }
+const DOTS = () => { const d = document.createElement("span"); d.className = "dots"; d.setAttribute("aria-hidden", "true"); d.innerHTML = "<i></i><i></i><i></i>"; return d; };
+function show(el, kind, text) { el.className = "msg" + (kind ? " " + kind : ""); el.textContent = text; el.classList.remove("hide");
+  if (!kind && /…$/.test(text)) el.appendChild(DOTS()); }
 function hide(el) { el.classList.add("hide"); }
 const utc = t => new Date(t * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
 const num = n => n.toLocaleString("en-US");
@@ -318,6 +341,7 @@ async function useKey(kf, remember) {
   const npub = DHV.npubEncode(pub); $("keyNpub").textContent = npub; $("keyNpub").dataset.copy = npub;
   preview($("keyPreview"), key.art);
   $("noKey").classList.add("hide"); $("haveKey").classList.remove("hide");
+  deviceState();
 }
 $("makeKey").addEventListener("click", async () => {
   const p1 = $("pw1").value, p2 = $("pw2").value;
@@ -340,14 +364,32 @@ $("saveKey").addEventListener("click", async () => {
   a.href = URL.createObjectURL(new Blob([JSON.stringify(key.kf, null, 1)], { type: "application/json" }));
   a.download = (key.offline ? "digihan-seal-" : "digihan-key-") + (await DHV.fingerprint(key.pub)) + ".json"; a.click();
 });
+// v8: what this device keeps, and erasing it (a second tap confirms)
+function deviceState() {
+  let kept = null; try { kept = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
+  const here = kept && key && kept.pubkey === key.kf.pubkey;
+  const how = { "argon2id": "Argon2id", "pbkdf2-sha256": "PBKDF2, an older method; it changes to Argon2id the next time you stamp" }[key.kf.kdf];
+  $("deviceState").textContent = !here ? "Not kept on this device: it is open on this page only, and is gone when you close it."
+    : key.offline ? "Kept: the public parts of your seal (key id, public key, artwork). Your private key is not on this device."
+    : "Kept: your key file, encrypted with your password (" + how + "). Your password is not kept.";
+  $("forgetKey").classList.toggle("hide", !here);
+}
+let eraseArmed = 0;
 $("forgetKey").addEventListener("click", () => {
+  if (!eraseArmed) {
+    $("forgetKey").textContent = "Tap again to erase"; $("forgetKey").classList.add("danger");
+    eraseArmed = setTimeout(() => { eraseArmed = 0; $("forgetKey").textContent = "Erase from this device"; $("forgetKey").classList.remove("danger"); }, 5000);
+    return;
+  }
+  clearTimeout(eraseArmed); eraseArmed = 0; $("forgetKey").textContent = "Erase from this device"; $("forgetKey").classList.remove("danger");
   try { localStorage.removeItem(STORE); } catch (e) {}
   key = null; $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide");
+  show($("keyMsg"), "ok", "Erased from this device. A key file you saved still works with its password.");
 });
 // a key kept offline: the page drafts the artwork record, the signature is made elsewhere and pasted back
 function setMode(offline) {
   $("modeHere").setAttribute("aria-pressed", String(!offline)); $("modeOffline").setAttribute("aria-pressed", String(offline));
-  $("hereFields").classList.toggle("hide", offline); $("offlineFields").classList.toggle("hide", !offline); hide($("keyMsg"));
+  $("hereFields").classList.toggle("off", offline); $("offlineFields").classList.toggle("off", !offline); hide($("keyMsg"));
 }
 $("modeHere").addEventListener("click", () => setMode(false));
 $("modeOffline").addEventListener("click", () => setMode(true));
@@ -432,11 +474,24 @@ async function merkleAt(h) {
 $("pickDoc").addEventListener("click", () => $("docIn").click());
 $("docIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
-  doc = { name: f.name, type: f.type || "application/octet-stream", bytes: new Uint8Array(await f.arrayBuffer()) };
+  // v8: the previous document is dropped at once, so a quick tap on Stamp can never sign it by mistake
+  doc = null; $("docName").textContent = "Reading " + f.name + "…"; $("doSeal").disabled = true;
+  let d;
+  try { d = { name: f.name, type: f.type || "application/octet-stream", bytes: new Uint8Array(await f.arrayBuffer()) }; }
+  catch (e) { $("docName").textContent = "Could not read " + f.name; $("doSeal").disabled = false; return; }
+  doc = d; $("doSeal").disabled = false;
   $("docName").textContent = f.name + " · " + num(doc.bytes.length) + " bytes";
   $("pngOpt").classList.toggle("hide", !isPng(doc.bytes));
 });
-function steps(list) { const ol = $("sealSteps"); ol.innerHTML = ""; for (const s of list) { const li = document.createElement("li"); li.textContent = s; ol.appendChild(li); } ol.classList.remove("hide"); return i => ol.children[i] && ol.children[i].classList.add("done"); }
+function stepNow(li) { if (!li) return; li.classList.add("now"); if (!li.querySelector(".dots")) li.appendChild(DOTS()); }
+function steps(list) {      // v8: a checkmark for each step done, moving dots on the step in progress
+  const ol = $("sealSteps"); ol.innerHTML = "";
+  for (const s of list) { const li = document.createElement("li"); li.textContent = s; ol.appendChild(li); }
+  ol.classList.remove("hide"); stepNow(ol.children[0]);
+  return i => { const li = ol.children[i]; if (!li) return; li.classList.remove("now"); li.classList.add("done");
+    const d = li.querySelector(".dots"); if (d) d.remove(); stepNow(ol.children[i + 1]); };
+}
+function stopSteps() { for (const li of $("sealSteps").querySelectorAll("li.now")) { li.classList.remove("now"); li.classList.add("stopped"); const d = li.querySelector(".dots"); if (d) d.remove(); } }
 const ascii = s => String(s).replace(/[^\x20-\x7e]/g, "?");
 // the seal drawn at print size, then read back as a scanner would before it is used
 async function drawAndCheck(payload) {
@@ -475,7 +530,7 @@ async function buildPdf(o) {
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v5 (format v0.4)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v8 (format v0.4)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
@@ -510,11 +565,12 @@ $("doSeal").addEventListener("click", async () => {
           + "your saved copy; the old copy still opens with the same password, but is easier to attack if someone gets it.");
       } catch (e) {}
     }
-    const docHash = await DHV.sha256(doc.bytes); done(k++);
+    const theDoc = doc;                                      // v8: this stamp uses this document from start to end
+    const docHash = await DHV.sha256(theDoc.bytes); done(k++);
     const anchor = wantAnchor ? await anchorBlock() : null; if (wantAnchor) done(k++);
     const ts = Math.floor(Date.now() / 1000);
     const msg = await DHS.sealMessage(key.pub, docHash, ts, await DHV.sha256(key.png), anchor);
-    pending = { msg, docHash, ts, anchor, wantStamp, done, k };
+    pending = { msg, docHash, ts, anchor, wantStamp, done, k, doc: theDoc };
     if (key.offline) {
       $("sealCode").textContent = DHV.hex(msg.m); $("sealSig").value = ""; $("sealSignBox").classList.remove("hide");
       $("sealSig").focus({ preventScroll: true });
@@ -527,7 +583,7 @@ $("doSeal").addEventListener("click", async () => {
     if (sk) sk.fill(0);
     if (e.noAnswer && bitcoinOff("The Bitcoin block sites did not answer, so there seems to be no internet connection.")) {
       hide($("sealSteps")); show($("sealMsg"), "warn", "Nothing was stamped yet. Tap Stamp again to stamp without the Bitcoin proofs.");
-    } else show($("sealMsg"), "bad", e.message);
+    } else { stopSteps(); show($("sealMsg"), "bad", e.message); }
     $("doSeal").disabled = false;
   }
   $("pwSeal").value = "";
@@ -541,7 +597,7 @@ $("sealFinish").addEventListener("click", async () => {
 });
 $("sealCancel").addEventListener("click", () => { pending = null; $("sealSignBox").classList.add("hide"); $("sealSteps").classList.add("hide"); $("doSeal").disabled = false; });
 async function finishSeal(payload) {
-  const { docHash, ts, anchor, wantStamp, done } = pending; let k = pending.k;
+  const { docHash, ts, anchor, wantStamp, done, doc } = pending; let k = pending.k;
   try {
     done(k++);                                             // signed
     const sealPng = await drawAndCheck(payload); done(k++);
@@ -560,7 +616,7 @@ async function finishSeal(payload) {
     let overlayNote = "";
     if (isPng(doc.bytes) && $("optOverlay").checked) {
       try {
-        const pic = await buildOverlay(payload, proof);
+        const pic = await buildOverlay(doc, payload, proof);
         const u = save(pic, base + "_stamped.png", "image/png");
         $("overlayDl").href = u; $("overlayDl").download = base + "_stamped.png"; $("overlayRow").classList.remove("hide");
         $("overlayImg").src = u; $("overlayImg").classList.remove("hide");
@@ -575,7 +631,7 @@ async function finishSeal(payload) {
     show($("sealMsg"), stampNote || overlayNote ? "warn" : "ok", "Stamped." + stampNote + overlayNote
       + (rekeyed ? " Your key file was also re-encrypted with a stronger method: save it again in step 1." : ""));
     rekeyed = false;
-  } catch (e) { show($("sealMsg"), "bad", e.message); }
+  } catch (e) { stopSteps(); show($("sealMsg"), "bad", e.message); }
   pending = null; $("doSeal").disabled = false;
 }
 
@@ -628,7 +684,7 @@ function withInside(pngBytes, payload, files) {           // the picture's own c
   return pngBuild([...cs.slice(0, end), ...ours, ...cs.slice(end)]);
 }
 const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
-async function buildOverlay(payload, proof) {
+async function buildOverlay(doc, payload, proof) {
   const bmp = await createImageBitmap(new Blob([doc.bytes], { type: "image/png" }));
   const W = bmp.width, H = bmp.height, short = Math.min(W, H), shrink = Math.min(1, SCAN_MAXDIM / Math.max(W, H));
   const margin = Math.max(8, Math.round(short * 0.03)), corner = $("overlayCorner").value;

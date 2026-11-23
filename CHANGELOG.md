@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.10 (2026-11-23): steady layout, the key on this device, progress you can see; scanner resets
+
+* Stamping page v8: one column at every width (wider on a desktop). "Make a key here" and "Use a key I
+  keep offline" are two equal buttons, and switching between them no longer changes the box's size. A
+  panel says what this device keeps (the encrypted key file and its method, or only the public parts) and
+  erases it with a second tap. The stamping steps show a checkmark when done and moving dots on the step
+  in progress. Fixed: picking a new document while the previous one was loaded, then tapping Stamp
+  quickly, could sign the previous document; and picking another file during a stamp could mix the two.
+* Scanner v18: every result is cleared when the scanner is opened, closed, or come back to from another
+  app (not while a file is being picked). After the ring is read and before a document is loaded, the
+  scanner shows "Seal read" and a next step with its own button, instead of a yellow warning.
+
 ## v0.5.9 (2026-11-23): one header everywhere; the stamping page uses a wide screen
 
 * Stamping page v7: the site's shared header (logo and menu, full width), so the logo and the menu sit in
