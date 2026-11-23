@@ -131,14 +131,14 @@ input[type=file] { display: none; }
 footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 @media (max-width: 420px) { .seal-row { flex-direction: column; align-items: flex-start; } h1 { font-size: 26px; } }
 
-/* site header v1: identical on every page (logo DH, option C; the seal menu) */
+/* site header v2: identical on every page (logo DH, option C; the seal menu); v2: logo 38px (was 24), name 21px (was 17) */
 html { scrollbar-gutter: stable; }
 .site-top { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 16px;
   box-sizing: border-box; width: 100%; margin: 0;
   padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); }
-.site-top .brand { display: flex; align-items: center; gap: 9px; font: 600 17px/1 var(--display); letter-spacing: .03em;
+.site-top .brand { display: flex; align-items: center; gap: 11px; font: 600 21px/1 var(--display); letter-spacing: .03em;
   color: var(--sumi); text-decoration: none; }
-.site-top .brand .han { display: block; width: 24px; height: 24px; flex: none; }
+.site-top .brand .han { display: block; width: 38px; height: 38px; flex: none; }
 .site-top .brand .han svg { width: 100%; height: 100%; display: block; }
 
 /* v8: one column at every width (no side-by-side steps); a wider column on a desktop */
@@ -268,7 +268,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v13 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v14 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -727,7 +727,7 @@ async function buildPdf(o) {
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v13 (format v0.4)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v14 (format v0.4)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));

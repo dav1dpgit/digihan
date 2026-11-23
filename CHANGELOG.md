@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.17 (2026-11-23): larger logo
+
+* Stamping page v14: the shared site header's DH logo is larger (38 px, was 24 px) and the name beside it
+  21 px (was 17 px), the same on every page of the site. The logo and the menu button stay in the same
+  place on every page.
+
 ## v0.5.16 (2026-11-23): the seal's public record goes to Nostr
 
 * Stamping page v13: when a seal is made (here, or with a key kept offline), the page sends the seal's
