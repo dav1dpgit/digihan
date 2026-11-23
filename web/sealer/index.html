@@ -143,7 +143,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
         <input type="text" id="offPub" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <div class="row"><button class="primary" id="offPrep">Prepare my seal</button></div>
       <div id="offSignBox" class="hide">
-        <p class="note">Sign this code with your offline key. It is the fingerprint of the record that ties your artwork to your key.</p>
+        <p class="note">Sign this code with your offline key. It is the SHA-256 hash (32 bytes) of the record that ties your artwork to your key.</p>
         <div class="code mono copy" id="offCode" title="tap to copy"></div>
         <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span>. Any BIP340 signer works.</p>
         <label class="field">The signature (128 characters)
@@ -175,7 +175,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div class="row"><button class="primary" id="doSeal">Seal</button></div>
   <ol class="steps hide" id="sealSteps"></ol>
   <div id="sealSignBox" class="hide">
-    <p class="note">Sign this code with your offline key, then paste the signature. The code is the fingerprint of this document, the time and your artwork, together.</p>
+    <p class="note">Sign this code with your offline key, then paste the signature. The code is one SHA-256 hash (32 bytes) made from this document's hash, the time, your key's fingerprint, your artwork's hash and, if chosen, the Bitcoin block's hash.</p>
     <div class="code mono copy" id="sealCode" title="tap to copy"></div>
     <label class="field">The signature (128 characters)
       <input type="text" id="sealSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>

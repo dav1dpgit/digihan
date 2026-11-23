@@ -1,7 +1,8 @@
 """Sign a code from the DigiHan sealing page with a key you keep offline.
 
 The sealing page (digihan.org/seal) can work with only your public key. When it needs a signature it shows
-a 64-character code: the fingerprint of your seal's registration record, or of a document's seal. Sign it
+a 64-character code: a SHA-256 hash (32 bytes) of your seal's registration record, or of what a document's
+seal signs. Sign it
 here, on the computer that holds your key, and paste the 128-character signature back into the page.
 
   python sign_hash.py CODE --key key_alice                     (a folder made by make_key.py)

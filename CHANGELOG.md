@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.3 (2026-11-23): one meaning for "fingerprint"
+
+* "Fingerprint" now means only the key id: the first 8 bytes of the SHA-256 hash of the public key, as
+  in SPEC.md. The sealing page and sign_hash.py called 32-byte SHA-256 hashes "fingerprints" too; they
+  now say "SHA-256 hash (32 bytes)".
+
 ## v0.5.2 (2026-11-23): straight to the camera
 
 * Scanner v13: no start screen. The camera opens as the scanner opens; a photo is one tap on the photo
