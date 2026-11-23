@@ -769,8 +769,24 @@ function decodeOutlines(gray, w, h) {
 }
 // For a still picture: the camera's ladder first, then the outline search; each also inverted, for a
 // seal shown light on dark.
+// A seal in a corner of a larger picture (the stamping page's "picture with the seal in a corner"): the
+// outline search above ranks a busy photo's own shapes first, so each corner is also tried as a square
+// crop, read like a camera frame. The stamping page puts the seal, on a white disc, 3% from the edges.
+function decodeCorners(gray, w, h) {
+  const s = Math.min(w, h);
+  for (const f of [0.36, 0.46, 0.58, 0.28, 0.72, 0.9]) {      // larger crops last: a seal filling most of a small picture
+    const side = Math.round(s * f);
+    if (side < 100) continue;
+    for (const [cx, cy] of [[w - side / 2, h - side / 2], [side / 2, h - side / 2], [w - side / 2, side / 2], [side / 2, side / 2]]) {
+      const c = cropBox(gray, w, h, cx, cy, side);
+      const r = decodeGray(c.g, c.w, c.h);
+      if (r) return r;
+    }
+  }
+  return null;
+}
 function decodePhoto(gray, w, h) {
-  let r = decodeGray(gray, w, h) || decodeOutlines(gray, w, h);
+  let r = decodeGray(gray, w, h) || decodeOutlines(gray, w, h) || decodeCorners(gray, w, h);
   if (r) return r;
   const inv = new Uint8Array(gray.length);
   for (let i = 0; i < gray.length; i++) inv[i] = 255 - gray[i];
@@ -778,6 +794,6 @@ function decodePhoto(gray, w, h) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { decodeGray, decodePhoto, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
+  module.exports = { decodeGray, decodePhoto, decodeCorners, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
                      parsePayload, rsDecode };
 }

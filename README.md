@@ -35,7 +35,7 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
 | Phone scanner: reads the ring (camera or photo, including screenshots) **and checks the signature** | Document tiers beyond exact bytes |
 | Keys are Nostr keys (npub); the phone can find a key on Nostr relays from the seal's key id, once the signer has published their registration | |
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
-| Stamping page: make a seal and stamp any file in a browser, bookended; finish the proof later | |
+| Stamping page: make a seal and stamp any file in a browser (a PNG can also get a copy with the seal in a corner), bookended; finish the proof later | |
 
 ## Check a seal on a phone
 

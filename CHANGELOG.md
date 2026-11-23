@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.8 (2026-11-23): a picture with the seal in a corner
+
+* Stamping page v6: for a PNG file, an option makes a copy of the picture with the seal in a chosen
+  corner, on a white disc, besides the PDF. The copy carries the original picture's exact bytes, the
+  registration, the artwork and the time proof inside its own file (SPEC section 9: `dhFl` chunks and a
+  `DigiHanPayload` text chunk). The seal's size follows the picture (28% of the shorter side, never so
+  small that the scanner cannot read it after shrinking the picture to 1,400 px); the page reads the seal
+  back from the finished picture before offering it, and says so if the picture is too small (under
+  about 450 px on its shorter side). Step 3 finishes the time proof inside a stamped picture too.
+* Scanner v17: the photo button reads a stamped picture's seal from its corner and its original from
+  inside, so one picture is enough to check. "Check against a document…" accepts a stamped picture.
+  Fixed: a PNG stamped into a PDF was taken for the artwork only and never checked as the document.
+* digihan.js: decodePhoto also tries square crops at each corner (decodeCorners).
+
 ## v0.5.7 (2026-11-23): "seal" is the noun; "stamp" and "sign" are the verbs
 
 * Everywhere people read (stamping page v5, scanner v16, the PDF cover text, the Python tools' messages,

@@ -69,6 +69,10 @@ h1 { font: 500 30px/1.15 var(--display); margin: 22px 0 6px; text-wrap: balance;
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
 label.field { display: block; margin: 10px 0; font-size: 13px; color: var(--sumi-soft); }
 label.field input { display: block; width: 100%; margin-top: 4px; }
+label.field select { display: block; margin-top: 4px; font: inherit; color: var(--sumi); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--rule); background: #fff; }
+/* v6: the picture with the seal in a corner (PNG files) */
+#pngOpt { margin: 6px 0 4px; padding: 2px 12px 4px; border-left: 3px solid var(--rule); }
+.overlay-prev { display: block; max-width: 100%; max-height: 320px; margin-top: 12px; border-radius: 8px; border: 1px solid var(--rule); }
 input[type=text], input[type=password] { font: 16px var(--text); padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: #fff; color: var(--sumi); }
 input:focus-visible, button:focus-visible { outline: 2px solid var(--vermillion); outline-offset: 2px; }
 button { font: 600 14px var(--text); border-radius: 8px; padding: 10px 14px; cursor: pointer; border: 1px solid var(--rule); background: #fff; color: var(--sumi); }
@@ -170,6 +174,10 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <h2><span class="n">2</span>Your document</h2>
   <p>Any file: a PDF, a picture, a spreadsheet. You get back a PDF with the seal on its first page and your file attached unchanged.</p>
   <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
+  <div id="pngOpt" class="hide">
+    <label class="check"><input type="checkbox" id="optOverlay"><span>Also make a copy of the picture with the seal in a corner<small>The copy carries your original picture, unchanged, inside its file, so the scanner can check the copy on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
+    <label class="field" id="cornerField">Corner <select id="overlayCorner"><option value="br">Bottom right</option><option value="bl">Bottom left</option><option value="tr">Top right</option><option value="tl">Top left</option></select></label>
+  </div>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
   <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was stamped no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
   <div class="msg warn hide" id="netNote"></div>
@@ -187,6 +195,8 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <div id="sealResult" class="hide">
     <div class="seal-row"><img id="sealImg" alt="the seal"><div class="kv" id="sealInfo"></div></div>
     <div class="row"><a class="download" id="sealDl" download>Download the stamped PDF</a></div>
+    <div class="row hide" id="overlayRow"><a class="download" id="overlayDl" download>Download the picture with the seal</a></div>
+    <img id="overlayImg" class="overlay-prev hide" alt="the picture with the seal in its corner">
     <p class="note">To check it: open the scanner, scan the seal, then tap “Check against a document…” and pick this PDF.</p>
   </div>
 </section>
@@ -194,19 +204,19 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 <!-- 3. finishing the time proof -->
 <section class="card" id="finishCard">
   <h2><span class="n">3</span>Finish the time proof</h2>
-  <p>A few hours after stamping, pick the stamped PDF. The page fetches the Bitcoin part of the proof and gives you the finished PDF.</p>
-  <div class="row"><button id="pickFinish">Choose a stamped PDF…</button></div>
+  <p>A few hours after stamping, pick the stamped PDF (or the stamped picture). The page fetches the Bitcoin part of the proof and gives you the finished PDF.</p>
+  <div class="row"><button id="pickFinish">Choose a stamped PDF or picture…</button></div>
   <div class="msg hide" id="finishMsg"></div>
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v5 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v6 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
 <input type="file" id="keyIn" accept=".json,application/json">
 <input type="file" id="docIn">
-<input type="file" id="finishIn" accept="application/pdf,.pdf">
+<input type="file" id="finishIn" accept="application/pdf,.pdf,image/png,.png">
 
 <script>
 (() => {
@@ -412,6 +422,7 @@ $("docIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
   doc = { name: f.name, type: f.type || "application/octet-stream", bytes: new Uint8Array(await f.arrayBuffer()) };
   $("docName").textContent = f.name + " · " + num(doc.bytes.length) + " bytes";
+  $("pngOpt").classList.toggle("hide", !isPng(doc.bytes));
 });
 function steps(list) { const ol = $("sealSteps"); ol.innerHTML = ""; for (const s of list) { const li = document.createElement("li"); li.textContent = s; ol.appendChild(li); } ol.classList.remove("hide"); return i => ol.children[i] && ol.children[i].classList.add("done"); }
 const ascii = s => String(s).replace(/[^\x20-\x7e]/g, "?");
@@ -533,17 +544,109 @@ async function finishSeal(payload) {
     const base = doc.name.replace(/\.[^.]+$/, "") || "document";
     $("sealDl").href = save(pdf, base + "_stamped.pdf", "application/pdf"); $("sealDl").download = base + "_stamped.pdf";
     $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
+    $("overlayRow").classList.add("hide"); $("overlayImg").classList.add("hide");
+    let overlayNote = "";
+    if (isPng(doc.bytes) && $("optOverlay").checked) {
+      try {
+        const pic = await buildOverlay(payload, proof);
+        const u = save(pic, base + "_stamped.png", "image/png");
+        $("overlayDl").href = u; $("overlayDl").download = base + "_stamped.png"; $("overlayRow").classList.remove("hide");
+        $("overlayImg").src = u; $("overlayImg").classList.remove("hide");
+      } catch (e) { overlayNote = " " + e.message; }
+    }
     const dg = DHV.hex((await DHV.sha256(payload)).slice(0, 4));
     $("sealInfo").innerHTML = "";
     for (const [b, t] of [["Digest", dg], ["Key id", fp], ["Time", anchor ? "no earlier than Bitcoin block " + num(anchor.height) + " (mined " + utc(anchor.time) + ")" : utc(ts) + ", stated by you"], ["Time proof", proof ? "started; finish it in step 3 in a few hours" : "none"]]) {
       const d = document.createElement("div"); d.innerHTML = "<b></b> <span></span>"; d.firstChild.textContent = b; d.lastChild.textContent = t; $("sealInfo").appendChild(d);
     }
     $("sealResult").classList.remove("hide");
-    show($("sealMsg"), stampNote ? "warn" : "ok", "Stamped." + stampNote
+    show($("sealMsg"), stampNote || overlayNote ? "warn" : "ok", "Stamped." + stampNote + overlayNote
       + (rekeyed ? " Your key file was also re-encrypted with a stronger method: save it again in step 1." : ""));
     rekeyed = false;
   } catch (e) { show($("sealMsg"), "bad", e.message); }
   pending = null; $("doSeal").disabled = false;
+}
+
+// ---------------- v6: a PNG picture with the seal in a corner ----------------
+// The copy's file carries what the PDF carries: the original picture's exact bytes, the registration record,
+// the artwork and the time proof, each in a private PNG chunk "dhFl" (1 byte version 1, the file name in
+// UTF-8, a 0 byte, the file's bytes), plus tEXt "DigiHanPayload" (the ring's 78 bytes in hex). The seal is
+// signed over the ORIGINAL picture's bytes; the copy's own bytes differ and are not what was signed.
+const PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+const isPng = b => b.length > 8 && PNG_SIG.every((v, i) => b[i] === v);
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(parts) { let c = 0xffffffff; for (const p of parts) for (let i = 0; i < p.length; i++) c = CRC[(c ^ p[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function pngChunks(b) {                                   // [{type, data}] in file order
+  if (!isPng(b)) throw new Error("Not a PNG file.");
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength), out = []; let i = 8;
+  while (i + 12 <= b.length) {
+    const len = v.getUint32(i), type = String.fromCharCode(...b.slice(i + 4, i + 8));
+    out.push({ type, data: b.slice(i + 8, i + 8 + len) }); i += 12 + len;
+    if (type === "IEND") break;
+  }
+  return out;
+}
+function pngBuild(chunks) {
+  const parts = [Uint8Array.from(PNG_SIG)];
+  for (const { type, data } of chunks) {
+    const t = enc.encode(type), head = new Uint8Array(8), tail = new Uint8Array(4);
+    new DataView(head.buffer).setUint32(0, data.length); head.set(t, 4);
+    new DataView(tail.buffer).setUint32(0, crc32([t, data]));
+    parts.push(head, data, tail);
+  }
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let k = 0;
+  for (const p of parts) { out.set(p, k); k += p.length; }
+  return out;
+}
+const fileChunk = (name, bytes) => { const n = enc.encode(name), d = new Uint8Array(2 + n.length + bytes.length); d[0] = 1; d.set(n, 1); d.set(bytes, 2 + n.length); return { type: "dhFl", data: d }; };
+const textChunk = (k, v) => ({ type: "tEXt", data: enc.encode(k + "\0" + v) });
+function pngInside(b) {                                   // {files: [{name, bytes}], text: {key: value}}
+  const files = [], text = {};
+  for (const c of pngChunks(b)) {
+    if (c.type === "dhFl" && c.data[0] === 1) { const z = c.data.indexOf(0, 1); if (z > 0) files.push({ name: new TextDecoder().decode(c.data.slice(1, z)), bytes: c.data.slice(z + 1) }); }
+    else if (c.type === "tEXt") { const z = c.data.indexOf(0); if (z > 0) text[new TextDecoder("latin1").decode(c.data.slice(0, z))] = new TextDecoder("latin1").decode(c.data.slice(z + 1)); }
+  }
+  return { files, text };
+}
+function withInside(pngBytes, payload, files) {           // the picture's own chunks, then ours, then IEND
+  const cs = pngChunks(pngBytes).filter(c => c.type !== "dhFl" && !(c.type === "tEXt" && /^DigiHan/.test(new TextDecoder("latin1").decode(c.data.slice(0, 14)))));
+  const end = cs.findIndex(c => c.type === "IEND");
+  const ours = [textChunk("DigiHanPayload", DHV.hex(payload)), textChunk("DigiHanFormat", "DigiHan format v0.4, picture with the seal in a corner, doc tier 1 (byte-exact)"),
+                ...files.map(f => fileChunk(f.name, f.bytes))];
+  return pngBuild([...cs.slice(0, end), ...ours, ...cs.slice(end)]);
+}
+const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
+async function buildOverlay(payload, proof) {
+  const bmp = await createImageBitmap(new Blob([doc.bytes], { type: "image/png" }));
+  const W = bmp.width, H = bmp.height, short = Math.min(W, H), shrink = Math.min(1, SCAN_MAXDIM / Math.max(W, H));
+  const margin = Math.max(8, Math.round(short * 0.03)), corner = $("overlayCorner").value;
+  let S = Math.max(Math.round(short * 0.28), Math.ceil(MIN_READ_PX / shrink));
+  for (let attempt = 0; attempt < 3; attempt++, S = Math.round(S * 1.25)) {
+    const plate = Math.round(S * 1.07);
+    if (plate + 2 * margin > short) break;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+    const cx = corner[1] === "r" ? W - margin - plate / 2 : margin + plate / 2, cy = corner[0] === "b" ? H - margin - plate / 2 : margin + plate / 2;
+    ctx.beginPath(); ctx.arc(cx, cy, plate / 2, 0, 2 * Math.PI); ctx.fillStyle = "#fff"; ctx.fill();
+    const dpmm = (S - 8) / 45, sz = DHS.sealSize(dpmm), sc = document.createElement("canvas"); sc.width = sc.height = sz;
+    DHS.drawSeal(sc.getContext("2d"), payload, key.art, dpmm);
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, sz / 2, 0, 2 * Math.PI); ctx.clip(); ctx.drawImage(sc, Math.round(cx - sz / 2), Math.round(cy - sz / 2)); ctx.restore();
+    // read it back from the whole picture, shrunk as the scanner's photo button shrinks it
+    const w = Math.max(64, Math.round(W * shrink)), h = Math.max(64, Math.round(H * shrink)), wk = document.createElement("canvas"); wk.width = w; wk.height = h;
+    const g2 = wk.getContext("2d", { willReadFrequently: true }); g2.fillStyle = "#fff"; g2.fillRect(0, 0, w, h); g2.drawImage(cv, 0, 0, w, h);
+    const d = g2.getImageData(0, 0, w, h).data, gray = new Uint8Array(w * h);
+    for (let i = 0, j = 0; j < gray.length; i += 4, j++) gray[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0;
+    const r = decodePhoto(gray, w, h);
+    if (!r || DHV.hex(r.data) !== DHV.hex(payload)) continue;
+    const png = new Uint8Array(await (await new Promise(res => cv.toBlob(res, "image/png"))).arrayBuffer());
+    const files = [{ name: doc.name, bytes: doc.bytes }, { name: "digihan-registration.json", bytes: enc.encode(JSON.stringify(key.reg)) },
+                   { name: "digihan-center.png", bytes: key.png }, ...(proof ? [{ name: "seal.ots", bytes: proof }] : [])];
+    return withInside(png, payload, files);
+  }
+  // the seal did not fit, or did not read back at any size that fits: the picture is too small
+  const need = Math.ceil((Math.round(S * 1.07) + 2 * margin) / 50) * 50;
+  throw new Error("This picture is too small for a readable seal in its corner: its shorter side needs to be at least about "
+    + need + " pixels (it is " + short + "). The PDF was made as usual.");
 }
 
 // ---------------- finishing the time proof ----------------
@@ -561,6 +664,44 @@ function attachments(pdf) {                               // [{name, bytes, inde
   }
   return { list: out, arr };
 }
+// the time proof for one seal: start it, fetch its Bitcoin part, or confirm it is finished (PDFs and pictures)
+async function proofFor(payload, anchored, oldBytes, msg) {
+  let proof, started = false;
+  if (!oldBytes) { show(msg, "", "No time proof inside; starting one now…"); proof = (await DHO.stamp(payload)).bytes; started = true; }
+  else {
+    const p0 = await DHO.parse(oldBytes);
+    if (p0.bitcoin.length) proof = oldBytes;
+    else {
+      show(msg, "", "Asking the timestamp servers for the Bitcoin part…");
+      const up = await DHO.upgrade(oldBytes);
+      if (!up.added) { show(msg, "warn", "Not ready yet: the timestamp servers' transaction is not in a Bitcoin block yet. Try again in an hour or two."); return null; }
+      proof = up.bytes;
+    }
+  }
+  let line = "";
+  if (!started) {
+    const v = await DHO.verify(proof, payload, merkleAt);
+    if (anchored !== null && v.height < anchored) throw new Error("The time proofs contradict each other.");
+    line = anchored !== null ? "Sometime between and including Block " + num(anchored) + " and Block " + num(v.height) + " (Bitcoin; Block " + num(v.height) + " was mined " + utc(v.time) + ")."
+                             : "Stamped no later than Bitcoin block " + num(v.height) + ", mined " + utc(v.time) + ".";
+  }
+  return { proof, started, line, already: !!oldBytes && proof === oldBytes };
+}
+async function finishPicture(f, b, msg) {
+  const { files, text } = pngInside(b);
+  if (!text.DigiHanPayload) throw new Error("This picture has no DigiHan seal data.");
+  const payload = DHV.unhex(text.DigiHanPayload), parsed = DHV.parse(payload), anchored = (parsed.flags & 1) ? parsed.ts : null;
+  const old = files.find(x => DHO.isProof(x.bytes));
+  const r = await proofFor(payload, anchored, old && old.bytes, msg); if (!r) return;
+  if (r.already) return show(msg, "ok", "This picture's time proof is already finished. " + r.line);
+  const out = withInside(b, payload, [...files.filter(x => x !== old), { name: "seal.ots", bytes: r.proof }]);
+  const base = f.name.replace(/\.png$/i, "").replace(/_(stamped|finished|timestamped)$/, "");
+  const name = base + (r.started ? "_stamped.png" : "_finished.png");
+  $("finishDl").href = save(out, name, "image/png"); $("finishDl").download = name;
+  $("finishDl").textContent = r.started ? "Download the picture with the proof started" : "Download the finished picture";
+  $("finishDlRow").classList.remove("hide");
+  show(msg, "ok", r.started ? "The timestamp proof is started. Come back in a few hours and pick the new picture here to finish it." : "Finished. " + r.line);
+}
 $("pickFinish").addEventListener("click", () => $("finishIn").click());
 $("finishIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
@@ -568,32 +709,17 @@ $("finishIn").addEventListener("change", async ev => {
   show(msg, "", "Reading " + f.name + "…");
   try {
     const { PDFDocument, PDFName } = PDFLib;
-    const pdf = await PDFDocument.load(new Uint8Array(await f.arrayBuffer()), { updateMetadata: false });
+    const raw = new Uint8Array(await f.arrayBuffer());
+    if (isPng(raw)) return await finishPicture(f, raw, msg);          // v6: a picture with the seal in a corner
+    const pdf = await PDFDocument.load(raw, { updateMetadata: false });
     const info = pdf.getInfoDict(), pl = info.lookup(PDFName.of("DigiHanPayload"));
     if (!pl) throw new Error("This PDF has no DigiHan seal data.");
     const payload = DHV.unhex(pl.decodeText()), parsed = DHV.parse(payload), anchored = (parsed.flags & 1) ? parsed.ts : null;
     const { list, arr } = attachments(pdf);
     const old = list.find(a => DHO.isProof(a.bytes));
-    let proof, started = false;
-    if (!old) { show(msg, "", "No time proof inside; starting one now…"); proof = (await DHO.stamp(payload)).bytes; started = true; }
-    else {
-      const p0 = await DHO.parse(old.bytes);
-      if (p0.bitcoin.length) proof = old.bytes;
-      else {
-        show(msg, "", "Asking the timestamp servers for the Bitcoin part…");
-        const up = await DHO.upgrade(old.bytes);
-        if (!up.added) return show(msg, "warn", "Not ready yet: the timestamp servers' transaction is not in a Bitcoin block yet. Try again in an hour or two.");
-        proof = up.bytes;
-      }
-    }
-    let line = "";
-    if (!started) {
-      const v = await DHO.verify(proof, payload, merkleAt);
-      if (anchored !== null && v.height < anchored) throw new Error("The time proofs contradict each other.");
-      line = anchored !== null ? "Sometime between and including Block " + num(anchored) + " and Block " + num(v.height) + " (Bitcoin; Block " + num(v.height) + " was mined " + utc(v.time) + ")."
-                               : "Stamped no later than Bitcoin block " + num(v.height) + ", mined " + utc(v.time) + ".";
-      if (old && proof === old.bytes) return show(msg, "ok", "This PDF's time proof is already finished. " + line);
-    }
+    const r = await proofFor(payload, anchored, old && old.bytes, msg); if (!r) return;
+    const { proof, started, line } = r;
+    if (r.already) return show(msg, "ok", "This PDF's time proof is already finished. " + line);
     if (old && arr) { arr.remove(old.index); arr.remove(old.index); }
     const now = new Date();
     await pdf.attach(proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });

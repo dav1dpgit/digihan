@@ -156,6 +156,20 @@ v0.3 defines tier 1: `doc_hash` is over the exact bytes of the file. The referen
 * **Time proof.** An OpenTimestamps proof (section 11.2) MAY be attached as `seal.ots`. The reference
   tool writes it into a new file (`python/timestamp.py attach`); the stamped PDF is not changed.
 
+**A stamped picture (PNG).** For a PNG file, the stamping page can also write a copy of the picture with
+the seal drawn in one corner, on a white disc, 3% of the shorter side from the edges. The seal signs the
+ORIGINAL picture's bytes; the copy's own bytes are not what was signed. The copy carries what a verifier
+needs inside its own file, before `IEND`:
+
+* `tEXt` chunk `DigiHanPayload`: the payload, hex. `tEXt` chunk `DigiHanFormat`: a description.
+* One private chunk `dhFl` per file: 1 byte version (1), the file name in UTF-8, a 0 byte, then the
+  file's exact bytes. The files are the original picture, and MAY include `digihan-registration.json`,
+  `digihan-center.png` and `seal.ots`, with the same meaning as the PDF attachments above.
+
+A verifier reads the seal from the picture's pixels, then checks it against the original found inside.
+Programs that rewrite pictures (most messaging and social apps) drop these chunks; the original is then
+needed separately.
+
 Later tiers (canonical content, printed canonical string) are not yet defined.
 
 ## 10. Changes

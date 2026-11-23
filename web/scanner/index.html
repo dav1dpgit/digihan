@@ -110,7 +110,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v16 · format v0.4</div>
+    <div class="v">scanner v17 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -197,7 +197,7 @@ function grayFrom(src, sw, sh) {
   return { g, w, h };
 }
 
-async function showResult(r) {
+async function showResult(r, inside) {
   stopCamera("decoded");
   const p = r.data, parsed = parsePayload(p);
   const dg = await crypto.subtle.digest("SHA-256", p);
@@ -217,6 +217,7 @@ async function showResult(r) {
   current = { payload: p, fp: parsed.fp, keys: null, extraKeys: [], docs: [], proofs: [], pngs: [], digest: DHV.hex(new Uint8Array(dg)) };
   $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
   $("r_proof").textContent = "—";
+  if (inside) await useInside(current, inside.list, inside.from);   // v17: a stamped picture carries its files
   await siteProof(current);
   verdict("warn", "Ring read — checking the signature…", "Looking up the signer's public key.");
   runCheck();
@@ -503,15 +504,35 @@ $("docIn").addEventListener("change", async ev => {
   if (DHO.isProof(bytes)) { c.proofs.push({ bytes, from: f.name }); runCheck(); return; }   // a .ots time proof
   if (await addKeyFrom(c, bytes, "the registration file " + f.name)) { runCheck(); return; }  // a registration.json
   c.docs.push({ name: f.name, sha: await DHV.sha256(bytes) });
-  if (/^%PDF/.test(new TextDecoder("latin1").decode(bytes.slice(0, 5))))
-    for (const a of await pdfAttachments(bytes)) {
-      if (DHO.isProof(a)) c.proofs.push({ bytes: a, from: "the proof attached inside " + f.name });
-      else if (await addKeyFrom(c, a, "the registration attached inside " + f.name)) continue;
-      else if (a[0] === 0x89 && a[1] === 0x50 && a[2] === 0x4e && a[3] === 0x47) c.pngs.push(a);   // the center artwork
-      else c.docs.push({ name: "the file attached inside " + f.name, sha: await DHV.sha256(a) });
-    }
+  if (/^%PDF/.test(new TextDecoder("latin1").decode(bytes.slice(0, 5)))) await useInside(c, await pdfAttachments(bytes), f.name);
+  else if (isPng(bytes)) await useInside(c, pngInside(bytes), f.name);         // v17: a stamped picture
   runCheck();
 });
+// the files a stamped PDF or a stamped picture carries: the original, the registration, the artwork, the time proof
+async function useInside(c, list, from) {
+  for (const a of list) {
+    if (DHO.isProof(a)) c.proofs.push({ bytes: a, from: "the proof inside " + from });
+    else if (await addKeyFrom(c, a, "the registration inside " + from)) continue;
+    else {
+      // a PNG may be the artwork (shown only if its hash is the registered one) or the stamped original
+      // itself (a stamped picture, or a PNG stamped into a PDF), so it is tried as both
+      if (isPng(a)) c.pngs.push(a);
+      c.docs.push({ name: "the file inside " + from, sha: await DHV.sha256(a) });
+    }
+  }
+}
+// v17: a PNG picture with the seal in a corner carries its files in private "dhFl" chunks (see the stamping page)
+const isPng = b => b && b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 && b[4] === 0x0d && b[5] === 0x0a;
+function pngInside(b) {
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength), out = []; let i = 8;
+  while (i + 12 <= b.length) {
+    const len = v.getUint32(i), type = String.fromCharCode(b[i + 4], b[i + 5], b[i + 6], b[i + 7]);
+    if (type === "dhFl" && b[i + 8] === 1) { const d = b.subarray(i + 8, i + 8 + len), z = d.indexOf(0, 1); if (z > 0) out.push(d.slice(z + 1)); }
+    if (type === "IEND") break;
+    i += 12 + len;
+  }
+  return out;
+}
 // v11: a signer's registration record (sign_pdf.py attaches it to the sealed PDF). Used for this check only,
 // and only when its own signature is valid and its key matches the seal's key id. Not saved on the phone.
 async function addKeyFrom(c, bytes, source) {
@@ -555,10 +576,12 @@ $("againBtn").addEventListener("click", () => {
 });
 $("photoBtn").addEventListener("click", () => $("fileIn").click());
 
-$("fileIn").addEventListener("change", ev => {
+$("fileIn").addEventListener("change", async ev => {
   const f = ev.target.files && ev.target.files[0];
   if (!f) return;
   say("reading photo…");
+  let inside = null;                             // v17: a stamped picture: its original and files come along
+  try { const b = new Uint8Array(await f.arrayBuffer()); if (isPng(b)) { const l = pngInside(b); if (l.length) inside = { list: l, from: f.name }; } } catch (e) {}
   const img = new Image();
   img.onload = () => {
     frames = 1;
@@ -566,7 +589,7 @@ $("fileIn").addEventListener("change", ev => {
     // v7: a photo or screenshot is searched for the seal's outline (a dark toolbar or an off-center seal
     // no longer hides it), and tried inverted for a seal shown light on dark
     const r = decodePhoto(g, w, h);
-    if (r) showResult(r);
+    if (r) showResult(r, inside);
     else say("no seal decoded in that photo — try closer or flatter");
     ev.target.value = "";
   };
