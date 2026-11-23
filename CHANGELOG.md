@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.2 (2026-11-23): shorter results
+
+* The phone scanner (v10) and `verify_pdf.py` no longer add "Who holds the key is a separate question"
+  to their results. README and SPEC keep the one factual line in their lists of what a seal proves.
+
 ## v0.4.1 (2026-11-23): wording for bookended seals
 
 * A seal with both time proofs (bookended) is now reported as "Sometime between and including Block A

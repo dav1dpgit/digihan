@@ -19,7 +19,7 @@ A seal that verifies proves three things:
 2. the document's bytes are exactly the bytes that were signed (one changed byte fails);
 3. the time in the seal cannot be changed afterward.
 
-It does **not** prove who holds the key (that is a separate step, such as a notary). On its own the time
+It does **not** prove who holds the key. On its own the time
 is the signer's statement. Two time proofs (section 11) prove a window instead: an **anchored** seal was
 made no earlier than a given Bitcoin block, and an **OpenTimestamps proof** shows it existed no later
 than a given block.

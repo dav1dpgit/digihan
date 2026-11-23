@@ -105,7 +105,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v9 · format v0.4</div>
+    <div class="v">scanner v10 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -326,7 +326,6 @@ async function timeWindow(c, anchored) {
     try { later = await DHO.verify(pr.bytes, c.payload, merkleAt); later.from = pr.from; break; }
     catch (e) { why = e.message; }
   }
-  const KEY = " Who holds the key is a separate question.";
   if (anchored !== null && later && later.height < anchored)
     return { bad: true, text: "the two proofs contradict each other",
              why: "The time proofs contradict each other: anchored to block " + num(anchored) + ", timestamped at the lower block number " + num(later.height) + "." };
@@ -337,18 +336,18 @@ async function timeWindow(c, anchored) {
     const span = "Sometime between and including Block " + num(anchored) + " and Block " + num(later.height);
     const dates = a ? " Block " + num(anchored) + " was mined " + utc(a.time) + "; Block " + num(later.height) + " was mined " + utc(later.time) + "."
                     : " Block " + num(later.height) + " was mined " + utc(later.time) + ".";
-    return { text: span, why: "This exact document was sealed by this key. " + span + " (Bitcoin), both proven." + dates + KEY };
+    return { text: span, why: "This exact document was sealed by this key. " + span + " (Bitcoin), both proven." + dates };
   }
   if (later) {
     const off = parsePayload(c.payload).ts > later.time + 7200 ? " The stated time is after that block, so the stated time is wrong." : "";
     return { text: "no later than " + B,
-             why: "This exact document was sealed by this key no later than " + B + ", proven by OpenTimestamps." + off + KEY };
+             why: "This exact document was sealed by this key no later than " + B + ", proven by OpenTimestamps." + off };
   }
   if (anchored !== null)
     return { text: "no earlier than " + A + (why ? ". " + why : ""),
-             why: "This exact document was sealed by this key no earlier than " + A + ": the block's hash is part of what was signed." + KEY };
+             why: "This exact document was sealed by this key no earlier than " + A + ": the block's hash is part of what was signed." };
   return { text: why || "none: the time is the signer's statement",
-           why: "This exact document was sealed by this key. The time is the signer's statement." + KEY };
+           why: "This exact document was sealed by this key. The time is the signer's statement." };
 }
 let current = null, registryCache = null;
 const short = s => s.length > 20 ? s.slice(0, 12) + "…" + s.slice(-6) : s;

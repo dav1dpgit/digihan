@@ -148,5 +148,4 @@ else:
     print(f"        Time stated by the signer: {when(f['ts'])} (not proven).")
 if later and not f["flags"] & dhsign.FLAG_ANCHOR:
     print(f"        Made no later than Bitcoin block {later[0]:,}, mined {when(later[1])} (proven: OpenTimestamps).")
-print("        This proves which KEY sealed it. Who holds the key is a separate question")
-print("        (a notary's job), and the attached file is what you should read.")
+print("        Read the attached file: it is exactly what was sealed.")

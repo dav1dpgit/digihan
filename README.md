@@ -14,7 +14,7 @@ the seal is free artwork (a signature, lettering, a crest); only the ring follow
 
 | Proves | Does not prove |
 |---|---|
-| Which **key** sealed the document | **Who** holds the key (that is a separate step, such as a notary) |
+| Which **key** sealed the document | **Who** holds the key |
 | The document has not changed by even one byte | **When** the seal was made, unless it carries a time proof (below) |
 | The stated time cannot be changed afterward | |
 
