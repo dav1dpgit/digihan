@@ -33,7 +33,7 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
 | Draw and read seals, round or square (Python) | Nostr NIP for the seal registration: [draft](nip/NIP-DIGIHAN.md) |
 | Stamp a PDF; check a stamped PDF (Python) | Carrying a time proof for a seal outside a PDF or a site |
 | Phone scanner: reads the ring (camera or photo, including screenshots) **and checks the signature** | Document tiers beyond exact bytes |
-| Keys are Nostr keys (npub); the phone can find a key on Nostr relays from the seal's key id, once the signer has published their registration | |
+| Keys are Nostr keys (npub); the stamping page sends each seal's registration to Nostr relays, and the phone finds the key there from the seal's key id | |
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
 | Stamping page: make a seal and stamp any file in a browser (a PNG can also get a copy with the seal in a corner), bookended; finish the proof later | |
 

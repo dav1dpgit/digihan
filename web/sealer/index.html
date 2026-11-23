@@ -214,6 +214,11 @@ html { scrollbar-gutter: stable; }
       <b>On this device</b>
       <div id="deviceState"></div>
     </div>
+    <div class="device" id="nostrBox">
+      <b>On Nostr</b>
+      <div id="nostrState"></div>
+      <div class="row"><button id="nostrSend">Send to Nostr</button></div>
+    </div>
     <div class="row"><button id="saveKey">Save key file</button>
       <button id="forgetKey">Erase from this device</button></div>
     <div class="row"><button id="newSeal">Make another seal</button>
@@ -263,7 +268,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v12 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v13 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -378,7 +383,12 @@ const Seals = (() => {
     async get(pk) { return db ? (await run("seals", "readonly", s => s.get(pk))) || null : mem.seals.get(pk) || null; },
     async put(kf) {
       const old = await api.get(kf.pubkey), rec = { pubkey: kf.pubkey, kf, added: old ? old.added : Date.now() };
+      if (old && old.nostr) rec.nostr = old.nostr;                    // v13: when the public record was sent
       if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(kf.pubkey, rec);
+    },
+    async mark(pk, nostr) {                                            // v13: note that the public record was sent
+      const rec = await api.get(pk); if (!rec) return; rec.nostr = nostr;
+      if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(pk, rec);
     },
     async del(pk) { if (db) await run("seals", "readwrite", s => s.delete(pk)); else mem.seals.delete(pk); },
     async current() { return db ? (await run("meta", "readonly", s => s.get("current"))) || null : mem.current; },
@@ -440,6 +450,8 @@ async function useKey(kf) {
   const npub = DHV.npubEncode(pub); $("keyNpub").textContent = npub; $("keyNpub").dataset.copy = npub;
   preview($("keyPreview"), key.art);
   $("noKey").classList.add("hide"); $("haveKey").classList.remove("hide");
+  const rec = await Seals.get(kf.pubkey); key.nostr = (rec && rec.nostr) || null;
+  nostrState();
   await deviceState();
 }
 $("makeKey").addEventListener("click", async () => {
@@ -454,6 +466,7 @@ $("makeKey").addEventListener("click", async () => {
     const kf = await DHS.lockKey(sk, pub, p1, png, reg);
     sk.fill(0);
     await addSeal(kf);
+    sendSeal(key);                                                     // v13: the public record goes to Nostr
     $("pw1").value = $("pw2").value = ""; hide($("keyMsg"));
     $("keyNote").textContent = "Your seal is made. Save the key file now and keep the password: with both you can stamp on any device, and without them this seal cannot be used again. This page also keeps the key file on this device, encrypted with your password.";
   } catch (e) { show($("keyMsg"), "bad", e.message); }
@@ -498,6 +511,67 @@ $("newSeal").addEventListener("click", () => {
 $("backToSeals").addEventListener("click", () => {
   hide($("keyMsg")); $("noKey").classList.add("hide"); if (key) $("haveKey").classList.remove("hide");
 });
+// ---------------- v13: the seal's public record on Nostr ----------------
+// The record is the registration this seal already has (a Nostr event, kind 30078, signed by its key when the
+// seal was made): the public key, the key id ("f" tag) and the artwork's SHA-256 hash. Nothing about any
+// document. A scanner holding only a scanned seal asks these relays for it by key id. It is sent when a seal
+// is made, and with the button for a seal made before or opened from a key file. Sending it again is harmless:
+// relays keep one copy of an event.
+const RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];   // the scanner reads the same three
+const relayName = u => u.replace("wss://", "");
+function sendToRelays(ev, ms) {                                       // -> {saved: [url], failed: [{url, why}]}
+  return Promise.all(RELAYS.map(url => new Promise(res => {
+    let ws = null, done = false, t = 0;
+    const end = (ok, why) => { if (done) return; done = true; clearTimeout(t); try { if (ws) ws.close(); } catch (e) {} res({ url, ok, why }); };
+    t = setTimeout(() => end(false, "no answer"), ms || 8000);
+    try { ws = new WebSocket(url); } catch (e) { return end(false, "could not connect"); }
+    ws.onopen = () => { try { ws.send(JSON.stringify(["EVENT", ev])); } catch (e) { end(false, "could not send"); } };
+    ws.onmessage = m => {
+      try { const d = JSON.parse(m.data);
+        if (d[0] === "OK" && d[1] === ev.id) end(d[2] === true || /^duplicate:/.test(d[3] || ""), d[3] || "refused");
+      } catch (e) {}
+    };
+    ws.onerror = () => end(false, "could not connect");
+    ws.onclose = () => end(false, "closed without an answer");
+  }))).then(l => ({ saved: l.filter(x => x.ok).map(x => x.url), failed: l.filter(x => !x.ok) }));
+}
+const nostrSending = new Set();
+const NOSTR_WHAT = "It holds your public key, key id and your artwork's SHA-256 hash, so a scanner can find your key from a scanned seal without the stamped PDF. Nothing about your documents is sent.";
+// "relay.damus.io, nos.lol: no answer; relay.primal.net: blocked: …" (relays with the same answer together)
+const whyList = failed => { const by = new Map(); for (const f of failed) by.set(f.why, [...(by.get(f.why) || []), relayName(f.url)]);
+  return [...by].map(([why, names]) => names.join(", ") + ": " + why).join("; "); };
+function nostrState(note) {
+  if (!key) return;
+  const el = $("nostrState"), btn = $("nostrSend"), n = key.nostr;
+  if (!DHV.tag(key.reg, "f")) {                                       // made before records carried the key id
+    el.textContent = "This seal's public record has no key id in it, so a scanner could not find it on Nostr.";
+    btn.classList.add("hide"); return;
+  }
+  btn.classList.remove("hide");
+  if (nostrSending.has(key.kf.pubkey)) {
+    el.textContent = "Sending your seal's public record to Nostr"; el.appendChild(DOTS()); btn.disabled = true; return;
+  }
+  btn.disabled = false; btn.textContent = n ? "Send again" : "Send to Nostr";
+  el.textContent = (n ? "Your seal's public record was sent " + utc(n.at) + " and saved by " + n.saved.length + " of " + RELAYS.length
+      + " relays (" + n.saved.map(relayName).join(", ") + "). "
+    : "Your seal's public record has not been sent from this device. ") + NOSTR_WHAT + (note ? " " + note : "");
+}
+async function sendSeal(k) {
+  if (!k) return;
+  const pk = k.kf.pubkey; if (nostrSending.has(pk)) return;
+  nostrSending.add(pk); if (key === k) nostrState();
+  const r = await sendToRelays(k.reg);
+  nostrSending.delete(pk);
+  let note = "";
+  if (r.saved.length) {
+    k.nostr = { at: Math.floor(Date.now() / 1000), saved: r.saved };
+    try { await Seals.mark(pk, k.nostr); } catch (e) {}
+    if (r.failed.length) note = "Not saved by " + whyList(r.failed) + ".";
+  } else note = "Not sent just now: no relay saved it (" + whyList(r.failed) + "). Check the connection and send again.";
+  if (key && key.kf.pubkey === pk) { key.nostr = k.nostr || key.nostr; nostrState(note); }
+}
+$("nostrSend").addEventListener("click", () => sendSeal(key));
+
 // a key kept offline: the page drafts the artwork record, the signature is made elsewhere and pasted back
 function setMode(offline) {
   $("modeHere").setAttribute("aria-pressed", String(!offline)); $("modeOffline").setAttribute("aria-pressed", String(offline));
@@ -521,6 +595,7 @@ $("offFinish").addEventListener("click", async () => {
   try {
     const reg = await DHS.finishRegistration(offDraft.draft, sig);
     await addSeal({ format: "digihan-pubkey-v1", pubkey: DHV.hex(offDraft.pub), center_png: DHS.b64(offDraft.png), registration: reg });
+    sendSeal(key);                                                     // v13
     offDraft = null; $("offSig").value = ""; $("offSignBox").classList.add("hide"); hide($("keyMsg"));
   } catch (e) { show($("keyMsg"), "bad", e.message + " Check that you signed this exact code with the key whose public key you entered."); }
 });
@@ -652,7 +727,7 @@ async function buildPdf(o) {
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v12 (format v0.4)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v13 (format v0.4)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));

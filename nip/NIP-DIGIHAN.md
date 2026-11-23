@@ -78,6 +78,13 @@ A real record for sample seal #1 on digihan.org (key id `44d846907e91c4d0`):
 }
 ```
 
+## Publishing
+
+The signer's client sends the record (`["EVENT", <event>]`) to several relays when the key and artwork
+are set up, and MAY send it again later; relays keep one copy of an event. The record holds nothing
+about any document. The DigiHan stamping page sends it to `wss://relay.damus.io`, `wss://nos.lol` and
+`wss://relay.primal.net`, the relays its scanner asks.
+
 ## Finding the key for a scanned seal
 
 1. Read the ring and take the key id (payload bytes 1-8, as 16 hex characters).

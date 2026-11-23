@@ -119,6 +119,10 @@ same document stamped twice gives two different rings.
   Each artwork gets its own record (the `d` tag carries the hash), so old seals keep verifying after
   a signer changes artwork. Records also carry `["f", "<key id>"]` and an `alt` tag; the draft NIP
   ([nip/NIP-DIGIHAN.md](nip/NIP-DIGIHAN.md)) defines the full record.
+* The stamping page sends the registration to Nostr relays (`wss://relay.damus.io`, `wss://nos.lol`,
+  `wss://relay.primal.net`) when a seal is made, and again when the signer asks. A relay's `OK` answer
+  (or `duplicate:`) counts as saved. A verifier holding only a scanned seal asks relays for
+  `{"kinds": [30078], "#f": ["<key id>"]}`. Nothing about any document is sent.
 
 ## 8. Verification
 

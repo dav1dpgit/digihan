@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.16 (2026-11-23): the seal's public record goes to Nostr
+
+* Stamping page v13: when a seal is made (here, or with a key kept offline), the page sends the seal's
+  public record to three Nostr relays (relay.damus.io, nos.lol, relay.primal.net). The record is the
+  registration the seal already has, signed by its key when it was made: the public key, the key id and
+  the artwork's SHA-256 hash. Nothing about any document is sent, and no new signature is needed. Until
+  now nothing sent it, so the scanner's lookup on Nostr by key id found nothing for seals made on the
+  stamping page; now a scanned seal plus the original can be checked without the stamped PDF.
+* Step 1 has an "On Nostr" panel: when the record was sent and which relays saved it, which did not and
+  why, and a button to send it ("Send to Nostr" for a seal not sent from this device, such as one opened
+  from a key file or made before this version; "Send again" otherwise). The note is kept with the seal on
+  the device, and survives re-encryption of the key file.
+* SPEC section 7 and the draft NIP describe the publishing.
+
 ## v0.5.15 (2026-11-23): each loaded file is checked by itself
 
 * Scanner v23, fixed: after a stamped PDF or stamped picture was read, a file loaded with "Check against a
