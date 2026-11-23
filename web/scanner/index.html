@@ -120,7 +120,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v23 · format v0.4</div>
+    <div class="v">scanner v24 · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -218,7 +218,7 @@ async function showResult(r, inside, src) {
   $("r_digest").textContent = Array.from(new Uint8Array(dg).slice(0, 4),
     b => b.toString(16).padStart(2, "0")).join("");
   $("r_geom").textContent = r.geom ? (r.geom.square ? "square · kakuin " : "round · jitsuin ") + r.geom.d + "mm" : "—";
-  $("r_ver").textContent = parsed.ver + " (flags " + parsed.flags + ")";
+  $("r_ver").textContent = parsed.ver + (parsed.ver === 2 ? " · a Nostr stamp event" : "") + " (flags " + parsed.flags + ")";
   $("r_fp").textContent = parsed.fp.replace(/(.{4})(?=.)/g, "$1 ");
   $("r_ts").textContent = (parsed.flags & 1) ? "anchored to Bitcoin block " + parsed.ts.toLocaleString("en-US")
     : new Date(parsed.ts * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z, stated by the signer";
@@ -331,8 +331,9 @@ async function agree(path, parse) {
 }
 const hashText = t => /^[0-9a-f]{64}$/.test(t) ? t : null;
 async function blockHashAt(h) {                       // no earlier than: the anchored block's hash
-  const t = await agree("/block-height/" + h, hashText);
-  return t ? DHV.unhex(t) : null;
+  const t = await agree("/block-height/" + h, hashText); if (!t) return null;
+  const m = await merkleAt(h);                        // v24: and its header time, which a version 2 seal signs
+  return { hash: DHV.unhex(t), time: m ? m.time : null };
 }
 async function merkleAt(h) {                          // no later than: the block's merkle root and time
   const bh = await agree("/block-height/" + h, hashText); if (!bh) return null;
@@ -434,7 +435,7 @@ async function findKeys(fp, extra) {
     const evs = await queryRelays(fp);
     const byKey = new Map();
     for (const { ev, relay } of evs) {
-      if (ev.kind !== 30078 || DHV.tag(ev, "f") !== fp || !(await DHV.eventValid(ev))) continue;
+      if (ev.kind !== 30078 || DHV.tag(ev, "f") !== fp || DHV.isStampEvent(ev) || !(await DHV.eventValid(ev))) continue;
       const pub = DHV.unhex(ev.pubkey); if (await DHV.fingerprint(pub) !== fp) continue;
       if (!byKey.has(ev.pubkey)) byKey.set(ev.pubkey, { pub, regs: [], docs: [], source: "Nostr (" + relay.replace("wss://", "") + ")", image: null });
       const k = byKey.get(ev.pubkey); k.regs.push(ev); if (!k.image && DHV.tag(ev, "image")) k.image = DHV.tag(ev, "image");
@@ -703,6 +704,7 @@ async function addKeyFrom(c, bytes, source) {
   if (bytes[0] !== 0x7b) return false;                                   // not JSON
   let ev; try { ev = JSON.parse(new TextDecoder().decode(bytes)); } catch (e) { return false; }
   if (!ev || ev.kind !== 30078 || typeof ev.pubkey !== "string" || !(await DHV.eventValid(ev))) return false;
+  if (DHV.isStampEvent(ev)) return true;                                 // v24: the stamp event itself (digihan-stamp.json): not a key record
   const pub = DHV.unhex(ev.pubkey);
   if (await DHV.fingerprint(pub) !== c.fp) return true;                  // a record, but for another key: ignored
   const k = { pub, regs: [ev], docs: [], source };

@@ -1,4 +1,4 @@
-// DigiHan signature check for the phone scanner (format v0.4, payload version 1).
+// DigiHan signature check for the phone scanner (format v0.5, payload versions 1 and 2).
 // Self-contained: BIP340 Schnorr verification over secp256k1 with BigInt, SHA-256 via
 // WebCrypto, bech32 (npub), Nostr event checks (NIP-01). Verification only: no secret keys here.
 // Runs in browsers and in Node 20+ (globalThis.crypto.subtle).
@@ -78,20 +78,33 @@ const DHV = (() => {
   }
 
   // ---- Nostr event (NIP-01) and the DigiHan registration ----
+  const eventId = ev => sha256(enc.encode(JSON.stringify([0, ev.pubkey, ev.created_at, ev.kind, ev.tags, ev.content])));
   async function eventValid(ev) {
     try {
-      const ser = JSON.stringify([0, ev.pubkey, ev.created_at, ev.kind, ev.tags, ev.content]);
-      const id = await sha256(enc.encode(ser));
+      const id = await eventId(ev);
       return hex(id) === ev.id && await schnorrVerify(id, unhex(ev.pubkey), unhex(ev.sig));
     } catch (e) { return false; }
   }
   const tag = (ev, name) => { const t = (ev.tags || []).find(t => t[0] === name); return t ? t[1] : null; };
+  // a stamp event (payload version 2) has the same kind as a key record; it is never taken as one
+  const isStampEvent = ev => /^digihan-stamp:/.test(tag(ev, "d") || "");
   async function fingerprint(pub) { return hex((await sha256(pub)).slice(0, 8)); }
 
   // ---- the seal ----
   function parse(p) {
     let ts = 0; for (let i = 9; i < 14; i++) ts = ts * 256 + p[i];
     return { version: p[0] >> 4, flags: p[0] & 0xf, fp: hex(p.slice(1, 9)), ts, tsBytes: p.slice(9, 14), sig: p.slice(14, 78) };
+  }
+  // Payload version 2 (SPEC.md, section 6.2): the stamp event, built from the same parts. F is the 5-byte field
+  // (time, or block height A); block = {height, hash: Uint8Array(32), time} for an anchored seal.
+  function stampEvent(pubHex, docHash, F, fpHex, centerHashHex, block) {
+    const dh = hex(docHash);
+    const tags = [["d", "digihan-stamp:" + dh + ":" + F], ["x", dh], ["f", fpHex]];
+    if (centerHashHex) tags.push(["center_hash", centerHashHex]);
+    if (block) tags.push(["block", String(block.height), hex(block.hash)]);
+    tags.push(["alt", "DigiHan stamp: a seal on a document"]);
+    return { pubkey: pubHex, created_at: block ? block.time : F, kind: 30078, tags,
+             content: "DigiHan stamp. Document SHA-256: " + dh + "." + (block ? " No earlier than Bitcoin block " + block.height + "." : "") };
   }
   async function signedMessage(docHash, tsBytes, fpBytes, centerHash, blockHash) {
     const parts = [docHash, tsBytes, fpBytes];
@@ -100,33 +113,39 @@ const DHV = (() => {
     return taggedHash("DigiHan/v1", cat(...parts));
   }
   // Check one seal against one key, one document hash and (if committed) the registrations.
-  // blockHashAt(height) -> Uint8Array(32) | null is needed only for anchored seals (format v0.4).
-  // Returns {ok, reason, reg, anchored}. reason is one plain sentence.
+  // blockHashAt(height) is needed only for anchored seals (format v0.4): it returns the block's hash
+  // (Uint8Array(32)) or {hash, time}; a version 2 seal also needs the time (the block header's time).
+  // Returns {ok, reason, reg, anchored, version}. reason is one plain sentence.
   async function checkSeal(payload, pub, docHash, registrations, blockHashAt) {
     const f = parse(payload);
-    if (f.version !== 1 || (f.flags & ~5 & 0xf)) return { ok: false, reason: "Unknown seal version or reserved flag." };
+    if ((f.version !== 1 && f.version !== 2) || (f.flags & ~5 & 0xf)) return { ok: false, reason: "Unknown seal version or reserved flag." };
     if (await fingerprint(pub) !== f.fp) return { ok: false, reason: "This key does not match the seal's key id." };
     const fpB = payload.slice(1, 9);
-    let bh = null;
+    let blk = null;
     if (f.flags & 1) {
-      bh = blockHashAt ? await blockHashAt(f.ts) : null;
-      if (!bh) return { ok: false, reason: "This seal is anchored to Bitcoin block " + f.ts + ", and that block's hash could not be fetched." };
+      const got = blockHashAt ? await blockHashAt(f.ts) : null;
+      blk = got ? (got instanceof Uint8Array ? { hash: got, time: null } : got) : null;
+      if (!blk || !blk.hash) return { ok: false, reason: "This seal is anchored to Bitcoin block " + f.ts + ", and that block's hash could not be fetched." };
+      if (f.version === 2 && !Number.isFinite(blk.time)) return { ok: false, reason: "This seal is anchored to Bitcoin block " + f.ts + ", and that block's time could not be fetched." };
     }
     const anchored = (f.flags & 1) ? f.ts : null;
+    const sigOk = async ch => f.version === 2
+      ? schnorrVerify(await eventId(stampEvent(hex(pub), docHash, f.ts, f.fp, ch, blk && { height: f.ts, hash: blk.hash, time: blk.time })), pub, f.sig)
+      : schnorrVerify(await signedMessage(docHash, f.tsBytes, fpB, ch ? unhex(ch) : null, blk && blk.hash), pub, f.sig);
     if (f.flags & 4) {
       for (const reg of registrations || []) {
-        if (reg.pubkey !== hex(pub) || !(await eventValid(reg))) continue;
+        if (reg.pubkey !== hex(pub) || isStampEvent(reg) || !(await eventValid(reg))) continue;
         const ch = tag(reg, "center_hash"); if (!ch) continue;
-        if (await schnorrVerify(await signedMessage(docHash, f.tsBytes, fpB, unhex(ch), bh), pub, f.sig)) return { ok: true, reg, anchored };
+        if (await sigOk(ch)) return { ok: true, reg, anchored, version: f.version };
       }
-      return { ok: false, reason: (registrations || []).some(r => r.pubkey === hex(pub)) ? "The signature does not match this document." : "No valid artwork registration for this key." };
+      return { ok: false, reason: (registrations || []).some(r => r.pubkey === hex(pub) && !isStampEvent(r)) ? "The signature does not match this document." : "No valid artwork registration for this key." };
     }
-    return (await schnorrVerify(await signedMessage(docHash, f.tsBytes, fpB, null, bh), pub, f.sig))
-      ? { ok: true, reg: null, anchored } : { ok: false, reason: "The signature does not match this document." };
+    return (await sigOk(null)) ? { ok: true, reg: null, anchored, version: f.version } : { ok: false, reason: "The signature does not match this document." };
   }
 
   // curve: the arithmetic the sealing page's signer uses (dhseal.js); verification itself needs none of it exposed
   const curve = { P, N, G: [GX, GY, 1n], mod, mul, affine, liftX, toInt, toBytes32 };
-  return { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, npubDecode, eventValid, tag, fingerprint, parse, signedMessage, checkSeal, curve };
+  return { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, npubDecode, eventId, eventValid, tag, isStampEvent, fingerprint, parse,
+           signedMessage, stampEvent, checkSeal, curve };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHV;

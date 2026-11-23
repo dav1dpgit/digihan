@@ -180,7 +180,7 @@ def seal_pdf(in_path, out_dir, page_no, kf, password, art_path, reg):
     w.add_metadata({"/DigiHanPayload": payload.hex(), "/DigiHanRegistration": REG_NAME,
                     "/DigiHanSealPage": str(page_no + 1),
                     "/DigiHanSealBox": f"{x_mm:.2f},{y_mm:.2f},{SEAL_MM:.1f},{qz}",
-                    "/DigiHanFormat": "DigiHan format v0.4, doc tier 1 (byte-exact)"})
+                    "/DigiHanFormat": "DigiHan format v0.5, doc tier 1 (byte-exact)"})
     buf = io.BytesIO(); w.write(buf)
     sealed_path = unique(os.path.join(out_dir, f"{base}_sealed.pdf"))
     open(sealed_path, "wb").write(buf.getvalue())
@@ -241,7 +241,7 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
              "The attached file and its own electronic signatures are not modified.",
              "To check: scan the seal, open the attachment, and confirm its SHA-256 matches.",
              "",
-             "DigiHan format v0.4. It proves which key signed these exact bytes; it is not a notarization."]
+             "DigiHan format v0.5. It proves which key signed these exact bytes; it is not a notarization."]
     for i, t in enumerate(lines):
         c.drawString(25 * mm, h_pt - 40 * mm - i * 5.2 * mm, t)
     c.drawImage(ImageReader(seal_path), x_mm * mm, h_pt - (y_mm + SEAL_MM) * mm,
@@ -253,7 +253,7 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
     w.add_metadata({"/DigiHanPayload": payload.hex(), "/DigiHanSealedFile": name, "/DigiHanRegistration": REG_NAME,
                     "/DigiHanSealPage": "1",
                     "/DigiHanSealBox": f"{x_mm:.2f},{y_mm:.2f},{SEAL_MM:.1f},15",
-                    "/DigiHanFormat": "DigiHan format v0.4, cover sheet, doc tier 1 (byte-exact)"})
+                    "/DigiHanFormat": "DigiHan format v0.5, cover sheet, doc tier 1 (byte-exact)"})
     out = io.BytesIO(); w.write(out)
     sealed_path = unique(os.path.join(out_dir, f"{base}_DigiHan_cover.pdf"))
     open(sealed_path, "wb").write(out.getvalue())
@@ -276,7 +276,12 @@ def esig_status(pdf_bytes):
     import logging
     for lg in ("pyhanko", "pyhanko_certvalidator"):
         logging.getLogger(lg).setLevel(logging.CRITICAL)
-    rr = PdfFileReader(io.BytesIO(pdf_bytes), strict=False)
+    if not pdf_bytes.lstrip()[:5] == b"%PDF-":       # the attached original is not a PDF (a text file, a picture)
+        return "the attached file is not a PDF, so it has none"
+    try:
+        rr = PdfFileReader(io.BytesIO(pdf_bytes), strict=False)
+    except Exception as e:
+        return f"could not read the attached PDF ({type(e).__name__})"
     if not rr.embedded_signatures:
         return "no e-signature found"
     parts = []

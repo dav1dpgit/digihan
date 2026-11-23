@@ -14,3 +14,8 @@ web/sealer/vendor/pdf-lib.min.js is pdf-lib 1.17.1 (https://github.com/Hopding/p
 Copyright (c) 2019 Andrew Dillon; its license is in web/sealer/vendor/pdf-lib.LICENSE.md.
 web/sealer/vendor/argon2.umd.min.js is the Argon2 build of hash-wasm 4.12.0 (https://github.com/Daninet/hash-wasm),
 MIT License, Copyright (c) 2020 Dani Biró; its license is in web/sealer/vendor/hash-wasm.LICENSE.md.
+web/sealer/vendor/jsQR.min.js is jsQR 1.4.0 (https://github.com/cozmo/jsQR), Apache License 2.0, minified
+unchanged in function; its license is in web/sealer/vendor/jsQR.LICENSE.
+web/sealer/vendor/qrcode.min.js is qrcode-generator 1.4.4 (https://github.com/kazuhikoarase/qrcode-generator),
+MIT License, Copyright (c) 2009 Kazuhiko Arase, minified; its license is in web/sealer/vendor/qrcode-generator.LICENSE.
+"QR Code" is a registered trademark of DENSO WAVE INCORPORATED.

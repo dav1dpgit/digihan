@@ -1,0 +1,25 @@
+{
+ "sk1": "0000000000000000000000000000000000000000000000000000000000000003",
+ "sk2": "0000000000000000000000000000000000000000000000000000000000000004",
+ "pub2": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+ "conversation_key": "a9823526541b5ca34154d859251f3f32aa85a6593abfb8c868233c8b360bb612",
+ "nonce": "f00000000000000000000000000000000000000000000000000000000000000f",
+ "cases": [
+  {
+   "plaintext": "a",
+   "payload": "AvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP12Y5A7SUuHcUcqTmiUrdrdxeJGG/41zI7NzGLLz8pn9wDIr5v+7amKSviAESCAvtEWWGXdb5OWh1WFyIjbpuj99k"
+  },
+  {
+   "plaintext": "DigiHan stamp",
+   "payload": "AvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP12ocatP98BZ6UteS6CetrdxeJGG/41zI7NzGLLz8pn9wDCKamllRw129mKZgzClZ9WzNaTikU8HPq6Dmlyomu6fL"
+  },
+  {
+   "plaintext": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "payload": "AvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP1ksge8zswA9sCtye8TKl1aQmXBnHmySwlKS+VMSE3gcIdBGNTw50Y+XxKOvpYrp/m53LEV0sIuqo9IyOzfG9099v2aZtrp/axiwLS22Bjn0ZbTtNY0iqsPy9kd20iq38ChPZH4Tsg9tz50uva54pb/SHz1Y9FzuS6NKXFo1xlEA4BHZm7rA3CbLgnwYSvIm8pesXMMde46u/r21t1aAqlBNs2ZrK8NNg8+TZFi7aToHPIzb0GQW+bR+16aRBMHtWfmcJ/Ycbysen6+KPD7wEqW4epF8dr10lNzrYCkz+UbYizXzhOc1cYgDWoP60pd0Fwq3BZ3xxAxSLryB2xOk2h20JPJmH4woh2psx+loBfnx6yZhDBfMWOIUa4EVlEc1W3Yum5j2qY84t0Zktt4G2Ai5eSi3mY4IhIqPADjhlrVn6OHCQ9jObjdoXCk4/l8HM4bc6C+pDn6fv1mz3KVGzCc0M"
+  },
+  {
+   "plaintext": "日本語のテキスト",
+   "payload": "AvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP13++lBFyJNv82DoFCOQ+Llq9psxcYeUrb1TGLLz8pn9wDPuVQNcTViG7kyXgl7WTtdn1CJkTAcl+rf6d0lmNpTzd"
+  }
+ ]
+}

@@ -30,6 +30,8 @@ ap.add_argument("--node", action="store_true", help="take Bitcoin block data fro
                 "(otherwise two block explorers are asked: mempool.space and blockstream.info)")
 ap.add_argument("--block-hash", default=None, help="for an anchored seal: the anchored block's hash "
                 "(from your own node: bitcoin-cli getblockhash HEIGHT)")
+ap.add_argument("--block-time", default=None, type=int, help="for an anchored seal of version 2: the anchored "
+                "block's header time, Unix seconds (from your own node: bitcoin-cli getblockheader HASH, field time)")
 ap.add_argument("--ots", default=None, help="an OpenTimestamps proof (.ots) for this seal, if it is not "
                 "attached to the PDF")
 a = ap.parse_args()
@@ -97,7 +99,15 @@ def block_at(h):
         print(f"  block {h}: hash from mempool.space and blockstream.info ({b.hex()[:16]}...). For full "
               f"independence, compare it with your own node: bitcoin-cli getblockhash {h}")
     return b
-ok, lines, _ = dhsign.verify_payload(payload, original, keyring, [reg], block_hash_at=block_at)
+def block_time_at(h):                       # version 2 anchored seals: the block header's time (SPEC.md, 6.2)
+    if a.block_time is not None:
+        return a.block_time
+    if a.block_hash:
+        return None
+    import anchor
+    got = anchor.node_merkle_at(h) if a.node else anchor.explorer_merkle_at(h)
+    return got[1] if got else None
+ok, lines, _ = dhsign.verify_payload(payload, original, keyring, [reg], block_hash_at=block_at, block_time_at=block_time_at)
 for l in lines:
     print("  " + l)
 seal_fp = dhsign.parse_payload(payload)["fp"].hex()

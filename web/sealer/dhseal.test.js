@@ -69,6 +69,29 @@ const h2b = h => Uint8Array.from(Buffer.from(h, "hex")), b2h = b => Buffer.from(
   assert.strictEqual(b2h(DHS.readPublicKey(DHS.npubEncode(pub))), b2h(pub)); n++;
   assert.strictEqual(b2h(DHS.readPublicKey(b2h(pub).toUpperCase())), b2h(pub)); n++;
   assert.strictEqual(DHS.readPublicKey("npub1notakey"), null); n++;
+  // 6. payload version 2 (format v0.5): the stamp event. The fixed vector is checked by python/tests too.
+  const V = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "python", "tests", "stamp_event_vector.json")));
+  const vsk2 = h2b(V.secret_key), vpub = DHS.pubFromSecret(vsk2), vdoc = await DHV.sha256(new TextEncoder().encode(V.document_text));
+  const vpng = h2b(V.center_png_hex), vch = await DHV.sha256(vpng);
+  const vreg = await DHS.registration(vsk2, vpub, vpng, V.registration_created_at);
+  for (const c of V.cases) {
+    const anc = c.anchor ? { height: c.anchor.height, hash: h2b(c.anchor.hash), time: c.anchor.time } : null;
+    const m2 = await DHS.sealMessage(vpub, vdoc, c.ts, vch, anc, 2);
+    assert.strictEqual(JSON.stringify([0, m2.event.pubkey, m2.event.created_at, m2.event.kind, m2.event.tags, m2.event.content]), c.serialized, c.name); n++;
+    assert.strictEqual(b2h(m2.m), c.event_id, c.name); n++;
+    const pv = await DHS.assemble(vpub, m2, await DHS.schnorrSign(m2.m, vsk2, h2b(V.aux)));
+    assert.strictEqual(b2h(pv), c.payload, c.name); n++;
+    const at = async h => anc && h === anc.height ? { hash: anc.hash, time: anc.time } : null;
+    assert.ok((await DHV.checkSeal(pv, vpub, vdoc, [vreg], at)).ok, c.name); n++;
+    // the signed stamp event is a valid Nostr event, and is never taken as a key record
+    const se = DHS.signedStamp(m2, pv.slice(14));
+    assert.ok(await DHV.eventValid(se)); assert.ok(DHV.isStampEvent(se)); n++;
+    assert.ok(!(await DHV.checkSeal(pv, vpub, vdoc, [se], at)).ok); n++;
+    // a changed document, a changed time or (anchored) a wrong block time fails
+    assert.ok(!(await DHV.checkSeal(pv, vpub, await DHV.sha256(new Uint8Array([1])), [vreg], at)).ok); n++;
+    if (anc) { assert.ok(!(await DHV.checkSeal(pv, vpub, vdoc, [vreg], async () => ({ hash: anc.hash, time: anc.time + 1 }))).ok); n++;
+               assert.ok(!(await DHV.checkSeal(pv, vpub, vdoc, [vreg], async () => anc.hash)).ok); n++; }   // no time: cannot check
+  }
   if (process.env.SEAL_OUT) fs.writeFileSync(process.env.SEAL_OUT, JSON.stringify({ kf, password: "correct horse battery", p1: b2h(p1), p2: b2h(p2), sk: b2h(sk) }));
   console.log(`dhseal.test.js: ${n} checks passed`);
 })().catch(e => { console.error("FAIL", e); process.exit(1); });

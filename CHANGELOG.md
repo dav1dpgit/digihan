@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.6.0 (2026-11-23): Nostr signers, a second device, and the stamp event (format v0.5)
+
+* Format v0.5 (SPEC.md, section 6.2): payload version 2, the **stamp event**. The ring, the 78-byte
+  payload, the flags and the time proofs are unchanged; only what the signature covers differs. Version 2
+  signs the id of a Nostr event (kind 30078, `d` tag `digihan-stamp:<document SHA-256>:<time field>`, with
+  `x`, `f`, `center_hash`, `block` and `alt` tags) built from the same parts, because Nostr signer apps sign
+  whole events only. A verifier rebuilds the event from the ring, the document, the key record and the
+  Bitcoin block; for a seal anchored to a block, the event's time is that block's header time. Version 1
+  seals are unchanged and still made by keys on the device, the Python tools and second devices. A shared
+  test vector (python/tests/stamp_event_vector.json) is checked by both the JavaScript and Python code.
+* Stamping page v16, "Use a key I keep elsewhere" (was "...offline"), three ways to sign:
+  * **A Nostr signer.** "Connect a Nostr signer…": the signer in this browser (an extension, or the
+    built-in browser of a Nostr app; NIP-07), a pasted `bunker://` link, or the page's own
+    `nostrconnect://` link and QR code for a signer app (NIP-46, requests encrypted with NIP-44 v2). The
+    signer signs the seal's public record, then each stamp (payload version 2), and shows what it signs.
+    The page checks that the signed event is exactly the one it asked for, shows the signer's approval page
+    when it asks for one, and offers "Ask again" and "Sign another way instead" (the code, version 1). The
+    link to the signer is kept with the seal on the device, never in a saved seal file; "Disconnect the
+    signer" removes it. The stamped PDF (and stamped picture) carries the signed stamp event as
+    `digihan-stamp.json`.
+  * **A second device, by QR code.** "Sign on another device…" shows a QR code with what to sign (for the
+    seal's record, or a stamp: the document's name, size and SHA-256 hash, the time or block, the artwork's
+    hash). On the device that holds the key, "Sign for another device…" reads it with the camera, a photo
+    or pasted text, shows in words what it is about to sign, works the code out itself, asks for the
+    password, and shows the signature as a QR code to scan back. It works with that device offline (the
+    QR code libraries, jsQR 1.4.0 and qrcode-generator 1.4.4, are saved for offline use).
+  * **Your own computer**, as before (sign_hash.py or any BIP340 signer that signs the 32 bytes as given).
+* Scanner v24: checks version 2 seals (it also fetches the anchored block's header time); shows the version
+  ("2 · a Nostr stamp event"); never takes a stamp event as a key record.
+* Python: verify_pdf.py checks version 2 seals (`--block-time` for an anchored seal checked against your own
+  block data). Fixed: verify_pdf.py stopped with an error after a valid result when the attached original
+  was not a PDF (a text file or a picture stamped on the stamping page).
+* nip/NIP-DIGIHAN.md describes the stamp event; How it works (site) lists the three ways to keep a key
+  elsewhere. Offline copy of the site: v3 (saves nostrsign.js and the QR code libraries).
+
 ## v0.5.18 (2026-11-23): offline signing instructions say what is signed
 
 * Stamping page v15, key kept offline. Setting up the seal: the instructions now say what the code is made

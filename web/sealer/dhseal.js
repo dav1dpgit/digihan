@@ -119,17 +119,28 @@ const DHS = (() => {
   // anchor = {height, hash: Uint8Array(32) in display order} makes an anchored seal (flag bit 0).
   // sealMessage gives the 32-byte message to sign, so a key kept offline can sign it elsewhere; assemble
   // puts the payload together once the signature is back (it is checked first).
-  async function sealMessage(pub, docHash, ts, centerHash, anchor) {
+  // version 2 (format v0.5): the message is the id of a stamp event (a Nostr event, SPEC.md section 6.2), so a
+  // Nostr signer app can sign it; anchor.time (the block header's time) is then needed. msg.event is that event.
+  async function sealMessage(pub, docHash, ts, centerHash, anchor, version) {
     const fp = (await sha256(pub)).slice(0, 8);
     if (anchor) ts = anchor.height;
     const tsB = new Uint8Array(5); let v = ts; for (let i = 4; i >= 0; i--) { tsB[i] = v % 256; v = Math.floor(v / 256); }
+    const flags = (centerHash ? 4 : 0) | (anchor ? 1 : 0);
+    if (version === 2) {
+      if (anchor && !Number.isFinite(anchor.time)) throw new Error("The Bitcoin block's time is needed for this kind of signature.");
+      const event = DHV.stampEvent(hex(pub), docHash, ts, hex(fp), centerHash ? hex(centerHash) : null,
+        anchor ? { height: anchor.height, hash: anchor.hash, time: anchor.time } : null);
+      return { m: await DHV.eventId(event), fp, tsB, flags, version: 2, event };
+    }
     const parts = [docHash, tsB, fp]; if (centerHash) parts.push(centerHash); if (anchor) parts.push(anchor.hash);
-    return { m: await taggedHash("DigiHan/v1", cat(...parts)), fp, tsB, flags: (centerHash ? 4 : 0) | (anchor ? 1 : 0) };
+    return { m: await taggedHash("DigiHan/v1", cat(...parts)), fp, tsB, flags, version: 1 };
   }
   async function assemble(pub, msg, sig) {
     if (sig.length !== 64 || !(await schnorrVerify(msg.m, pub, sig))) throw new Error("That signature does not match this code and key.");
-    return cat(Uint8Array.of(0x10 | msg.flags), msg.fp, msg.tsB, sig);
+    return cat(Uint8Array.of(((msg.version || 1) << 4) | msg.flags), msg.fp, msg.tsB, sig);
   }
+  // the signed stamp event (version 2), for the stamped PDF's attachment
+  const signedStamp = (msg, sig) => msg.event ? { ...msg.event, id: hex(msg.m), sig: hex(sig) } : null;
   async function sealPayload(sk, pub, docHash, ts, centerHash, anchor) {
     const msg = await sealMessage(pub, docHash, ts, centerHash, anchor);
     return assemble(pub, msg, await schnorrSign(msg.m, sk, random(32)));
@@ -205,7 +216,7 @@ const DHS = (() => {
   const needsUpgrade = kf => kf.format === "digihan-keyfile-v1" && kf.kdf !== "argon2id";
 
   return { NSYM, GEOM, rsEncode, buildStream, sealSize, drawSeal, pubFromSecret, schnorrSign, newSecret, sealPayload,
-           sealMessage, assemble, draftRegistration, finishRegistration, registration, readPublicKey,
+           sealMessage, assemble, signedStamp, draftRegistration, finishRegistration, registration, readPublicKey,
            lockKey, unlockKey, needsUpgrade, ARGON, b64, unb64, npubEncode };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHS;

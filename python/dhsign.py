@@ -1,4 +1,4 @@
-"""DigiHan signing and verification layer (format v0.4). See SPEC.md.
+"""DigiHan signing and verification layer (format v0.5: payload versions 1 and 2). See SPEC.md.
 
   payload (78 B) = ver/flags (1) | key_fingerprint (8) | timestamp (5) | sig (64)
   m = TaggedHash("DigiHan/v1", doc_hash || timestamp || key_fingerprint [|| center_hash] [|| block_hash])
@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 import bip340
 
 VERSION = 1
+VERSIONS = (1, 2)                 # format v0.5: version 2 signs a stamp event (SPEC.md, section 6.2)
 FLAG_CENTER = 0b0100            # flags bit 2: center committed
 FLAG_ANCHOR = 0b0001            # flags bit 0 (format v0.4): the time field holds a Bitcoin block height and
                                 # the signed message ends with that block's hash -> "made no earlier than"
@@ -151,6 +152,25 @@ def signed_message(doc_hash: bytes, ts: int, fp: bytes, center_hash=None, block_
     return bip340.tagged_hash(TAG, body)
 
 
+def stamp_event(pubkey: bytes, doc_hash: bytes, field: int, fp: bytes, center_hash=None, block=None) -> dict:
+    """Payload version 2 (SPEC.md, section 6.2): the stamp event, a Nostr event built from the seal's parts.
+    field = the 5-byte timestamp field (time, or block height A); block = (height, hash 32 bytes, header time)."""
+    dh = doc_hash.hex()
+    tags = [["d", f"digihan-stamp:{dh}:{field}"], ["x", dh], ["f", fp.hex()]]
+    if center_hash is not None:
+        tags.append(["center_hash", center_hash.hex()])
+    if block is not None:
+        tags.append(["block", str(block[0]), block[1].hex()])
+    tags.append(["alt", "DigiHan stamp: a seal on a document"])
+    content = f"DigiHan stamp. Document SHA-256: {dh}." + (f" No earlier than Bitcoin block {block[0]}." if block else "")
+    return {"pubkey": pubkey.hex(), "created_at": int(block[2]) if block else field, "kind": 30078,
+            "tags": tags, "content": content}
+
+
+def is_stamp_event(ev: dict) -> bool:
+    return (reg_tag(ev, "d") or "").startswith("digihan-stamp:")
+
+
 def block_hash_bytes(display_hex: str) -> bytes:
     """A block hash as printed by bitcoin-cli getblockhash or a block explorer -> 32 bytes, same order."""
     b = bytes.fromhex(display_hex.strip())
@@ -181,16 +201,18 @@ def parse_payload(p: bytes) -> dict:
             "ts": int.from_bytes(p[9:14], "big"), "sig": p[14:78]}
 
 
-def verify_payload(p: bytes, doc_bytes: bytes, keyring: dict, registrations: list, block_hash_at=None):
+def verify_payload(p: bytes, doc_bytes: bytes, keyring: dict, registrations: list, block_hash_at=None,
+                   block_time_at=None):
     """Returns (ok, report_lines, matched_registration). See SPEC.md, section 8.
-    block_hash_at(height) -> 32 bytes or None: needed only for anchored seals (format v0.4)."""
+    block_hash_at(height) -> 32 bytes or None: needed only for anchored seals (format v0.4).
+    block_time_at(height) -> the block header's time or None: needed only for anchored version 2 seals."""
     lines = []
     f = parse_payload(p)
     anchored = bool(f["flags"] & FLAG_ANCHOR)
     when = (f"anchored: no earlier than Bitcoin block {f['ts']}" if anchored else "time stated by the signer "
             + time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(f['ts'])))
     lines.append(f"version {f['version']}, flags {f['flags']:04b}, fingerprint {f['fp'].hex()}, {when}")
-    if f["version"] != VERSION or f["flags"] & ~KNOWN_FLAGS & 0xF:
+    if f["version"] not in VERSIONS or f["flags"] & ~KNOWN_FLAGS & 0xF:
         lines.append("FORMAT: unknown version or reserved flag set -> reject (SPEC.md, section 5)")
         return False, lines, None
     block_hash = None
@@ -199,6 +221,13 @@ def verify_payload(p: bytes, doc_bytes: bytes, keyring: dict, registrations: lis
         if block_hash is None:
             lines.append(f"TIME: this seal is anchored to Bitcoin block {f['ts']}; its block hash is needed to "
                          f"check it (from your own node: bitcoin-cli getblockhash {f['ts']})")
+            return False, lines, None
+    block_time = None
+    if anchored and f["version"] == 2:
+        block_time = block_time_at(f["ts"]) if block_time_at else None
+        if block_time is None:
+            lines.append(f"TIME: this version 2 seal is anchored to Bitcoin block {f['ts']}; its block header time is "
+                         f"needed to check it (from your own node: bitcoin-cli getblockheader $(bitcoin-cli getblockhash {f['ts']}))")
             return False, lines, None
     pk = keyring.get(f["fp"].hex())
     if pk is None:
@@ -213,14 +242,18 @@ def verify_payload(p: bytes, doc_bytes: bytes, keyring: dict, registrations: lis
     candidates = [None]
     if f["flags"] & FLAG_CENTER:
         candidates = [r for r in registrations
-                      if r["pubkey"] == pk.hex() and check_registration(r)]
+                      if r["pubkey"] == pk.hex() and not is_stamp_event(r) and check_registration(r)]
         if not candidates:
             lines.append("CENTER: seal is center-committed but no valid registration "
                          "for this key is available -> cannot verify")
             return False, lines, None
     for reg in candidates:
         ch = bytes.fromhex(reg_tag(reg, "center_hash")) if reg else None
-        m = signed_message(dh, f["ts"], f["fp"], ch, block_hash)
+        if f["version"] == 2:
+            ev = stamp_event(pk, dh, f["ts"], f["fp"], ch, (f["ts"], block_hash, block_time) if anchored else None)
+            m = nostr_event_id(ev)
+        else:
+            m = signed_message(dh, f["ts"], f["fp"], ch, block_hash)
         if bip340.verify(m, pk, f["sig"]):
             if reg:
                 lines.append(f"CENTER: signed under registered artwork "
@@ -230,6 +263,8 @@ def verify_payload(p: bytes, doc_bytes: bytes, keyring: dict, registrations: lis
             if anchored:
                 lines.append(f"TIME: made no earlier than Bitcoin block {f['ts']} (hash {block_hash.hex()[:16]}...), "
                              "because that block's hash is part of what was signed")
+            if f["version"] == 2:
+                lines.append(f"FORMAT: version 2, signed over the stamp event {m.hex()[:16]}... (SPEC.md, section 6.2)")
             lines.append("SIGNATURE: VALID — document unmodified since signing; "
                          "produced by the holder of this key; "
                          + ("time proven by the block anchor" if anchored else "signer bound to the asserted time"))

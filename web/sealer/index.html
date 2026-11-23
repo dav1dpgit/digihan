@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%23b2382c'/%3E%3Cg transform='translate(50 50) scale(0.92) translate(-50 -50)' fill='none' stroke='%23f3f4f1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='11' y='11' width='78' height='78' rx='7' stroke-width='7'/%3E%3Cg stroke-width='9'%3E%3Cpath d='M25,23 V77'/%3E%3Cpath d='M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25'/%3E%3Cpath d='M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
 <style>
-/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps */
+/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device */
 :root {
   --paper: #f3f4f1; --card: #fbfbf9; --vermillion: #b2382c; --sumi: #23201d; --sumi-soft: #6b6660;
   --rule: rgba(35, 32, 29, .12); --ok: #2f7d4f; --warn: #9a6a12; --bad: #b2382c;
@@ -126,6 +126,17 @@ ol.steps li.stopped::before { border-color: var(--sumi-soft); }
 @media (prefers-reduced-motion: reduce) { .dots i { animation: none; opacity: .7; } }
 
 a.download { display: inline-block; background: var(--vermillion); color: #fff; text-decoration: none; font-weight: 600; padding: 11px 16px; border-radius: 8px; }
+/* v16: Nostr signers, QR codes and a second device */
+.sub { margin: 10px 0 4px; padding: 2px 12px 6px; border-left: 3px solid var(--rule); }
+.qr { background: #fff; padding: 8px; border-radius: 8px; border: 1px solid var(--rule); width: 248px; max-width: 100%; margin: 10px 0; }
+.qr svg { display: block; width: 100%; height: auto; }
+.qr:empty { display: none; }
+.cam { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; }
+.cam video { flex: 1; width: 100%; min-height: 0; object-fit: cover; }
+.cam-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; color: #fff; font-size: 14px; background: #111;
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.what { font-size: 13.5px; margin: 10px 0; } .what div { margin: 4px 0; overflow-wrap: anywhere; } .what b { font-weight: 600; margin-right: 6px; white-space: nowrap; }
+.msg a { color: inherit; font-weight: 600; }
 .hide { display: none !important; }
 input[type=file] { display: none; }
 footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
@@ -160,7 +171,7 @@ html { scrollbar-gutter: stable; }
 <div class="wrap">
 
 <h1>Stamp a document</h1>
-<p class="lead">Your key is made and kept on this device, or stays offline on your own computer. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
+<p class="lead">Your key is made and kept on this device, or stays elsewhere: in a Nostr signer app, offline, or on another device. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
 
 <!-- 1. the key -->
 <section class="card" id="keyCard">
@@ -170,7 +181,7 @@ html { scrollbar-gutter: stable; }
     <div class="seals" id="sealsList"></div>
   </div>
   <div id="noKey">
-    <p>Your seal is a key and the artwork in its center. Make one here, use a key you keep offline, or open a key file you saved before.</p>
+    <p>Your seal is a key and the artwork in its center. Make one here, use a key you keep elsewhere (in a Nostr signer app, offline, or on another device), or open a key file you saved before.</p>
     <label class="field">Characters for the center (up to four)
       <input type="text" id="artText" maxlength="4" value="印" autocomplete="off"></label>
     <div class="row"><button id="artImageBtn">Use an image instead…</button><span class="note" id="artImageName"></span></div>
@@ -178,7 +189,7 @@ html { scrollbar-gutter: stable; }
       <div class="kv">This is how your seal will look. The dots in the ring change with every document.</div></div>
     <div class="seg" role="group" aria-label="Where your key is kept">
       <button type="button" id="modeHere" aria-pressed="true">Make a key here</button>
-      <button type="button" id="modeOffline" aria-pressed="false">Use a key I keep offline</button></div>
+      <button type="button" id="modeOffline" aria-pressed="false">Use a key I keep elsewhere</button></div>
     <div class="modes">
     <div id="hereFields">
       <label class="field">Choose a password (10 or more characters)
@@ -189,14 +200,23 @@ html { scrollbar-gutter: stable; }
         <button class="link" id="openKeyBtn">Open a key file…</button></div>
     </div>
     <div id="offlineFields" class="off">
-      <p class="note">Your private key stays on your own computer. This page needs only your public key, and asks you to sign a short code whenever it needs a signature.</p>
+      <p class="note">Your private key stays off this page: in a Nostr signer app or browser extension, offline on your own computer, or on another device. This page asks for a signature each time it needs one.</p>
+      <div class="row"><button class="primary" id="nsOpen">Connect a Nostr signer…</button></div>
+      <div id="nsHome1"></div>
+      <p class="note">Or type your public key and sign codes yourself: offline with the DigiHan Python tools, or on another device that holds your key.</p>
       <label class="field">Your public key (npub1… or 64 hex characters)
         <input type="text" id="offPub" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
-      <div class="row"><button class="primary" id="offPrep">Prepare my seal</button></div>
+      <div class="row"><button id="offPrep">Prepare my seal</button></div>
       <div id="offSignBox" class="hide">
         <p class="note">Sign this code with your offline key. The code is the SHA-256 hash (32 bytes) of your seal's public record, which ties your artwork to your key. The record holds your public key, the time, your key id (the first 8 bytes of your public key's SHA-256 hash) and your artwork's SHA-256 hash. The code is also the record's Nostr id.</p>
         <div class="code mono copy" id="offCode" title="tap to copy"></div>
         <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span> (it asks for your key's password). Any BIP340 signer works if it signs the 32 bytes exactly as given. A tool that hashes the code again, or uses Bitcoin's older signed-message method, gives a signature this page will not accept. Sign only codes this page shows you: a signature over a code counts as a signature over whatever made it.</p>
+        <div class="row"><button id="offQrBtn">Sign on another device…</button></div>
+        <div id="offQrBox" class="sub hide">
+          <p class="note">On the device that holds your key, open this page, pick that seal and tap “Sign for another device”. Scan this code with it, then scan its answer here.</p>
+          <div class="qr" id="offQr"></div>
+          <div class="row"><button id="offScan">Scan the signature</button><button class="link" id="offPhoto">From a photo…</button></div>
+        </div>
         <label class="field">The signature (128 characters)
           <input type="text" id="offSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
         <div class="row"><button class="primary" id="offFinish">Finish</button></div>
@@ -214,6 +234,9 @@ html { scrollbar-gutter: stable; }
       <b>On this device</b>
       <div id="deviceState"></div>
     </div>
+    <div class="row hide" id="signerRow"><button id="signerConnect">Connect a Nostr signer…</button>
+      <button class="link hide" id="signerForget">Disconnect the signer</button></div>
+    <div id="nsHome2"></div>
     <div class="device" id="nostrBox">
       <b>On Nostr</b>
       <div id="nostrState"></div>
@@ -223,6 +246,24 @@ html { scrollbar-gutter: stable; }
       <button id="forgetKey">Erase from this device</button></div>
     <div class="row"><button id="newSeal">Make another seal</button>
       <button class="link" id="openKeyBtn2">Open a key file…</button></div>
+    <div class="row hide" id="remoteRow"><button id="remoteBtn">Sign for another device…</button></div>
+    <div id="remoteBox" class="sub hide">
+      <p class="note">Another device stamping with this seal shows a QR code to sign. Scan it here, check what it is, and sign. Your key stays on this device.</p>
+      <div class="row"><button id="rbScan">Scan the code</button><button class="link" id="rbPhoto">From a photo…</button></div>
+      <label class="field">Or paste the request (DIGIHAN-SIGN:…)
+        <input type="text" id="rbText" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+      <div id="rbWhat" class="hide">
+        <div class="what" id="rbList"></div>
+        <label class="field" id="rbPwField">Key password <input type="password" id="rbPw" autocomplete="current-password"></label>
+        <div class="row"><button class="primary" id="rbSign">Sign</button><button id="rbCancel">Cancel</button></div>
+      </div>
+      <div id="rbOut" class="hide">
+        <p class="note">Scan this with the other device, or copy the signature to it.</p>
+        <div class="qr" id="rbQr"></div>
+        <div class="code mono copy" id="rbSig" title="tap to copy"></div>
+      </div>
+      <div class="msg hide" id="rbMsg"></div>
+    </div>
     <p class="note" id="keyNote">Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password.</p>
   </div>
 </section>
@@ -243,12 +284,25 @@ html { scrollbar-gutter: stable; }
   <div class="row"><button class="primary" id="doSeal">Stamp</button></div>
   <ol class="steps hide" id="sealSteps"></ol>
   <div id="sealSignBox" class="hide">
+    <div id="sigWait" class="hide">
+      <p class="note" id="sigWaitText"></p>
+      <div class="msg hide" id="sealAuth"></div>
+      <div class="row"><button id="sigRetry" class="hide">Ask again</button><button id="sigOther">Sign another way instead</button><button id="sigCancel">Cancel</button></div>
+    </div>
+    <div id="codeMode">
     <p class="note">Sign this code with your offline key, then paste the signature. The code is one SHA-256 hash (32 bytes) made from: this document's SHA-256 hash; the time, or the Bitcoin block number if you chose the block proof; your key id; your artwork's SHA-256 hash; and, with the block proof, the block's hash. The signature goes into the seal's ring.</p>
     <div class="code mono copy" id="sealCode" title="tap to copy"></div>
     <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span>. Sign only codes this page shows you.</p>
+    <div class="row"><button id="sealQrBtn">Sign on another device…</button></div>
+    <div id="sealQrBox" class="sub hide">
+      <p class="note">On the device that holds your key, open this page, pick this seal and tap “Sign for another device”. Scan this code with it, then scan its answer here.</p>
+      <div class="qr" id="sealQr"></div>
+      <div class="row"><button id="sealScan">Scan the signature</button><button class="link" id="sealPhoto">From a photo…</button></div>
+    </div>
     <label class="field">The signature (128 characters)
       <input type="text" id="sealSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
     <div class="row"><button class="primary" id="sealFinish">Finish stamping</button><button id="sealCancel">Cancel</button></div>
+    </div>
   </div>
   <div class="msg hide" id="sealMsg"></div>
   <div id="sealResult" class="hide">
@@ -260,6 +314,26 @@ html { scrollbar-gutter: stable; }
   </div>
 </section>
 
+<!-- v16: the Nostr signer panel; it is moved to where it is used -->
+<div id="nsBox" class="sub hide">
+  <div id="nsExtRow" class="hide">
+    <div class="row"><button class="primary" id="nsExt">Use the Nostr signer in this browser</button></div>
+    <p class="note">A browser extension, or the Nostr app this page is open in.</p>
+  </div>
+  <label class="field">Paste a bunker link from your signer app (bunker://…)
+    <input type="text" id="nsBunker" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+  <div class="row"><button id="nsBunkerGo">Connect</button></div>
+  <p class="note">Or let your signer app connect to this page: scan this code with the app, or open the link on this phone.</p>
+  <div class="qr" id="nsQr"></div>
+  <div class="row"><a class="download" id="nsLink" href="#">Open in my signer app</a><button class="link" id="nsCopy">Copy the link</button></div>
+  <div class="msg hide" id="nsMsg"></div>
+</div>
+<div id="cam" class="cam hide" role="dialog" aria-label="Scan a QR code">
+  <video id="camVideo" playsinline muted></video>
+  <div class="cam-bar"><span id="camText"></span><button id="camClose">Cancel</button></div>
+</div>
+<input type="file" id="qrPhotoIn" accept="image/*">
+
 <!-- 3. finishing the time proof -->
 <section class="card" id="finishCard">
   <h2><span class="n">3</span>Finish the time proof</h2>
@@ -269,7 +343,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v15 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v16 · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -292,6 +366,7 @@ html { scrollbar-gutter: stable; }
 <script src="ots.js"></script>
 <script src="vendor/argon2.umd.min.js"></script>
 <script src="dhseal.js"></script>
+<script src="nostrsign.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>if ("serviceWorker" in navigator && window.isSecureContext) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
 <script>
@@ -385,10 +460,15 @@ const Seals = (() => {
     async put(kf) {
       const old = await api.get(kf.pubkey), rec = { pubkey: kf.pubkey, kf, added: old ? old.added : Date.now() };
       if (old && old.nostr) rec.nostr = old.nostr;                    // v13: when the public record was sent
+      if (old && old.signer) rec.signer = old.signer;                 // v16: the link to a Nostr signer
       if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(kf.pubkey, rec);
     },
     async mark(pk, nostr) {                                            // v13: note that the public record was sent
       const rec = await api.get(pk); if (!rec) return; rec.nostr = nostr;
+      if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(pk, rec);
+    },
+    async setSigner(pk, link) {                                        // v16: link to a Nostr signer, or null
+      const rec = await api.get(pk); if (!rec) return; if (link) rec.signer = link; else delete rec.signer;
       if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(pk, rec);
     },
     async del(pk) { if (db) await run("seals", "readwrite", s => s.delete(pk)); else mem.seals.delete(pk); },
@@ -406,7 +486,7 @@ async function renderSeals() {
     const b = document.createElement("button"), img = document.createElement("img"), t = document.createElement("span");
     const fp = await DHV.fingerprint(DHV.unhex(r.pubkey));
     b.type = "button"; b.className = "seal-item"; b.dataset.pk = r.pubkey; b.setAttribute("aria-pressed", String(r.pubkey === cur));
-    b.title = "Key id " + fp.replace(/(.{4})(?=.)/g, "$1 ") + (r.kf.format === "digihan-pubkey-v1" ? " (key kept offline)" : "");
+    b.title = "Key id " + fp.replace(/(.{4})(?=.)/g, "$1 ") + (r.signer ? " (key in a Nostr signer)" : r.kf.format === "digihan-pubkey-v1" ? " (key kept elsewhere)" : "");
     img.alt = ""; img.src = "data:image/png;base64," + r.kf.center_png; t.textContent = fp.slice(0, 4) + " " + fp.slice(4, 8);
     b.append(img, t); box.appendChild(b);
   }
@@ -443,9 +523,8 @@ async function useKey(kf) {
   key = { kf, pub, png, reg, art: await pngImage(png), offline: kf.format === "digihan-pubkey-v1" };
   $("pwSealField").classList.toggle("hide", key.offline);
   $("saveKey").textContent = key.offline ? "Save seal file" : "Save key file";
-  $("keyNote").textContent = key.offline
-    ? "Your private key stays offline. For each seal this page shows a code to sign with it. Save the seal file to use this seal on another device: it holds only public parts."
-    : "Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password.";
+  const rec0 = await Seals.get(kf.pubkey); key.signer = (key.offline && rec0 && rec0.signer) || null;   // v16
+  keyNote();
   const fp = await DHV.fingerprint(pub);
   $("keyId").textContent = fp.replace(/(.{4})(?=.)/g, "$1 "); $("keyId").dataset.copy = fp;
   const npub = DHV.npubEncode(pub); $("keyNpub").textContent = npub; $("keyNpub").dataset.copy = npub;
@@ -479,12 +558,23 @@ $("saveKey").addEventListener("click", async () => {
   a.download = (key.offline ? "digihan-seal-" : "digihan-key-") + (await DHV.fingerprint(key.pub)) + ".json"; a.click();
 });
 // v8: what this device keeps, and erasing it (a second tap confirms)
+function keyNote() {
+  $("keyNote").textContent = !key.offline
+    ? "Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password."
+    : key.signer ? "Your private key stays in your Nostr signer. For each stamp this page asks the signer, which shows you what it signs. Save the seal file to use this seal on another device: it holds only public parts; connect the signer again there."
+    : "Your private key stays elsewhere. For each stamp this page shows a code to sign with it, offline or on another device. Save the seal file to use this seal on another device: it holds only public parts.";
+  $("signerRow").classList.toggle("hide", !key.offline);
+  $("signerConnect").textContent = key.signer ? "Connect a different signer…" : "Connect a Nostr signer…";
+  $("signerForget").classList.toggle("hide", !key.signer);
+  $("remoteRow").classList.toggle("hide", key.offline);
+  if (key.offline) $("remoteBox").classList.add("hide");
+}
 async function deviceState() {
   const here = key && Seals.lasting() && !!(await Seals.get(key.kf.pubkey));
   const how = { "argon2id": "Argon2id", "pbkdf2-sha256": "PBKDF2, an older method; it changes to Argon2id the next time you stamp" }[key.kf.kdf];
   $("deviceState").textContent = !here ? (Seals.lasting() ? "Not kept on this device: it is open on this page only, and is gone when you close it."
       : "Not kept: this browser gives the page no lasting storage (a private window, for example), so the seal is gone when you close the page. Save the key file.")
-    : key.offline ? "Kept: the public parts of your seal (key id, public key, artwork). Your private key is not on this device."
+    : key.offline ? "Kept: the public parts of your seal (key id, public key, artwork)" + (key.signer ? " and the link to " + DHN.describe(key.signer) : "") + ". Your private key is not on this device."
     : "Kept: your key file, encrypted with your password (" + how + "). Your password is not kept.";
   $("forgetKey").classList.toggle("hide", !(key && (await Seals.get(key.kf.pubkey))));
 }
@@ -573,14 +663,211 @@ async function sendSeal(k) {
 }
 $("nostrSend").addEventListener("click", () => sendSeal(key));
 
+// ---------------- v16: QR codes (a second device), the camera ----------------
+// The QR libraries load the first time they are needed (the offline copy of the site keeps them too).
+const loadScript = src => new Promise((res, rej) => { const t = document.createElement("script"); t.src = src; t.onload = res; t.onerror = () => rej(new Error("Could not load " + src + ".")); document.head.appendChild(t); });
+let qrLibs = null;
+const qrReady = () => qrLibs || (qrLibs = Promise.all([typeof qrcode === "function" ? 0 : loadScript("vendor/qrcode.min.js"), typeof jsQR === "function" ? 0 : loadScript("vendor/jsQR.min.js")]).catch(e => { qrLibs = null; throw e; }));
+async function drawQr(el, text) {
+  await qrReady();
+  const q = qrcode(0, "M"); q.addData(text); q.make();
+  el.innerHTML = q.createSvgTag({ cellSize: 4, margin: 12, scalable: true });
+}
+function readQr(g, w, h) { const r = jsQR(g, w, h, { inversionAttempts: "attemptBoth" }); return r && r.data ? r.data : null; }
+async function qrFromPhoto() {                     // a photo or screenshot of a QR code -> its text, or null
+  const f = await new Promise(res => { const inp = $("qrPhotoIn"); inp.value = ""; inp.onchange = () => res(inp.files[0] || null); inp.click(); });
+  if (!f) return null;
+  await qrReady();
+  const bmp = await createImageBitmap(f), sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.max(1, bmp.width * sc | 0); c.height = Math.max(1, bmp.height * sc | 0);
+  const g = c.getContext("2d", { willReadFrequently: true }); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return readQr(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+}
+function scanQr(hint) {                            // the camera, until a QR code is read (text) or Cancel (null)
+  return qrReady().then(() => new Promise(resolve => {
+    const box = $("cam"), v = $("camVideo"); $("camText").textContent = hint; box.classList.remove("hide");
+    let stream = null, over = false;
+    const stop = val => { if (over) return; over = true; if (stream) stream.getTracks().forEach(t => t.stop()); v.srcObject = null; box.classList.add("hide"); resolve(val); };
+    $("camClose").onclick = () => stop(null);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $("camText").textContent = "This browser gives the page no camera. Use “From a photo…” or paste the text instead."; return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }).then(st => {
+      stream = st; if (over) return stop(null); v.srcObject = st; v.play().catch(() => {});
+      const c = document.createElement("canvas"), g = c.getContext("2d", { willReadFrequently: true });
+      const tick = () => {
+        if (over) return;
+        if (v.readyState >= 2 && v.videoWidth) {
+          const sc = Math.min(1, 900 / Math.max(v.videoWidth, v.videoHeight));
+          c.width = v.videoWidth * sc | 0; c.height = v.videoHeight * sc | 0; g.drawImage(v, 0, 0, c.width, c.height);
+          const t = readQr(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height); if (t) return stop(t);
+        }
+        setTimeout(tick, 120);
+      };
+      tick();
+    }).catch(e => { $("camText").textContent = "The camera could not be opened (" + e.message + "). Use “From a photo…” or paste the text instead."; });
+  }));
+}
+// A request to sign (this device -> the device with the key) and its answer. The request carries the parts,
+// not only the code, so the device with the key can show what it is about to sign and work the code out itself.
+const REQ = "DIGIHAN-SIGN:", RESP = "DIGIHAN-SIG:";
+const b64u = t => { const b = new TextEncoder().encode(t); let s = ""; for (const x of b) s += String.fromCharCode(x); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+const unb64u = t => new TextDecoder().decode(Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0)));
+const makeRequest = o => REQ + b64u(JSON.stringify(o));
+function readRequest(t) { t = (t || "").trim(); if (t.slice(0, REQ.length).toUpperCase() !== REQ) return null; try { return JSON.parse(unb64u(t.slice(REQ.length))); } catch (e) { return null; } }
+async function stampRequest(p) {
+  return makeRequest({ t: "stamp", v: 1, k: await DHV.fingerprint(key.pub), n: p.doc.name.slice(0, 80), z: p.doc.bytes.length, d: DHV.hex(p.docHash),
+    f: p.anchor ? p.anchor.height : p.ts, a: p.anchor ? [p.anchor.height, p.anchor.hashHex || DHV.hex(p.anchor.hash)] : 0, c: DHV.hex(await DHV.sha256(key.png)) });
+}
+const recordRequest = ev => makeRequest({ t: "record", v: 1, e: { pubkey: ev.pubkey, created_at: ev.created_at, kind: ev.kind, tags: ev.tags, content: ev.content } });
+async function takeAnswer(text, input, finishBtn, msgEl) {   // a scanned answer goes into the signature field, then Finish
+  if (text === null) return;
+  if (!readSig(text)) return show(msgEl, "bad", "That QR code is not a DigiHan signature. Scan the answer the other device shows after it signs.");
+  input.value = text.trim().replace(/^digihan-sig:/i, ""); finishBtn.click();
+}
+$("sealQrBtn").addEventListener("click", async () => {
+  if (!pending) return;
+  $("sealQrBox").classList.remove("hide");
+  try { await drawQr($("sealQr"), await stampRequest(pending)); } catch (e) { show($("sealMsg"), "bad", e.message); }
+});
+$("sealScan").addEventListener("click", async () => takeAnswer(await scanQr("Point the camera at the signature the other device shows"), $("sealSig"), $("sealFinish"), $("sealMsg")));
+$("sealPhoto").addEventListener("click", async () => takeAnswer(await qrFromPhoto(), $("sealSig"), $("sealFinish"), $("sealMsg")));
+$("offQrBtn").addEventListener("click", async () => {
+  if (!offDraft) return;
+  $("offQrBox").classList.remove("hide");
+  try { await drawQr($("offQr"), recordRequest(offDraft.draft.ev)); } catch (e) { show($("keyMsg"), "bad", e.message); }
+});
+$("offScan").addEventListener("click", async () => takeAnswer(await scanQr("Point the camera at the signature the other device shows"), $("offSig"), $("offFinish"), $("keyMsg")));
+$("offPhoto").addEventListener("click", async () => takeAnswer(await qrFromPhoto(), $("offSig"), $("offFinish"), $("keyMsg")));
+
+// ---------------- v16: signing for another device (this device holds the key) ----------------
+let rbReq = null;
+$("remoteBtn").addEventListener("click", () => { $("remoteBox").classList.toggle("hide"); rbReset(); });
+function rbReset() { rbReq = null; $("rbWhat").classList.add("hide"); $("rbOut").classList.add("hide"); $("rbQr").innerHTML = ""; $("rbText").value = ""; $("rbPw").value = ""; hide($("rbMsg")); }
+const h64 = t => typeof t === "string" && /^[0-9a-f]{64}$/.test(t);
+async function rbTake(text) {
+  if (text === null) return;
+  rbReset();
+  const r = readRequest(text);
+  if (!r || (r.t !== "stamp" && r.t !== "record") || r.v !== 1) return show($("rbMsg"), "bad", "That is not a DigiHan signing request. On the other device, tap “Sign on another device…” and scan the code it shows.");
+  const all = await Seals.all(); let rec = null;
+  for (const x of all) if (r.t === "record" ? r.e && x.pubkey === r.e.pubkey : await DHV.fingerprint(DHV.unhex(x.pubkey)) === r.k) { rec = x; break; }
+  if (!rec) return show($("rbMsg"), "bad", "No seal on this device has the key this request is for (key id " + (r.k || "?") + ").");
+  if (rec.kf.format === "digihan-pubkey-v1") return show($("rbMsg"), "bad", "This device keeps only the public parts of that seal: its key is elsewhere, so it cannot sign here.");
+  if (!key || key.kf.pubkey !== rec.pubkey) { await useKey(rec.kf); await Seals.setCurrent(rec.pubkey); await renderSeals(); $("remoteBox").classList.remove("hide"); }
+  const fp = await DHV.fingerprint(key.pub), lines = [];
+  let m = null;
+  try {
+    if (r.t === "stamp") {
+      if (!h64(r.d) || !h64(r.c) || !Number.isInteger(r.f) || r.f < 0 || r.f >= 2 ** 40 || !(r.a === 0 || (Array.isArray(r.a) && r.a[0] === r.f && h64(r.a[1]))))
+        throw new Error("This request is damaged.");
+      const anchor = r.a ? { height: r.a[0], hash: DHV.unhex(r.a[1]) } : null;
+      m = (await DHS.sealMessage(key.pub, DHV.unhex(r.d), r.f, DHV.unhex(r.c), anchor, 1)).m;
+      const own = DHV.hex(await DHV.sha256(key.png)) === r.c;
+      lines.push(["What", "a stamp on a document"], ["Document", String(r.n || "?") + (Number.isInteger(r.z) ? " (" + num(r.z) + " bytes)" : "")], ["SHA-256", r.d],
+        ["Time", anchor ? "no earlier than Bitcoin block " + num(r.a[0]) : utc(r.f) + ", as the other device states it"],
+        ["Artwork", own ? "this seal's artwork" : "SHA-256 " + r.c.slice(0, 16) + "… (the artwork the other device set up for this key)"], ["Key id", fp]);
+    } else {
+      const e = r.e, ch = DHV.tag(e, "center_hash");
+      if (e.kind !== 30078 || !h64(ch) || DHV.tag(e, "d") !== "digihan-center:" + ch || DHV.tag(e, "f") !== fp || !Number.isInteger(e.created_at)) throw new Error("This request is damaged.");
+      m = await DHV.eventId(e);
+      lines.push(["What", "your seal's public record: it ties an artwork to your key"], ["Artwork SHA-256", ch], ["Made", utc(e.created_at)], ["Key id", fp]);
+    }
+  } catch (e) { return show($("rbMsg"), "bad", e.message); }
+  rbReq = { m };
+  $("rbList").innerHTML = "";
+  for (const [b, t] of lines) { const d = document.createElement("div"); d.innerHTML = "<b></b><span></span>"; d.firstChild.textContent = b; d.lastChild.textContent = t; $("rbList").appendChild(d); }
+  $("rbWhat").classList.remove("hide"); $("rbPw").focus({ preventScroll: true });
+}
+$("rbScan").addEventListener("click", async () => rbTake(await scanQr("Point the camera at the code the other device shows")));
+$("rbPhoto").addEventListener("click", async () => rbTake(await qrFromPhoto()));
+$("rbText").addEventListener("change", () => rbTake($("rbText").value));
+$("rbCancel").addEventListener("click", rbReset);
+$("rbSign").addEventListener("click", async () => {
+  if (!rbReq || !key || key.offline) return;
+  $("rbSign").disabled = true; show($("rbMsg"), "", "Opening your key…");
+  let sk = null;
+  try {
+    sk = await DHS.unlockKey(key.kf, $("rbPw").value);
+    const sig = await DHS.schnorrSign(rbReq.m, sk, crypto.getRandomValues(new Uint8Array(32)));
+    $("rbPw").value = ""; $("rbWhat").classList.add("hide");
+    $("rbSig").textContent = DHV.hex(sig); $("rbSig").dataset.copy = RESP + DHV.hex(sig);
+    await drawQr($("rbQr"), RESP + DHV.hex(sig)); $("rbOut").classList.remove("hide"); hide($("rbMsg"));
+  } catch (e) { show($("rbMsg"), "bad", e.message); }
+  if (sk) sk.fill(0);
+  $("rbSign").disabled = false;
+});
+
+// ---------------- v16: Nostr signers (step 1) ----------------
+let nsOffer = null, nsFor = null;          // the nostrconnect:// offer while the panel is open; the seal being linked (or null: a new seal)
+function authLink(el, url) {               // the signer asks the person to approve on its own page
+  if (!/^https:\/\//i.test(url)) return;
+  el.className = "msg warn"; el.textContent = "Your signer asks you to approve on its page: ";
+  const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; a.textContent = "open the approval page"; el.appendChild(a); el.classList.remove("hide");
+}
+function nsClose() {
+  if (nsOffer) { nsOffer.stop(); nsOffer = null; }
+  $("nsBox").classList.add("hide"); $("nsQr").innerHTML = ""; hide($("nsMsg")); nsFor = null;
+}
+async function nsOpenIn(home, forSeal) {
+  if (!$("nsBox").classList.contains("hide") && $("nsBox").parentNode === home) return nsClose();
+  nsClose(); nsFor = forSeal || null; home.appendChild($("nsBox")); $("nsBox").classList.remove("hide");
+  $("nsExtRow").classList.toggle("hide", !DHN.hasExtension()); $("nsBunker").value = "";
+  const offer = nsOffer = DHN.offerConnect();
+  $("nsLink").href = offer.uri;
+  try { await drawQr($("nsQr"), offer.uri); } catch (e) {}
+  offer.ready.then(({ link, session }) => { if (nsOffer === offer) useSigner(link, session); })
+    .catch(e => { if (nsOffer === offer && e.message !== "Stopped.") show($("nsMsg"), "bad", e.message); });
+}
+$("nsOpen").addEventListener("click", () => nsOpenIn($("nsHome1"), null));
+$("signerConnect").addEventListener("click", () => nsOpenIn($("nsHome2"), key));
+$("signerForget").addEventListener("click", async () => {
+  if (!key || !key.signer) return;
+  await Seals.setSigner(key.kf.pubkey, null); key.signer = null; keyNote(); await deviceState();
+  show($("keyMsg"), "ok", "The signer is disconnected from this seal. For each stamp this page now shows a code to sign.");
+});
+$("nsCopy").addEventListener("click", () => { try { navigator.clipboard.writeText($("nsLink").href); show($("nsMsg"), "ok", "Link copied."); } catch (e) {} });
+$("nsExt").addEventListener("click", () => useSigner({ type: "nip07" }, null));
+$("nsBunkerGo").addEventListener("click", async () => {
+  $("nsBunkerGo").disabled = true; show($("nsMsg"), "", "Connecting to your signer…");
+  try { const { link, session } = await DHN.connectBunker($("nsBunker").value, url => authLink($("nsMsg"), url)); await useSigner(link, session); }
+  catch (e) { show($("nsMsg"), "bad", e.message); }
+  $("nsBunkerGo").disabled = false;
+});
+// a signer is connected: link it to the seal being set up (its public record is signed by the signer), or to an existing seal
+let nsBusy = false;
+async function useSigner(link, session) {
+  if (nsBusy) return; nsBusy = true;
+  let signer = null;
+  try {
+    if (link.type === "nip07") { show($("nsMsg"), "", "Asking the signer in this browser for your public key…"); link.pubkey = await DHN.extension.publicKey(); }
+    const pub = DHV.unhex(link.pubkey), forSeal = nsFor;
+    if (forSeal) {
+      if (link.pubkey !== forSeal.kf.pubkey) throw new Error("This signer holds a different key (" + DHV.npubEncode(pub).slice(0, 16) + "…) than this seal's key. Connect the signer that holds this seal's key.");
+      await Seals.setSigner(link.pubkey, link); if (key === forSeal) { key.signer = link; keyNote(); await deviceState(); }
+      if (session) session.close(); nsClose();
+      return show($("keyMsg"), "ok", "Connected: each stamp with this seal now asks " + DHN.describe(link) + ".");
+    }
+    if (await sealsFull()) throw new Error("This device already keeps " + MAX_SEALS + " seals, the most it keeps. Erase one first: pick it above, then “Erase from this device”.");
+    signer = DHN.signerFor(link, session, url => authLink($("nsMsg"), url));
+    show($("nsMsg"), "", "Approve your seal's public record in your signer: it ties your artwork to your key…");
+    const png = await makeArtPng(), draft = await DHS.draftRegistration(pub, png);
+    const reg = await DHS.finishRegistration(draft, await signer.sign(draft.ev, link.pubkey));
+    await addSeal({ format: "digihan-pubkey-v1", pubkey: link.pubkey, center_png: DHS.b64(png), registration: reg });
+    await Seals.setSigner(link.pubkey, link); key.signer = link; keyNote(); await deviceState(); await renderSeals();
+    nsClose(); hide($("keyMsg"));
+    sendSeal(key);                                           // v13: the public record goes to Nostr
+  } catch (e) { show($("nsMsg"), "bad", e.message); }
+  finally { if (signer) signer.close(); nsBusy = false; }
+}
+
 // a key kept offline: the page drafts the artwork record, the signature is made elsewhere and pasted back
 function setMode(offline) {
+  if (!offline) nsClose();
   $("modeHere").setAttribute("aria-pressed", String(!offline)); $("modeOffline").setAttribute("aria-pressed", String(offline));
   $("hereFields").classList.toggle("off", offline); $("offlineFields").classList.toggle("off", !offline); hide($("keyMsg"));
 }
 $("modeHere").addEventListener("click", () => setMode(false));
 $("modeOffline").addEventListener("click", () => setMode(true));
-const readSig = t => { t = (t || "").trim().toLowerCase(); return /^[0-9a-f]{128}$/.test(t) ? DHV.unhex(t) : null; };
+const readSig = t => { t = (t || "").trim().toLowerCase().replace(/^digihan-sig:/, ""); return /^[0-9a-f]{128}$/.test(t) ? DHV.unhex(t) : null; };
 let offDraft = null;
 $("offPrep").addEventListener("click", async () => {
   const pub = DHS.readPublicKey($("offPub").value);
@@ -588,6 +875,7 @@ $("offPrep").addEventListener("click", async () => {
   const png = await makeArtPng();
   offDraft = { pub, png, draft: await DHS.draftRegistration(pub, png) };
   $("offCode").textContent = DHV.hex(offDraft.draft.id); $("offSignBox").classList.remove("hide"); hide($("keyMsg"));
+  $("offQrBox").classList.add("hide"); $("offQr").innerHTML = "";
 });
 $("offFinish").addEventListener("click", async () => {
   const sig = readSig($("offSig").value);
@@ -721,19 +1009,21 @@ async function buildPdf(o) {
     o.proof ? "No-later-than proof: OpenTimestamps, attached as seal.ots (finished a few hours after stamping)" : "", "",
     "The seal below is calculated from the attached file's exact bytes.",
     "To check: open digihan.org/scan, scan the seal, then pick this PDF.",
-    "DigiHan format v0.4. It proves which key signed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "" && i > 3));
+    o.stampEvent ? "Signed with a Nostr signer: the signature is over a Nostr stamp event, attached as digihan-stamp.json." : "",
+    "DigiHan format v0.5. It proves which key signed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "" && i > 3));
   lines.forEach((t, i) => page.drawText(t, { x: 25 * MM, y: H - 40 * MM - i * 5.2 * MM, size: 9.5, font, color: rgb(.14, .13, .11) }));
   const now = new Date();
   await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The original file, exact bytes", creationDate: now, modificationDate: now });
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
+  if (o.stampEvent) await out.attach(enc.encode(JSON.stringify(o.stampEvent)), "digihan-stamp.json", { mimeType: "application/json", description: "The signed Nostr stamp event (payload version 2)", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v15 (format v0.4)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v16 (format v0.5)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
   set("DigiHanSealBox", PDFString.of(`${xmm.toFixed(2)},${ymm.toFixed(2)},${SEAL_MM.toFixed(1)},15`));
-  set("DigiHanFormat", PDFString.of("DigiHan format v0.4, cover sheet, doc tier 1 (byte-exact)"));
+  set("DigiHanFormat", PDFString.of("DigiHan format v0.5, cover sheet, doc tier 1 (byte-exact)"));
   return out.save({ useObjectStreams: false });
 }
 // sealing: prepare the message, sign it (here, or elsewhere for a key kept offline), then draw, stamp and build
@@ -745,7 +1035,7 @@ $("doSeal").addEventListener("click", async () => {
   if (!doc) return show($("sealMsg"), "bad", "Choose a document first.");
   const wantAnchor = $("optAnchor").checked, wantStamp = $("optStamp").checked;
   const done = steps([key.offline ? "Reading the document" : "Opening your key", ...(key.offline ? [] : ["Reading the document"]),
-    ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), key.offline ? "Waiting for your signature" : "Signing",
+    ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), key.signer ? "Waiting for your signer" : key.offline ? "Waiting for your signature" : "Signing",
     "Drawing the seal and reading it back", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF"]);
   $("doSeal").disabled = true;
   let k = 0, sk = null;
@@ -766,12 +1056,12 @@ $("doSeal").addEventListener("click", async () => {
     const docHash = await DHV.sha256(theDoc.bytes); done(k++);
     const anchor = wantAnchor ? await anchorBlock() : null; if (wantAnchor) done(k++);
     const ts = Math.floor(Date.now() / 1000);
-    const msg = await DHS.sealMessage(key.pub, docHash, ts, await DHV.sha256(key.png), anchor);
+    const version = key.signer ? 2 : 1;                      // v16: a Nostr signer signs a stamp event (format v0.5)
+    const msg = await DHS.sealMessage(key.pub, docHash, ts, await DHV.sha256(key.png), anchor, version);
     pending = { msg, docHash, ts, anchor, wantStamp, done, k, doc: theDoc };
     if (key.offline) {
-      $("sealCode").textContent = DHV.hex(msg.m); $("sealSig").value = ""; $("sealSignBox").classList.remove("hide");
-      $("sealSig").focus({ preventScroll: true });
-      return;                                              // continues in "Finish sealing"
+      if (version === 2) { askSigner(); return; }        // continues when the signer answers
+      showCode(); return;                                  // continues in "Finish stamping"
     }
     const sig = await DHS.schnorrSign(msg.m, sk, crypto.getRandomValues(new Uint8Array(32)));
     sk.fill(0); sk = null;
@@ -792,8 +1082,48 @@ $("sealFinish").addEventListener("click", async () => {
   try { const payload = await DHS.assemble(key.pub, pending.msg, sig); $("sealSignBox").classList.add("hide"); await finishSeal(payload); }
   catch (e) { show($("sealMsg"), "bad", e.message + " Check that you signed this exact code with your seal's key."); }
 });
-$("sealCancel").addEventListener("click", () => { pending = null; $("sealSignBox").classList.add("hide"); $("sealSteps").classList.add("hide"); $("doSeal").disabled = false; });
-async function finishSeal(payload) {
+function cancelStamp() {
+  if (stampSigner) { try { stampSigner.cancel(); stampSigner.close(); } catch (e) {} stampSigner = null; }
+  pending = null; $("sealSignBox").classList.add("hide"); $("sealSteps").classList.add("hide"); $("doSeal").disabled = false;
+}
+$("sealCancel").addEventListener("click", cancelStamp);
+$("sigCancel").addEventListener("click", () => { cancelStamp(); hide($("sealMsg")); });
+// v16: the code to sign (payload version 1): offline with sign_hash.py, or on another device by QR code
+function showCode() {
+  $("sigWait").classList.add("hide"); $("codeMode").classList.remove("hide");
+  $("sealQrBox").classList.add("hide"); $("sealQr").innerHTML = "";
+  $("sealCode").textContent = DHV.hex(pending.msg.m); $("sealSig").value = ""; $("sealSignBox").classList.remove("hide");
+  $("sealSig").focus({ preventScroll: true });
+}
+// v16: a Nostr signer (payload version 2): the page asks, the person approves in the signer
+let stampSigner = null;
+async function askSigner() {
+  const p = pending; if (!p) return;
+  $("codeMode").classList.add("hide"); $("sigWait").classList.remove("hide"); $("sigRetry").classList.add("hide"); hide($("sealAuth")); hide($("sealMsg"));
+  $("sigWaitText").textContent = "Approve the stamp in " + DHN.describe(key.signer) + ". It shows a DigiHan stamp with this document's SHA-256 hash, "
+    + DHV.hex(p.docHash).slice(0, 16) + "…"; $("sigWaitText").appendChild(DOTS());
+  $("sealSignBox").classList.remove("hide");
+  try {
+    stampSigner = DHN.signerFor(key.signer, null, url => authLink($("sealAuth"), url));
+    const sig = await stampSigner.sign(p.msg.event, key.kf.pubkey);
+    if (pending !== p) return;
+    const payload = await DHS.assemble(key.pub, p.msg, sig);
+    $("sealSignBox").classList.add("hide");
+    await finishSeal(payload, DHS.signedStamp(p.msg, sig));
+  } catch (e) {
+    if (pending !== p) return;
+    $("sigWaitText").textContent = "Not signed: " + e.message; $("sigRetry").classList.remove("hide");
+  } finally { if (stampSigner) { stampSigner.close(); stampSigner = null; } }
+}
+$("sigRetry").addEventListener("click", askSigner);
+$("sigOther").addEventListener("click", async () => {     // the same stamp, signed as a code (payload version 1)
+  if (!pending) return;
+  if (stampSigner) { try { stampSigner.cancel(); stampSigner.close(); } catch (e) {} stampSigner = null; }
+  const p = pending;
+  p.msg = await DHS.sealMessage(key.pub, p.docHash, p.ts, await DHV.sha256(key.png), p.anchor, 1);
+  showCode();
+});
+async function finishSeal(payload, stampEvent) {
   const { docHash, ts, anchor, wantStamp, done, doc } = pending; let k = pending.k;
   try {
     done(k++);                                             // signed
@@ -805,7 +1135,7 @@ async function finishSeal(payload) {
     }
     const fp = await DHV.fingerprint(key.pub), npub = DHV.npubEncode(key.pub);
     const isPdf = /^%PDF/.test(new TextDecoder("latin1").decode(doc.bytes.slice(0, 5)));
-    const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub }); done(k++);
+    const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub, stampEvent }); done(k++);
     const base = doc.name.replace(/\.[^.]+$/, "") || "document";
     $("sealDl").href = save(pdf, base + "_stamped.pdf", "application/pdf"); $("sealDl").download = base + "_stamped.pdf";
     $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
@@ -813,7 +1143,7 @@ async function finishSeal(payload) {
     let overlayNote = "";
     if (isPng(doc.bytes) && $("optOverlay").checked) {
       try {
-        const pic = await buildOverlay(doc, payload, proof);
+        const pic = await buildOverlay(doc, payload, proof, stampEvent);
         const u = save(pic, base + "_stamped.png", "image/png");
         $("overlayDl").href = u; $("overlayDl").download = base + "_stamped.png"; $("overlayRow").classList.remove("hide");
         $("overlayImg").src = u; $("overlayImg").classList.remove("hide");
@@ -1009,13 +1339,13 @@ function pngInside(b) {                                   // {files: [{name, byt
 function withInside(pngBytes, payload, files) {           // the picture's own chunks, then ours, then IEND
   const cs = pngChunks(pngBytes).filter(c => c.type !== "dhFl" && !(c.type === "tEXt" && /^DigiHan/.test(new TextDecoder("latin1").decode(c.data.slice(0, 14)))));
   const end = cs.findIndex(c => c.type === "IEND");
-  const ours = [textChunk("DigiHanPayload", DHV.hex(payload)), textChunk("DigiHanFormat", "DigiHan format v0.4, picture with the seal in a corner, doc tier 1 (byte-exact)"),
+  const ours = [textChunk("DigiHanPayload", DHV.hex(payload)), textChunk("DigiHanFormat", "DigiHan format v0.5, picture with the seal in a corner, doc tier 1 (byte-exact)"),
                 ...files.map(f => fileChunk(f.name, f.bytes))];
   return pngBuild([...cs.slice(0, end), ...ours, ...cs.slice(end)]);
 }
 const OVERLAY_PLATE = 1.2;                                 // v11: the white disc, 1.2 x the seal: 1.07 left too little clear space and a busy photo next to it stopped the seal being found
 const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
-async function buildOverlay(doc, payload, proof) {
+async function buildOverlay(doc, payload, proof, stampEvent) {
   const bmp = await createImageBitmap(new Blob([doc.bytes], { type: "image/png" }));
   const W = bmp.width, H = bmp.height, short = Math.min(W, H), shrink = Math.min(1, SCAN_MAXDIM / Math.max(W, H));
   const margin = Math.max(8, Math.round(short * 0.03)), corner = $("overlayCorner").value;
@@ -1039,7 +1369,8 @@ async function buildOverlay(doc, payload, proof) {
     if (!r || DHV.hex(r.data) !== DHV.hex(payload)) continue;
     const png = new Uint8Array(await (await new Promise(res => cv.toBlob(res, "image/png"))).arrayBuffer());
     const files = [{ name: doc.name, bytes: doc.bytes }, { name: "digihan-registration.json", bytes: enc.encode(JSON.stringify(key.reg)) },
-                   { name: "digihan-center.png", bytes: key.png }, ...(proof ? [{ name: "seal.ots", bytes: proof }] : [])];
+                   { name: "digihan-center.png", bytes: key.png }, ...(proof ? [{ name: "seal.ots", bytes: proof }] : []),
+                   ...(stampEvent ? [{ name: "digihan-stamp.json", bytes: enc.encode(JSON.stringify(stampEvent)) }] : [])];
     return withInside(png, payload, files);
   }
   // the seal did not fit, or did not read back at any size that fits: the picture is too small

@@ -85,6 +85,18 @@ are set up, and MAY send it again later; relays keep one copy of an event. The r
 about any document. The DigiHan stamping page sends it to `wss://relay.damus.io`, `wss://nos.lol` and
 `wss://relay.primal.net`, the relays its scanner asks.
 
+## Stamp event (seal payload version 2)
+
+A seal of payload version 2 is signed over a second kind-`30078` event, the **stamp event**, defined in
+[SPEC.md](../SPEC.md), section 6.2. Its `d` tag is `digihan-stamp:<document SHA-256>:<timestamp field>`,
+and it carries `x` (the document's SHA-256), `f` (the key id), `center_hash`, `block` (for a seal
+anchored to a Bitcoin block) and `alt` tags. This lets any NIP-07, NIP-46 or NIP-55 signer stamp a
+document, and the signer shows the person what they sign. The event does not need to be published: a
+verifier rebuilds it from the scanned ring, the document, this registration and the Bitcoin block, and
+checks the signature over its id.
+
+A client looking for registrations MUST ignore events whose `d` tag starts with `digihan-stamp:`.
+
 ## Finding the key for a scanned seal
 
 1. Read the ring and take the key id (payload bytes 1-8, as 16 hex characters).

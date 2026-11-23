@@ -1,7 +1,8 @@
-# DigiHan seal format, v0.4
+# DigiHan seal format, v0.5
 
-Status: **frozen**. Payload version 1. v0.4 adds time proofs (section 11) to v0.3; every v0.3 seal is a
-valid v0.4 seal. This document is placed in the public domain (CC0 1.0);
+Status: **frozen**. Payload versions 1 and 2. v0.5 adds payload version 2, the **stamp event** (section
+6.2): the same ring, with the signature made over a Nostr event, so any Nostr signer app can make it.
+Every v0.4 seal is a valid v0.5 seal. v0.4 added time proofs (section 11) to v0.3. This document is placed in the public domain (CC0 1.0);
 anyone may implement it without asking. The reference code in this repository is Apache-2.0.
 
 A DigiHan seal is a round (or square) printed or on-screen mark. Its outer ring of dots carries a
@@ -86,13 +87,16 @@ Stream = sync word (28 bits) ‖ Reed–Solomon codeword (123 bytes, most signif
 
 ## 5. Version and flags
 
-* Version MUST be 1. A verifier MUST reject any other version.
+* Version MUST be 1 or 2. A verifier MUST reject any other version. Version 1 signs the message of
+  section 6.1; version 2 signs the stamp event of section 6.2. Both use the same fields and flags.
 * Flag bit 2 (value 4): the center artwork is committed (section 6).
 * Flag bit 0 (value 1): the seal is **anchored** (section 11.1). The timestamp field holds a Bitcoin block
   height instead of a time.
 * Bits 1 and 3 are reserved, MUST be 0, and a verifier MUST reject a seal with a reserved bit set.
 
 ## 6. Signed message
+
+### 6.1 Payload version 1
 
 ```
 doc_hash    = SHA-256(document bytes)                       32 bytes
@@ -106,6 +110,55 @@ signature = BIP340-Sign(secret key, m)
 
 Because the timestamp and fingerprint are inside `m`, changing either breaks the signature, and the
 same document stamped twice gives two different rings.
+
+### 6.2 Payload version 2: the stamp event
+
+The signature is a Nostr event signature (NIP-01) over a **stamp event** built from the same parts. A
+Nostr signer (NIP-07 browser extension or in-app browser, NIP-46 remote signer, NIP-55 Android signer)
+only signs whole events, never a bare 32-byte message; version 2 lets any of them stamp, and the signer
+app shows the person what is being signed.
+
+```
+F  = the payload's 5-byte timestamp field (Unix seconds; for an anchored seal, the block height A)
+T  = F, or for an anchored seal the time in block A's header (Unix seconds)
+event = {
+  "pubkey":     hex(public key),
+  "created_at": T,
+  "kind":       30078,
+  "tags": [
+    ["d", "digihan-stamp:" + hex(doc_hash) + ":" + dec(F)],
+    ["x", hex(doc_hash)],
+    ["f", hex(fingerprint)],
+    ["center_hash", hex(center_hash)],              only if flag bit 2 is set
+    ["block", dec(A), hex(block_hash)],             only if flag bit 0 is set
+    ["alt", "DigiHan stamp: a seal on a document"]
+  ],
+  "content": "DigiHan stamp. Document SHA-256: " + hex(doc_hash) + "."
+             + (" No earlier than Bitcoin block " + dec(A) + ".", only if flag bit 0 is set)
+}
+m = event id = SHA-256(UTF-8 of [0, pubkey, created_at, kind, tags, content] serialized as in NIP-01)
+signature = BIP340-Sign(secret key, m)
+```
+
+`hex` is lowercase hexadecimal; `dec` is base 10 with no leading zeros or separators. The tags are in
+exactly this order. Every value comes from the ring, the document, the key record and the Bitcoin block,
+so a verifier rebuilds the event and checks the signature over its id; the event itself never has to be
+stored or published.
+
+* For an anchored seal the event's time is block A's header time, because a Nostr event needs a real
+  time and the ring's field holds the block height. A verifier gets it from the same sources as the
+  block's hash (section 11.3). A stamp made before block A was mined cannot carry that time.
+* A signing client MUST compare the event the signer returns with the event it asked for, field by
+  field, and refuse it if anything differs (a signer that adds a tag or changes the time makes a
+  signature no verifier can rebuild).
+* The signed stamp event is a valid Nostr event. Anyone holding the document, the seal and the key record
+  can rebuild it and publish it to relays; it then says, publicly, that this key stamped a file with this
+  hash at this time. The `d` tag is unique to each stamp (the document hash and the timestamp field), so
+  one stamp never replaces another.
+* A stamped PDF of version 2 SHOULD attach the signed event as `digihan-stamp.json`. A verifier does not
+  need it.
+* Kind 30078 is shared with the key record (section 7). A verifier MUST NOT take an event whose `d` tag
+  starts with `digihan-stamp:` as a key record.
 
 ## 7. Keys and the center registration
 
@@ -133,7 +186,8 @@ same document stamped twice gives two different rings.
 4. Compute `doc_hash` over the exact document bytes the verifier will show the reader.
 5. If flag bit 2 is set, take `center_hash` from a registration for this key whose own signature is valid.
 6. If flag bit 0 is set, get the anchored block's hash (section 11.3).
-7. Build `m` (section 6) and check the BIP340 signature with the public key.
+7. Build `m` (section 6.1 for version 1; for version 2, the stamp event's id, section 6.2, which needs
+   block A's header time for an anchored seal) and check the BIP340 signature with the public key.
 8. If an OpenTimestamps proof for this seal is available, check it (section 11.2).
 9. If valid, show the reader: the key; the time (the signer's statement, or the proven window); and, if
    committed, the registered artwork beside the scanned seal so a person can compare them.
@@ -178,6 +232,10 @@ Later tiers (canonical content, printed canonical string) are not yet defined.
 
 ## 10. Changes
 
+**v0.5 (from v0.4).** Payload version 2, the stamp event (section 6.2): the signature is made over a
+Nostr event built from the same parts, so Nostr signer apps can stamp. The ring, the payload layout, the
+flags and the time proofs are unchanged; version 1 seals are unchanged.
+
 **v0.4 (from v0.3).** Flag bit 0 defined: anchored seals, "made no earlier than block A" (section 11.1).
 OpenTimestamps proofs over the payload, "existed no later than block B" (section 11.2). Block data from a
 node or from two sources that agree (section 11.3). The ring, the payload layout and plain seals are
@@ -205,7 +263,8 @@ m = TaggedHash("DigiHan/v1", doc_hash ‖ A(5) ‖ fingerprint(8) [‖ center_ha
 ```
 
 A verifier gets block A's hash (section 11.3) and checks the signature with it. If it verifies, the seal
-was made after block A was mined. A signer SHOULD anchor at least two blocks below the chain tip. A v0.3
+was made after block A was mined. For payload version 2, block A's height and hash are in the stamp
+event's `block` tag and block A's header time is the event's time (section 6.2). A signer SHOULD anchor at least two blocks below the chain tip. A v0.3
 verifier rejects an anchored seal, because bit 0 is reserved in v0.3.
 
 ### 11.2 No later than: OpenTimestamps

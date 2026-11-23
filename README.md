@@ -26,7 +26,8 @@ phone says "Sometime between and including Block A and Block B". See [docs/TIME-
 
 ## Status
 
-Format v0.4 is frozen ([SPEC.md](SPEC.md)).
+Format v0.5 is frozen ([SPEC.md](SPEC.md)). It has two payload versions: version 1, and version 2, the
+Nostr stamp event, which any Nostr signer app can sign.
 
 | Works | In progress |
 |---|---|
@@ -36,6 +37,7 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
 | Keys are Nostr keys (npub); the stamping page sends each seal's registration to Nostr relays, and the phone finds the key there from the seal's key id | |
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
 | Stamping page: make a seal and stamp any file in a browser (a PNG can also get a copy with the seal in a corner), bookended; finish the proof later | |
+| Keys kept elsewhere: a Nostr signer (browser extension or app browser, NIP-07; bunker link or nostrconnect, NIP-46), a second device by QR code, or `sign_hash.py` | |
 
 ## Check a seal on a phone
 
@@ -57,9 +59,17 @@ Format v0.4 is frozen ([SPEC.md](SPEC.md)).
 1. **Your seal.** Type up to four characters for the center, or pick an image, and choose a password. The
    page makes your key, signs a registration record for your artwork, and keeps the key file on the
    device, encrypted with the password. Save the key file to stamp on another device.
-   **Or keep your key offline:** give the page only your public key. Whenever it needs a signature it
-   shows a 64-character code; sign it on your own computer (`python sign_hash.py CODE --key YOUR_KEY`, or
-   any BIP340 signer) and paste the signature back. The private key never touches the browser.
+   **Or keep your key elsewhere.** The private key never touches the page:
+   * **A Nostr signer.** Connect a browser extension or the browser inside a Nostr app (NIP-07), paste a
+     `bunker://` link from a signer app, or let the app open the page's `nostrconnect://` link or QR code
+     (NIP-46). The signer signs the seal's record, then each stamp; it shows you what it signs. Seals made
+     this way are payload version 2: the signature is over a Nostr stamp event (SPEC.md, section 6.2).
+   * **A second device.** A phone or computer that holds the key (made or opened on this page) signs for
+     this one: this page shows a QR code with what to sign; on the other device tap **Sign for another
+     device**, scan it, check what it is, enter the password and sign; scan its answer back. It works with
+     the other device offline.
+   * **Your own computer.** The page shows a 64-character code; sign it (`python sign_hash.py CODE --key
+     YOUR_KEY`, or any BIP340 signer that signs the 32 bytes as given) and paste the signature back.
 2. **Your document.** Any file. The page anchors the seal to a recent Bitcoin block (two block explorers
    must agree), signs, draws the seal and reads it back, starts the OpenTimestamps proof, and gives you a
    PDF: a cover page with the seal, then the document's own pages if it is a PDF, with the file attached

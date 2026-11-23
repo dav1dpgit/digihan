@@ -25,7 +25,7 @@ jobs:
         working-directory: python
         run: python -m pytest -q tests
       - name: Phone tests (signatures, time proofs)
-        run: node web/scanner/verify.test.js && node web/scanner/ots.test.js && node web/sealer/dhseal.test.js
+        run: node web/scanner/verify.test.js && node web/scanner/ots.test.js && node web/sealer/dhseal.test.js && node web/sealer/nostrsign.test.js
       - name: Phone decoder on 60 screenshots (photo path)
         working-directory: tests
         run: python make_screens.py && node decode_frames.js photo screens | tee screens.txt && grep -q "TOTAL.*60/60" screens.txt

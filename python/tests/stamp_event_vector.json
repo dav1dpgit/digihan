@@ -1,0 +1,30 @@
+{
+ "about": "DigiHan payload version 2 (stamp event, SPEC.md section 6.2): fixed inputs and the expected event serialization, id and 78-byte payload. Checked by web/sealer/dhseal.test.js and python/tests/test_digihan.py.",
+ "secret_key": "b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef",
+ "aux": "c87aa53824b4d7ae2eb035a2b5bbbccc0a14b2c75b7f2e81a0b0f7d3c2f2a1b0",
+ "document_text": "DigiHan stamp event test document\n",
+ "center_png_hex": "89504e470d0a1a0a0000000d49484452",
+ "registration_created_at": 1795000000,
+ "cases": [
+  {
+   "name": "time stated by the signer",
+   "ts": 1795390000,
+   "anchor": null,
+   "serialized": "[0,\"dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659\",1795390000,30078,[[\"d\",\"digihan-stamp:7b7b93eab385c5ca160e424ba4af527d33f0381b8c781069fb35e41f1e6772c2:1795390000\"],[\"x\",\"7b7b93eab385c5ca160e424ba4af527d33f0381b8c781069fb35e41f1e6772c2\"],[\"f\",\"4fbdbf30768ac873\"],[\"center_hash\",\"02a3e298f1533f62558c58e4c70edcab9af5a50d62d925fd5390942020fb0fb8\"],[\"alt\",\"DigiHan stamp: a seal on a document\"]],\"DigiHan stamp. Document SHA-256: 7b7b93eab385c5ca160e424ba4af527d33f0381b8c781069fb35e41f1e6772c2.\"]",
+   "event_id": "3077511aa6234bde85d5eaee28339c03373207e1c92033042b3fad211556938a",
+   "payload": "244fbdbf30768ac873006b037a3023e85ea08854b2d49b86034fb72d84d56f6e3738725d034c38df6401e2c5932f7f01ce977578342be349076f73a19b673514c0b9d51c316aafd20634a61742eb"
+  },
+  {
+   "name": "anchored to a Bitcoin block",
+   "ts": 0,
+   "anchor": {
+    "height": 977124,
+    "hash": "00000000000000000000663048004362a4cf48f3610e365efd19f07d5dc69ff9",
+    "time": 1795391640
+   },
+   "serialized": "[0,\"dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659\",1795391640,30078,[[\"d\",\"digihan-stamp:7b7b93eab385c5ca160e424ba4af527d33f0381b8c781069fb35e41f1e6772c2:977124\"],[\"x\",\"7b7b93eab385c5ca160e424ba4af527d33f0381b8c781069fb35e41f1e6772c2\"],[\"f\",\"4fbdbf30768ac873\"],[\"center_hash\",\"02a3e298f1533f62558c58e4c70edcab9af5a50d62d925fd5390942020fb0fb8\"],[\"block\",\"977124\",\"00000000000000000000663048004362a4cf48f3610e365efd19f07d5dc69ff9\"],[\"alt\",\"DigiHan stamp: a seal on a document\"]],\"DigiHan stamp. Document SHA-256: 7b7b93eab385c5ca160e424ba4af527d33f0381b8c781069fb35e41f1e6772c2. No earlier than Bitcoin block 977124.\"]",
+   "event_id": "90616799e20f8c80c20f7d15757b7dde94ced7861086bbc59a900695dc361434",
+   "payload": "254fbdbf30768ac87300000ee8e4c97d85633ffe986c32f252e88beb5f5caa8eff509b620135241dd321db4b81d84835a667846981852a73d51b68d3614601dc500ea8f9ba2314ded930886608d9"
+  }
+ ]
+}

@@ -210,3 +210,41 @@ def test_web_keyfile_argon2id():
     from cryptography.exceptions import InvalidTag
     with pytest.raises(InvalidTag):
         dhsign.unlock_key(v["keyfile"], "wrong password")
+
+
+def test_stamp_event_version2_vector():
+    """Payload version 2 (SPEC.md, section 6.2): the fixed vector that web/sealer/dhseal.test.js also checks."""
+    V = json.load(open(os.path.join(HERE, "stamp_event_vector.json")))
+    sk = bytes.fromhex(V["secret_key"])
+    pk = bip340.pubkey_gen(sk) if hasattr(bip340, "pubkey_gen") else None
+    if pk is None:
+        pk = bip340._b(bip340._mul(bip340.G, bip340._i(sk))[0])
+    doc = V["document_text"].encode()
+    art = bytes.fromhex(V["center_png_hex"])
+    dh, ch, fp = dhsign.sha256(doc), dhsign.sha256(art), dhsign.fingerprint(pk)
+    reg = dhsign.register_center(sk, pk, art)
+    for c in V["cases"]:
+        anc = c["anchor"]
+        field = anc["height"] if anc else c["ts"]
+        block = (anc["height"], bytes.fromhex(anc["hash"]), anc["time"]) if anc else None
+        ev = dhsign.stamp_event(pk, dh, field, fp, ch, block)
+        ser = json.dumps([0, ev["pubkey"], ev["created_at"], ev["kind"], ev["tags"], ev["content"]],
+                         separators=(",", ":"), ensure_ascii=False)
+        assert ser == c["serialized"], c["name"]
+        assert dhsign.nostr_event_id(ev).hex() == c["event_id"], c["name"]
+        p = bytes.fromhex(c["payload"])
+        assert p[0] >> 4 == 2
+        keyring = {fp.hex(): pk}
+        hash_at = (lambda h, anc=anc: bytes.fromhex(anc["hash"]) if anc and h == anc["height"] else None)
+        time_at = (lambda h, anc=anc: anc["time"] if anc and h == anc["height"] else None)
+        ok, lines, _ = dhsign.verify_payload(p, doc, keyring, [reg], block_hash_at=hash_at, block_time_at=time_at)
+        assert ok, lines
+        assert not dhsign.verify_payload(p, doc + b"x", keyring, [reg], hash_at, time_at)[0]
+        if anc:
+            assert not dhsign.verify_payload(p, doc, keyring, [reg], hash_at, lambda h: anc["time"] + 1)[0]
+            assert not dhsign.verify_payload(p, doc, keyring, [reg], hash_at, None)[0]
+        # the signed stamp event is never taken as the key record
+        se = dict(ev, id=dhsign.nostr_event_id(ev).hex(), sig=p[14:].hex())
+        assert dhsign.check_registration(se) and dhsign.is_stamp_event(se)
+        assert not dhsign.verify_payload(p, doc, keyring, [se], hash_at, time_at)[0]
+
