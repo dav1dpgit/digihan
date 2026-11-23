@@ -232,7 +232,7 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
     c.setFont("Helvetica-Bold", 15); c.drawString(25 * mm, h_pt - 28 * mm, "DigiHan seal — cover sheet")
     c.setFont("Helvetica", 9.5)
     when = time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(ts))
-    lines = [f"Stamped file, attached unchanged: {name}",
+    lines = [f"Original file, attached unchanged: {name}",
              f"Size: {len(original):,} bytes",
              f"SHA-256: {hashlib.sha256(original).hexdigest()}",
              f"Stamped (time stated by the signer): {when}   Key id: {dhsign.fingerprint(pk).hex()}",
@@ -333,7 +333,7 @@ def verify_from_scratch(st, reg, out_dir):
     for pos in flips:
         d = bytearray(original); d[pos] ^= 1
         allgood &= t(f"one bit flipped at byte {pos:,} of the document", bytes(d))
-    allgood &= t("a different file (the stamped copy itself) offered as the document", sealed)
+    allgood &= t("a different file (the stamped PDF itself) offered as the document", sealed)
     back = payload_optical[:9] + (st["ts"] - 86400 * 30).to_bytes(5, "big") + payload_optical[14:]
     allgood &= t("timestamp in the seal backdated 30 days", original, p=back)
     if st.get("mode") == "cover":
@@ -426,7 +426,7 @@ if __name__ == "__main__":
     rpt = unique(os.path.join(a.outdir, f"{st['base']}_verification_report.txt"))
     open(rpt, "w").write("\n".join(st["log"]) + "\n")
     print()
-    print(f"Stamped file: {os.path.abspath(st['sealed_path'])}")
+    print(f"Stamped PDF:  {os.path.abspath(st['sealed_path'])}")
     print(f"Report:       {os.path.abspath(rpt)}")
     print(f"Seal data:    {os.path.abspath(pay)}")
     if stamped:

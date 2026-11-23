@@ -103,7 +103,7 @@ ol.steps li::before { content: ""; position: absolute; left: 0; top: 5px; width:
 ol.steps li.now { color: var(--sumi); }
 ol.steps li.now::before { border-color: var(--vermillion); }
 ol.steps li.done { color: var(--sumi); }
-/* v9: a finished step is stamped with the DH logo, a little crooked (-7 to +7 degrees), like a hand-pressed hanko */
+/* v10: a finished step is stamped with the DH logo, a little crooked (-2.5 to +2.5 degrees), like a hand-pressed hanko */
 ol.steps li.done::before { border: 0; border-radius: 3px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%23b2382c'/%3E%3Cg transform='translate(50 50) scale(0.92) translate(-50 -50)' fill='none' stroke='%23f3f4f1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='11' y='11' width='78' height='78' rx='7' stroke-width='7'/%3E%3Cg stroke-width='9'%3E%3Cpath d='M25,23 V77'/%3E%3Cpath d='M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25'/%3E%3Cpath d='M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") center / 20px no-repeat;
   width: 20px; height: 20px; top: 4px; left: -1px; transform: rotate(var(--tilt, 0deg)); animation: dhstamp .32s ease-out; }
 @keyframes dhstamp { from { transform: rotate(var(--tilt, 0deg)) scale(1.6); opacity: 0; } to { transform: rotate(var(--tilt, 0deg)) scale(1); opacity: 1; } }
@@ -209,10 +209,10 @@ html { scrollbar-gutter: stable; }
 <!-- 2. sealing -->
 <section class="card" id="sealCard">
   <h2><span class="n">2</span>Your document</h2>
-  <p>Any file: a PDF, a picture, a spreadsheet. You get back a PDF with the seal on its first page and your file attached unchanged.</p>
+  <p>Any file: a PDF, a picture, a spreadsheet. You get back a stamped PDF: the seal on its first page, and your original file attached unchanged.</p>
   <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
   <div id="pngOpt" class="hide">
-    <label class="check"><input type="checkbox" id="optOverlay"><span>Also make a copy of the picture with the seal in a corner<small>The copy carries your original picture, unchanged, inside its file, so the scanner can check the copy on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
+    <label class="check"><input type="checkbox" id="optOverlay"><span>Also make a stamped picture: a copy with the seal in a corner<small>The stamped picture carries your original picture, unchanged, inside its file, so the scanner can check the stamped picture on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
     <label class="field" id="cornerField">Corner <select id="overlayCorner"><option value="br">Bottom right</option><option value="bl">Bottom left</option><option value="tr">Top right</option><option value="tl">Top left</option></select></label>
   </div>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
@@ -232,8 +232,8 @@ html { scrollbar-gutter: stable; }
   <div id="sealResult" class="hide">
     <div class="seal-row"><img id="sealImg" alt="the seal"><div class="kv" id="sealInfo"></div></div>
     <div class="row"><a class="download" id="sealDl" download>Download the stamped PDF</a></div>
-    <div class="row hide" id="overlayRow"><a class="download" id="overlayDl" download>Download the picture with the seal</a></div>
-    <img id="overlayImg" class="overlay-prev hide" alt="the picture with the seal in its corner">
+    <div class="row hide" id="overlayRow"><a class="download" id="overlayDl" download>Download the stamped picture</a></div>
+    <img id="overlayImg" class="overlay-prev hide" alt="the stamped picture">
     <p class="note">To check it: open the scanner, scan the seal, then tap “Check against a document…” and pick this PDF.</p>
   </div>
 </section>
@@ -247,7 +247,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v9 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v10 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -493,7 +493,7 @@ function steps(list) {      // v8: a checkmark for each step done, moving dots o
   for (const s of list) { const li = document.createElement("li"); li.textContent = s; ol.appendChild(li); }
   ol.classList.remove("hide"); stepNow(ol.children[0]);
   return i => { const li = ol.children[i]; if (!li) return; li.classList.remove("now"); li.classList.add("done");
-    li.style.setProperty("--tilt", (Math.random() * 14 - 7).toFixed(1) + "deg");      // v9: each stamp a little crooked
+    li.style.setProperty("--tilt", (Math.random() * 5 - 2.5).toFixed(1) + "deg");      // v10: each stamp a little crooked, -2.5 to +2.5 degrees
     const d = li.querySelector(".dots"); if (d) d.remove(); stepNow(ol.children[i + 1]); };
 }
 function stopSteps() { for (const li of $("sealSteps").querySelectorAll("li.now")) { li.classList.remove("now"); li.classList.add("stopped"); const d = li.querySelector(".dots"); if (d) d.remove(); } }
@@ -519,7 +519,7 @@ async function buildPdf(o) {
   const W = size.width, H = size.height, page = out.addPage([W, H]);
   const bold = await out.embedFont(StandardFonts.HelveticaBold), font = await out.embedFont(StandardFonts.Helvetica);
   page.drawText("DigiHan seal", { x: 25 * MM, y: H - 28 * MM, size: 15, font: bold, color: rgb(.14, .13, .11) });
-  const lines = ["Stamped file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes",
+  const lines = ["Original file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes",
     "SHA-256: " + DHV.hex(o.docHash), "Key id: " + o.fp + "    Signer: " + o.npub.slice(0, 24) + "..." + o.npub.slice(-6),
     o.anchor ? "Stamped no earlier than Bitcoin block " + num(o.anchor.height) + " (mined " + utc(o.anchor.time) + ")" : "Stamped (time stated by the signer): " + utc(o.ts),
     o.proof ? "No-later-than proof: OpenTimestamps, attached as seal.ots (finished a few hours after stamping)" : "", "",
@@ -531,7 +531,7 @@ async function buildPdf(o) {
   page.drawImage(await out.embedPng(o.sealPng), { x: xmm * MM, y: H - (ymm + SEAL_MM) * MM, width: SEAL_MM * MM, height: SEAL_MM * MM });
   if (src) try { (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p)); } catch (e) {}
   const now = new Date();
-  await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The stamped file, exact bytes", creationDate: now, modificationDate: now });
+  await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The original file, exact bytes", creationDate: now, modificationDate: now });
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
@@ -766,14 +766,14 @@ async function finishPicture(f, b, msg) {
   const payload = DHV.unhex(text.DigiHanPayload), parsed = DHV.parse(payload), anchored = (parsed.flags & 1) ? parsed.ts : null;
   const old = files.find(x => DHO.isProof(x.bytes));
   const r = await proofFor(payload, anchored, old && old.bytes, msg); if (!r) return;
-  if (r.already) return show(msg, "ok", "This picture's time proof is already finished. " + r.line);
+  if (r.already) return show(msg, "ok", "This stamped picture's time proof is already finished. " + r.line);
   const out = withInside(b, payload, [...files.filter(x => x !== old), { name: "seal.ots", bytes: r.proof }]);
   const base = f.name.replace(/\.png$/i, "").replace(/_(stamped|finished|timestamped)$/, "");
   const name = base + (r.started ? "_stamped.png" : "_finished.png");
   $("finishDl").href = save(out, name, "image/png"); $("finishDl").download = name;
-  $("finishDl").textContent = r.started ? "Download the picture with the proof started" : "Download the finished picture";
+  $("finishDl").textContent = r.started ? "Download the stamped picture with the proof started" : "Download the finished stamped picture";
   $("finishDlRow").classList.remove("hide");
-  show(msg, "ok", r.started ? "The timestamp proof is started. Come back in a few hours and pick the new picture here to finish it." : "Finished. " + r.line);
+  show(msg, "ok", r.started ? "The timestamp proof is started. Come back in a few hours and pick the new stamped picture here to finish it." : "Finished. " + r.line);
 }
 $("pickFinish").addEventListener("click", () => $("finishIn").click());
 $("finishIn").addEventListener("change", async ev => {

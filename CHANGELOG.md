@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.12 (2026-11-23): wording for the two files; a gentler tilt
+
+* "Original" means the file as it was before stamping; the file you get back is "the stamped PDF" or
+  "the stamped picture". The PDF cover text (stamping page and sign_pdf.py) now reads "Original file,
+  attached unchanged"; the PNG option is "Also make a stamped picture"; the scanner's result names "the
+  original inside" the stamped file and its button reads "Load the stamped PDF or picture…".
+* Stamping page v10: the DH stamps for finished steps tilt by -2.5 to +2.5 degrees.
+
 ## v0.5.11 (2026-11-23): check a stamped PDF without the camera; DH stamps for finished steps
 
 * Scanner v19: the photo button (now a picture and a folder) also takes a stamped PDF. The scanner reads

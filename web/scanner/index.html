@@ -120,13 +120,13 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v19 · format v0.4</div>
+    <div class="v">scanner v20 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
     <div class="scan-status" id="status"></div>
     <div class="scan-ctlrow">
-      <button class="photo-btn" id="photoBtn" aria-label="Read a seal from a photo or a stamped file">
+      <button class="photo-btn" id="photoBtn" aria-label="Read a seal from a photo, a stamped PDF or a stamped picture">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
              stroke-linecap="round" stroke-linejoin="round">
           <rect x="1.8" y="5" width="9" height="14" rx="1.6"/><circle cx="5" cy="8.9" r="1.2"/><path d="M2.2 16.6l3.2-3.2 2.4 2.4 2.6-2.6"/>
@@ -458,7 +458,7 @@ async function runCheck() {
   if (!c.keys.length) {
     verdict("next", "Seal read", "The ring is read. The signer's key is not on this phone yet.");
     nextStep("Load the stamped PDF or stamped picture. It carries the signer's key and the original file, so nothing else is needed. "
-      + "Or add the signer's key below.", "Load the stamped file…");
+      + "Or add the signer's key below.", "Load the stamped PDF or picture…");
     return;
   }
   $("r_signer").textContent = short(DHV.npubEncode(c.keys[0].pub)) + " · " + c.keys[0].source;
@@ -636,7 +636,7 @@ async function useInside(c, list, from) {
       // a PNG may be the artwork (shown only if its hash is the registered one) or the stamped original
       // itself (a stamped picture, or a PNG stamped into a PDF), so it is tried as both
       if (isPng(a)) c.pngs.push(a);
-      c.docs.push({ name: "the file inside " + from, sha: await DHV.sha256(a) });
+      c.docs.push({ name: "the original inside " + from, sha: await DHV.sha256(a) });
     }
   }
 }
