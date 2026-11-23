@@ -1,5 +1,5 @@
-"""DigiHan — check a sealed PDF. Needs no secret. The signer's public registration record is
-attached to PDFs sealed by sign_pdf.py v0.4.3 and later; for older ones, give registration.json.
+"""DigiHan — check a stamped PDF. Needs no secret. The signer's public registration record is
+attached to PDFs stamped by sign_pdf.py v0.4.3 and later; for older ones, give registration.json.
 
 Usage:
   python verify_pdf.py SEALED.pdf [REGISTRATION.json] [--save-original]
@@ -9,7 +9,7 @@ Checks, in order:
   2. the seal printed on the page is read optically and matches the data in the file
   3. the signature in the seal matches the attached original's exact bytes, the
      stated time, the signer's key, and the registered center art
---save-original writes the attached, signed original next to the sealed file so
+--save-original writes the attached, signed original next to the stamped file so
 you can open and read exactly what was signed.
 """
 import argparse, hashlib, io, json, os, sys, time
@@ -146,7 +146,7 @@ if problems:
         print(f"  - {p}")
     sys.exit(1)
 f = dhsign.parse_payload(payload)
-print("RESULT: VALID — the attached file is exactly what this key sealed.")
+print("RESULT: VALID — the attached file is exactly what this key signed.")
 when = lambda t: time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(t))
 if f["flags"] & dhsign.FLAG_ANCHOR and later:          # a bookended seal: both ends proven
     print(f"        Sometime between and including Block {f['ts']:,} and Block {later[0]:,} (Bitcoin), both proven:")
@@ -157,4 +157,4 @@ else:
     print(f"        Time stated by the signer: {when(f['ts'])} (not proven).")
 if later and not f["flags"] & dhsign.FLAG_ANCHOR:
     print(f"        Made no later than Bitcoin block {later[0]:,}, mined {when(later[1])} (proven: OpenTimestamps).")
-print("        Read the attached file: it is exactly what was sealed.")
+print("        Read the attached file: it is exactly what was signed.")

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.7 (2026-11-23): "seal" is the noun; "stamp" and "sign" are the verbs
+
+* Everywhere people read (stamping page v5, scanner v16, the PDF cover text, the Python tools' messages,
+  README, SPEC prose, TIME-PROOF): the person **stamps** a document with their seal; the key **signs**.
+  "Seal a document" is "Stamp a document", the button is "Stamp", and the browser's PDF is
+  `<name>_stamped.pdf`. The Python tools still write `<name>_sealed.pdf` into a `sealed/` folder, and code
+  names (web/sealer/, seal_payload, ...) are unchanged.
+
 ## v0.5.6 (2026-11-23): Argon2id key files; DH logo
 
 * Sealing page v4: new key files are encrypted with Argon2id (64 MiB, 3 passes, 1 lane), then AES-256-GCM.

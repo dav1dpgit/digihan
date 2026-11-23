@@ -1,14 +1,14 @@
-"""Sign a code from the DigiHan sealing page with a key you keep offline.
+"""Sign a code from the DigiHan stamping page with a key you keep offline.
 
-The sealing page (digihan.org/seal) can work with only your public key. When it needs a signature it shows
+The stamping page (digihan.org/seal) can work with only your public key. When it needs a signature it shows
 a 64-character code: a SHA-256 hash (32 bytes) of your seal's registration record, or of what a document's
 seal signs. Sign it
 here, on the computer that holds your key, and paste the 128-character signature back into the page.
 
   python sign_hash.py CODE --key key_alice                     (a folder made by make_key.py)
-  python sign_hash.py CODE --key digihan-key-0d698fd9.json     (a key file saved from the sealing page)
+  python sign_hash.py CODE --key digihan-key-0d698fd9.json     (a key file saved from the stamping page)
 
-Sign only codes the sealing page shows you: a signature over a code is a signature over whatever made it.
+Sign only codes the stamping page shows you: a signature over a code is a signature over whatever made it.
 """
 import argparse, getpass, json, os, sys
 
@@ -26,8 +26,8 @@ def load_keyfile(path):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("code", help="the 64-character code the sealing page shows")
-    ap.add_argument("--key", required=True, help="a key folder (make_key.py) or a key file from the sealing page")
+    ap.add_argument("code", help="the 64-character code the stamping page shows")
+    ap.add_argument("--key", required=True, help="a key folder (make_key.py) or a key file from the stamping page")
     ap.add_argument("--password", default=None, help=argparse.SUPPRESS)   # tests only
     a = ap.parse_args(argv)
     code = a.code.strip().lower()

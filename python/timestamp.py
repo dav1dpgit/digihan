@@ -5,7 +5,7 @@
   python timestamp.py attach  sealed/x_sealed.pdf sealed/x_seal_payload.bin.ots
   python timestamp.py verify  sealed/x_seal_payload.bin.ots [--node]
 
-`stamp` also takes a sealed PDF (it reads the seal data from it). `attach` writes a new PDF
+`stamp` also takes a stamped PDF (it reads the seal data from it). `attach` writes a new PDF
 (x_sealed_timestamped.pdf) with the proof attached as seal.ots; the original file is not changed.
 The .ots files are standard: `ots verify x_seal_payload.bin.ots` (opentimestamps-client) checks them too.
 """
@@ -70,7 +70,7 @@ def cmd_upgrade(a):
     open(a.proof, "wb").write(proof.to_bytes())
     print(f"Complete: the proof now reaches Bitcoin block {proof.bitcoin()[0][0]} ({a.proof}; "
           f"the pending version is kept as {bak}).")
-    print("Attach it to the sealed PDF with:")
+    print("Attach it to the stamped PDF with:")
     print(f'  python timestamp.py attach SEALED.pdf "{a.proof}"')
 
 

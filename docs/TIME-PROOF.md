@@ -1,6 +1,6 @@
 # Time proof
 
-A plain seal proves which key sealed a document and that the document has not changed. The time in it
+A plain seal proves which key signed a document and that the document has not changed. The time in it
 is the signer's statement: the signer can write any time, earlier or later. Format v0.4 adds two proofs
 that place the seal between two Bitcoin blocks. Both are built, in the Python tools and on the phone.
 
@@ -39,7 +39,7 @@ the seal was made by then. The phone gets the payload from the ring, so it needs
 which proof belongs to which seal.
 
 ```
-python sign_pdf.py doc.pdf sealed --key key_alice --anchor auto --stamp       # seal and stamp at once
+python sign_pdf.py doc.pdf sealed --key key_alice --anchor auto --stamp       # stamp, and start the timestamp, at once
 python timestamp.py upgrade sealed/doc_seal_payload.bin.ots                    # a few hours later
 python timestamp.py attach  sealed/doc_sealed.pdf sealed/doc_seal_payload.bin.ots
 python verify_pdf.py sealed/doc_sealed_timestamped.pdf
@@ -49,11 +49,11 @@ python verify_pdf.py sealed/doc_sealed_timestamped.pdf
   OpenTimestamps calendars and saves a pending proof. A calendar puts many hashes into one Bitcoin
   transaction, so the proof is complete once that transaction is in a block: usually a few hours.
 * `upgrade` fetches the Bitcoin part. It keeps the pending version as `.bak`.
-* `attach` writes a new PDF with the proof attached as `seal.ots`. The sealed PDF is not changed.
+* `attach` writes a new PDF with the proof attached as `seal.ots`. The stamped PDF is not changed.
 * The `.ots` files are standard: `ots verify doc_seal_payload.bin.ots` (opentimestamps-client) checks
   them too, and `timestamp.py` reads proofs the `ots` client made.
 
-**Where a verifier finds the proof:** attached to the sealed PDF as `seal.ots`; as a file next to the
+**Where a verifier finds the proof:** attached to the stamped PDF as `seal.ots`; as a file next to the
 seal data (`<name>_seal_payload.bin.ots`), which the phone accepts through *Check against a document…*;
 or published by a site at `ots/<seal digest>.ots`. The 21 sample seals on digihan.org have theirs there,
 made and completed by a GitHub workflow.

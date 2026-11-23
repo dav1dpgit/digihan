@@ -105,7 +105,7 @@ signature = BIP340-Sign(secret key, m)
 `TaggedHash(tag, x) = SHA-256(SHA-256(tag) ‖ SHA-256(tag) ‖ x)`, as defined in BIP340.
 
 Because the timestamp and fingerprint are inside `m`, changing either breaks the signature, and the
-same document sealed twice gives two different rings.
+same document stamped twice gives two different rings.
 
 ## 7. Keys and the center registration
 
@@ -154,7 +154,7 @@ v0.3 defines tier 1: `doc_hash` is over the exact bytes of the file. The referen
 * **Center artwork.** The registered artwork MAY be attached as `digihan-center.png` (its exact bytes,
   so a verifier can show it beside the scanned seal after checking its hash against the registration).
 * **Time proof.** An OpenTimestamps proof (section 11.2) MAY be attached as `seal.ots`. The reference
-  tool writes it into a new file (`python/timestamp.py attach`); the sealed PDF is not changed.
+  tool writes it into a new file (`python/timestamp.py attach`); the stamped PDF is not changed.
 
 Later tiers (canonical content, printed canonical string) are not yet defined.
 
@@ -205,7 +205,7 @@ file hash is SHA-256 over the seal's 78-byte payload. A verifier:
 
 Pending attestations (calendar addresses) prove nothing until completed. Where proofs are kept:
 
-* in a sealed PDF, as an attached file named `seal.ots` (a verifier MAY accept any attached file that
+* in a stamped PDF, as an attached file named `seal.ots` (a verifier MAY accept any attached file that
   starts with the OpenTimestamps file header);
 * beside the seal data file, as `<name>.ots`;
 * published by a site at `ots/<hex SHA-256 of the payload>.ots`, relative to its scanner.

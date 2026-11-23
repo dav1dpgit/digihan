@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>DigiHan Sealing</title>
-<meta name="description" content="Seal a document with your DigiHan seal: your key stays on this device, the document is hashed here and never uploaded, and the seal is bookended between two Bitcoin blocks.">
+<title>DigiHan Stamping</title>
+<meta name="description" content="Stamp a document with your DigiHan seal: your key stays on this device, the document is hashed here and never uploaded, and the seal is bookended between two Bitcoin blocks.">
 <meta name="theme-color" content="#f3f4f1">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -107,14 +107,14 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
     <button type="button" aria-label="Menu" aria-expanded="false" aria-controls="sealMenuNav"><svg viewBox='0 0 46 46' aria-hidden='true'><circle cx='23' cy='23' r='21' fill='none' stroke='currentColor' stroke-width='2.3'/><circle cx='23' cy='23' r='17.2' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='0.01 3.05'/><circle cx='23' cy='23' r='12.6' fill='currentColor'/><g stroke='#f3f4f1' stroke-width='2' stroke-linecap='round'><line class='bar b1' x1='17.6' y1='19.2' x2='28.4' y2='19.2'/><line class='bar b2' x1='17.6' y1='23' x2='28.4' y2='23'/><line class='bar b3' x1='17.6' y1='26.8' x2='28.4' y2='26.8'/></g></svg></button>
     <nav id="sealMenuNav" aria-label="Menu">
       <a href="how"><b>How it works</b></a>
-      <a href="seal" aria-current="page"><b>Seal a document</b></a>
+      <a href="seal" aria-current="page"><b>Stamp a document</b></a>
       <a href="scan"><b>Open scanner</b></a>
       <a href="https://github.com/dav1dpgit/digihan"><b>Source code</b></a>
     </nav>
   </div>
 </header>
 
-<h1>Seal a document</h1>
+<h1>Stamp a document</h1>
 <p class="lead">Your key is made and kept on this device, or stays offline on your own computer. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
 
 <!-- 1. the key -->
@@ -161,7 +161,7 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
     <div class="row"><button id="saveKey">Save key file</button>
       <button id="forgetKey">Forget on this device</button>
       <button class="link" id="openKeyBtn2">Open another key file…</button></div>
-    <p class="note" id="keyNote">Save the key file and keep the password. With both you can seal on any device. This page keeps the key file on this device, encrypted with your password.</p>
+    <p class="note" id="keyNote">Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password.</p>
   </div>
 </section>
 
@@ -170,23 +170,23 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
   <h2><span class="n">2</span>Your document</h2>
   <p>Any file: a PDF, a picture, a spreadsheet. You get back a PDF with the seal on its first page and your file attached unchanged.</p>
   <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
-  <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was sealed no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
-  <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was sealed no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
+  <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
+  <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was stamped no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
   <div class="msg warn hide" id="netNote"></div>
   <label class="field" id="pwSealField">Key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
-  <div class="row"><button class="primary" id="doSeal">Seal</button></div>
+  <div class="row"><button class="primary" id="doSeal">Stamp</button></div>
   <ol class="steps hide" id="sealSteps"></ol>
   <div id="sealSignBox" class="hide">
     <p class="note">Sign this code with your offline key, then paste the signature. The code is one SHA-256 hash (32 bytes) made from this document's hash, the time, your key's fingerprint, your artwork's hash and, if chosen, the Bitcoin block's hash.</p>
     <div class="code mono copy" id="sealCode" title="tap to copy"></div>
     <label class="field">The signature (128 characters)
       <input type="text" id="sealSig" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
-    <div class="row"><button class="primary" id="sealFinish">Finish sealing</button><button id="sealCancel">Cancel</button></div>
+    <div class="row"><button class="primary" id="sealFinish">Finish stamping</button><button id="sealCancel">Cancel</button></div>
   </div>
   <div class="msg hide" id="sealMsg"></div>
   <div id="sealResult" class="hide">
     <div class="seal-row"><img id="sealImg" alt="the seal"><div class="kv" id="sealInfo"></div></div>
-    <div class="row"><a class="download" id="sealDl" download>Download the sealed PDF</a></div>
+    <div class="row"><a class="download" id="sealDl" download>Download the stamped PDF</a></div>
     <p class="note">To check it: open the scanner, scan the seal, then tap “Check against a document…” and pick this PDF.</p>
   </div>
 </section>
@@ -194,13 +194,13 @@ footer { color: var(--sumi-soft); font-size: 12px; margin-top: 24px; }
 <!-- 3. finishing the time proof -->
 <section class="card" id="finishCard">
   <h2><span class="n">3</span>Finish the time proof</h2>
-  <p>A few hours after sealing, pick the sealed PDF. The page fetches the Bitcoin part of the proof and gives you the finished PDF.</p>
-  <div class="row"><button id="pickFinish">Choose a sealed PDF…</button></div>
+  <p>A few hours after stamping, pick the stamped PDF. The page fetches the Bitcoin part of the proof and gives you the finished PDF.</p>
+  <div class="row"><button id="pickFinish">Choose a stamped PDF…</button></div>
   <div class="msg hide" id="finishMsg"></div>
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>sealing page v4 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v5 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -290,7 +290,7 @@ async function useKey(kf, remember) {
   $("saveKey").textContent = key.offline ? "Save seal file" : "Save key file";
   $("keyNote").textContent = key.offline
     ? "Your private key stays offline. For each seal this page shows a code to sign with it. Save the seal file to use this seal on another device: it holds only public parts."
-    : "Save the key file and keep the password. With both you can seal on any device. This page keeps the key file on this device, encrypted with your password.";
+    : "Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password.";
   const fp = await DHV.fingerprint(pub);
   $("keyId").textContent = fp.replace(/(.{4})(?=.)/g, "$1 "); $("keyId").dataset.copy = fp;
   const npub = DHV.npubEncode(pub); $("keyNpub").textContent = npub; $("keyNpub").dataset.copy = npub;
@@ -309,7 +309,7 @@ $("makeKey").addEventListener("click", async () => {
     sk.fill(0);
     await useKey(kf, true);
     $("pw1").value = $("pw2").value = ""; hide($("keyMsg"));
-    $("keyNote").textContent = "Your seal is made. Save the key file now and keep the password: with both you can seal on any device, and without them this seal cannot be used again. This page also keeps the key file on this device, encrypted with your password.";
+    $("keyNote").textContent = "Your seal is made. Save the key file now and keep the password: with both you can stamp on any device, and without them this seal cannot be used again. This page also keeps the key file on this device, encrypted with your password.";
   } catch (e) { show($("keyMsg"), "bad", e.message); }
   $("makeKey").disabled = false;
 });
@@ -436,23 +436,23 @@ async function buildPdf(o) {
   const W = size.width, H = size.height, page = out.addPage([W, H]);
   const bold = await out.embedFont(StandardFonts.HelveticaBold), font = await out.embedFont(StandardFonts.Helvetica);
   page.drawText("DigiHan seal", { x: 25 * MM, y: H - 28 * MM, size: 15, font: bold, color: rgb(.14, .13, .11) });
-  const lines = ["Sealed file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes",
+  const lines = ["Stamped file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes",
     "SHA-256: " + DHV.hex(o.docHash), "Key id: " + o.fp + "    Signer: " + o.npub.slice(0, 24) + "..." + o.npub.slice(-6),
-    o.anchor ? "Sealed no earlier than Bitcoin block " + num(o.anchor.height) + " (mined " + utc(o.anchor.time) + ")" : "Sealed (time stated by the signer): " + utc(o.ts),
-    o.proof ? "No-later-than proof: OpenTimestamps, attached as seal.ots (finished a few hours after sealing)" : "", "",
+    o.anchor ? "Stamped no earlier than Bitcoin block " + num(o.anchor.height) + " (mined " + utc(o.anchor.time) + ")" : "Stamped (time stated by the signer): " + utc(o.ts),
+    o.proof ? "No-later-than proof: OpenTimestamps, attached as seal.ots (finished a few hours after stamping)" : "", "",
     "The seal below is calculated from the attached file's exact bytes.",
     "To check: open digihan.org/scan, scan the seal, then pick this PDF.",
-    "DigiHan format v0.4. It proves which key sealed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || a[i - 1] !== "");
+    "DigiHan format v0.4. It proves which key signed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || a[i - 1] !== "");
   lines.forEach((t, i) => page.drawText(t, { x: 25 * MM, y: H - 40 * MM - i * 5.2 * MM, size: 9.5, font, color: rgb(.14, .13, .11) }));
   const xmm = (W / MM - SEAL_MM) / 2, ymm = H / MM - 30 - SEAL_MM - 15;      // centred low, 15 mm clear around
   page.drawImage(await out.embedPng(o.sealPng), { x: xmm * MM, y: H - (ymm + SEAL_MM) * MM, width: SEAL_MM * MM, height: SEAL_MM * MM });
   if (src) try { (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p)); } catch (e) {}
   const now = new Date();
-  await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The sealed file, exact bytes", creationDate: now, modificationDate: now });
+  await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The stamped file, exact bytes", creationDate: now, modificationDate: now });
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan sealing page v1 (format v0.4)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v5 (format v0.4)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
@@ -503,7 +503,7 @@ $("doSeal").addEventListener("click", async () => {
   } catch (e) {
     if (sk) sk.fill(0);
     if (e.noAnswer && bitcoinOff("The Bitcoin block sites did not answer, so there seems to be no internet connection.")) {
-      hide($("sealSteps")); show($("sealMsg"), "warn", "Nothing was sealed yet. Tap Seal again to seal without the Bitcoin proofs.");
+      hide($("sealSteps")); show($("sealMsg"), "warn", "Nothing was stamped yet. Tap Stamp again to stamp without the Bitcoin proofs.");
     } else show($("sealMsg"), "bad", e.message);
     $("doSeal").disabled = false;
   }
@@ -531,7 +531,7 @@ async function finishSeal(payload) {
     const isPdf = /^%PDF/.test(new TextDecoder("latin1").decode(doc.bytes.slice(0, 5)));
     const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub }); done(k++);
     const base = doc.name.replace(/\.[^.]+$/, "") || "document";
-    $("sealDl").href = save(pdf, base + "_sealed.pdf", "application/pdf"); $("sealDl").download = base + "_sealed.pdf";
+    $("sealDl").href = save(pdf, base + "_stamped.pdf", "application/pdf"); $("sealDl").download = base + "_stamped.pdf";
     $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
     const dg = DHV.hex((await DHV.sha256(payload)).slice(0, 4));
     $("sealInfo").innerHTML = "";
@@ -539,7 +539,7 @@ async function finishSeal(payload) {
       const d = document.createElement("div"); d.innerHTML = "<b></b> <span></span>"; d.firstChild.textContent = b; d.lastChild.textContent = t; $("sealInfo").appendChild(d);
     }
     $("sealResult").classList.remove("hide");
-    show($("sealMsg"), stampNote ? "warn" : "ok", "Sealed." + stampNote
+    show($("sealMsg"), stampNote ? "warn" : "ok", "Stamped." + stampNote
       + (rekeyed ? " Your key file was also re-encrypted with a stronger method: save it again in step 1." : ""));
     rekeyed = false;
   } catch (e) { show($("sealMsg"), "bad", e.message); }
@@ -591,15 +591,15 @@ $("finishIn").addEventListener("change", async ev => {
       const v = await DHO.verify(proof, payload, merkleAt);
       if (anchored !== null && v.height < anchored) throw new Error("The time proofs contradict each other.");
       line = anchored !== null ? "Sometime between and including Block " + num(anchored) + " and Block " + num(v.height) + " (Bitcoin; Block " + num(v.height) + " was mined " + utc(v.time) + ")."
-                               : "Sealed no later than Bitcoin block " + num(v.height) + ", mined " + utc(v.time) + ".";
+                               : "Stamped no later than Bitcoin block " + num(v.height) + ", mined " + utc(v.time) + ".";
       if (old && proof === old.bytes) return show(msg, "ok", "This PDF's time proof is already finished. " + line);
     }
     if (old && arr) { arr.remove(old.index); arr.remove(old.index); }
     const now = new Date();
     await pdf.attach(proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
     const bytes = await pdf.save({ useObjectStreams: false });
-    const base = f.name.replace(/\.pdf$/i, "").replace(/_(sealed|finished|timestamped)$/, "");
-    const name = base + (started ? "_sealed.pdf" : "_finished.pdf");
+    const base = f.name.replace(/\.pdf$/i, "").replace(/_(sealed|stamped|finished|timestamped)$/, "");
+    const name = base + (started ? "_stamped.pdf" : "_finished.pdf");
     $("finishDl").href = save(bytes, name, "application/pdf"); $("finishDl").download = name;
     $("finishDl").textContent = started ? "Download the PDF with the proof started" : "Download the finished PDF";
     $("finishDlRow").classList.remove("hide");

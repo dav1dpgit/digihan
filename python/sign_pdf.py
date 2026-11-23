@@ -1,4 +1,4 @@
-"""DigiHan — seal any PDF.
+"""DigiHan — stamp any PDF.
 
 Usage:
   python sign_pdf.py INPUT.pdf [OUTDIR] --key key_NAME [--page N] [--mode auto|overlay|cover]
@@ -112,7 +112,7 @@ def seal_pdf(in_path, out_dir, page_no, kf, password, art_path, reg):
 
     r = PdfReader(io.BytesIO(original))
     if r.is_encrypted:
-        raise SystemExit("PDF is password-protected; it cannot be sealed as-is.")
+        raise SystemExit("PDF is password-protected; it cannot be stamped as-is.")
     n_pages = len(r.pages)
     page_no = (n_pages - 1) if page_no is None else page_no
     page = r.pages[page_no]
@@ -205,7 +205,7 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
     say(f"input: {name} — {len(original):,} bytes, {len(r.pages)} page(s)")
     say(f"existing e-signature field(s): {', '.join(str(s) for s in sig_fields)} "
         f"-> cover-sheet mode: the file is attached unchanged")
-    say(f"e-signature check before sealing: {esig_status(original)}")
+    say(f"e-signature check before stamping: {esig_status(original)}")
 
     pk = bytes.fromhex(kf["pubkey"])
     art_bytes = open(art_path, "rb").read()
@@ -232,16 +232,16 @@ def seal_cover(in_path, out_dir, kf, password, art_path, reg, sig_fields):
     c.setFont("Helvetica-Bold", 15); c.drawString(25 * mm, h_pt - 28 * mm, "DigiHan seal — cover sheet")
     c.setFont("Helvetica", 9.5)
     when = time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(ts))
-    lines = [f"Sealed file, attached unchanged: {name}",
+    lines = [f"Stamped file, attached unchanged: {name}",
              f"Size: {len(original):,} bytes",
              f"SHA-256: {hashlib.sha256(original).hexdigest()}",
-             f"Sealed (time stated by the signer): {when}   Key id: {dhsign.fingerprint(pk).hex()}",
+             f"Stamped (time stated by the signer): {when}   Key id: {dhsign.fingerprint(pk).hex()}",
              "",
              "The seal below is calculated from the attached file's exact bytes.",
              "The attached file and its own electronic signatures are not modified.",
              "To check: scan the seal, open the attachment, and confirm its SHA-256 matches.",
              "",
-             "DigiHan format v0.4. It proves which key sealed these exact bytes; it is not a notarization."]
+             "DigiHan format v0.4. It proves which key signed these exact bytes; it is not a notarization."]
     for i, t in enumerate(lines):
         c.drawString(25 * mm, h_pt - 40 * mm - i * 5.2 * mm, t)
     c.drawImage(ImageReader(seal_path), x_mm * mm, h_pt - (y_mm + SEAL_MM) * mm,
@@ -333,13 +333,13 @@ def verify_from_scratch(st, reg, out_dir):
     for pos in flips:
         d = bytearray(original); d[pos] ^= 1
         allgood &= t(f"one bit flipped at byte {pos:,} of the document", bytes(d))
-    allgood &= t("a different file (the sealed copy itself) offered as the document", sealed)
+    allgood &= t("a different file (the stamped copy itself) offered as the document", sealed)
     back = payload_optical[:9] + (st["ts"] - 86400 * 30).to_bytes(5, "big") + payload_optical[14:]
     allgood &= t("timestamp in the seal backdated 30 days", original, p=back)
     if st.get("mode") == "cover":
         say(); say("=== YOUR E-SIGNATURE, INSIDE THE ATTACHED FILE ===")
         say(f"  attached file is byte-identical to your input: {original == st['original']}")
-        say(f"  e-signature check after sealing: {esig_status(original)}")
+        say(f"  e-signature check after stamping: {esig_status(original)}")
     return ok and allgood and payload_optical == payload_meta and original == st["original"]
 
 
@@ -351,7 +351,7 @@ if __name__ == "__main__":
                     help="auto: cover sheet if the PDF already has an e-signature")
     ap.add_argument("--key", required=True,
                     help="folder made by make_key.py (keyfile.json, registration.json, center_art.png), "
-                         "or a key file saved from the sealing page")
+                         "or a key file saved from the stamping page")
     ap.add_argument("--anchor", default=None, metavar="auto|node|HEIGHT:HASH",
                     help="prove the seal was made no earlier than a Bitcoin block: 'auto' asks two block "
                          "explorers, 'node' asks your bitcoin-cli, or give HEIGHT:HASH")
@@ -426,7 +426,7 @@ if __name__ == "__main__":
     rpt = unique(os.path.join(a.outdir, f"{st['base']}_verification_report.txt"))
     open(rpt, "w").write("\n".join(st["log"]) + "\n")
     print()
-    print(f"Sealed file:  {os.path.abspath(st['sealed_path'])}")
+    print(f"Stamped file: {os.path.abspath(st['sealed_path'])}")
     print(f"Report:       {os.path.abspath(rpt)}")
     print(f"Seal data:    {os.path.abspath(pay)}")
     if stamped:
@@ -439,4 +439,4 @@ if __name__ == "__main__":
     print(f'  .\\.venv\\Scripts\\python.exe verify_pdf.py "{st["sealed_path"]}" --save-original'
           if os.name == "nt" else
           f'  python verify_pdf.py "{st["sealed_path"]}" --save-original')
-    print("(the signer's registration record is attached to the sealed PDF, so no other file is needed)")
+    print("(the signer's registration record is attached to the stamped PDF, so no other file is needed)")
