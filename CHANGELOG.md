@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.15 (2026-11-23): each loaded file is checked by itself
+
+* Scanner v23, fixed: after a stamped PDF or stamped picture was read, a file loaded with "Check against a
+  document…" was never checked by itself. The scanner went down its list of files and stopped at the first
+  match, which was the original carried inside the stamped PDF, so the result never named the loaded file,
+  and a changed file loaded this way still showed "Signature valid". Now every loaded file gets its own
+  result, named in the document row ("notes.md: matches", "notes.md: does NOT match", or for a stamped PDF
+  or picture, "the original inside it matches"), and the verdict is about the file loaded last. A file that
+  does not match says so: it is not the file that was stamped, or it was changed after stamping. The copy
+  inside the stamped PDF the seal was read from answers only when no file has been loaded. Loading the same
+  file again lists it once.
+
 ## v0.5.14 (2026-11-23): the stamped PDF shows the document
 
 * Stamping page v12: for a file that is not a PDF, the stamped PDF now shows the document after the cover
