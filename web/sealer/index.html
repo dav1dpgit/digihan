@@ -225,7 +225,7 @@ html { scrollbar-gutter: stable; }
 <!-- 2. sealing -->
 <section class="card" id="sealCard">
   <h2><span class="n">2</span>Your document</h2>
-  <p>Any file: a PDF, a picture, a spreadsheet. You get back a stamped PDF: the seal on its first page, and your original file attached unchanged.</p>
+  <p>Any file: a PDF, a picture, a spreadsheet. You get back a stamped PDF: the seal on its first page, then your document to read (a PDF's own pages, or the text or picture of a text file or picture), with your original file attached unchanged. Other kinds of file, such as spreadsheets, are attached only.</p>
   <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
   <div id="pngOpt" class="hide">
     <label class="check"><input type="checkbox" id="optOverlay"><span>Also make a stamped picture: a copy with the seal in a corner<small>The stamped picture carries your original picture, unchanged, inside its file, so the scanner can check the stamped picture on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
@@ -263,7 +263,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v11 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v12 · format v0.4 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -628,23 +628,31 @@ async function buildPdf(o) {
   const W = size.width, H = size.height, page = out.addPage([W, H]);
   const bold = await out.embedFont(StandardFonts.HelveticaBold), font = await out.embedFont(StandardFonts.Helvetica);
   page.drawText("DigiHan seal", { x: 25 * MM, y: H - 28 * MM, size: 15, font: bold, color: rgb(.14, .13, .11) });
-  const lines = ["Original file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes",
+  const xmm = (W / MM - SEAL_MM) / 2, ymm = H / MM - 30 - SEAL_MM - 15;      // centred low, 15 mm clear around
+  page.drawImage(await out.embedPng(o.sealPng), { x: xmm * MM, y: H - (ymm + SEAL_MM) * MM, width: SEAL_MM * MM, height: SEAL_MM * MM });
+  if (src) try { (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p)); } catch (e) {}
+  // v12: a text file or a picture is shown on the pages after the cover; the attached file stays what was signed
+  let shown = "";
+  if (!src) {
+    const r = await readablePages(out, o.doc, W, H);
+    if (r.what === "text") shown = (r.pages === 1 ? "Page 2 shows its text" : "Pages 2-" + (r.pages + 1) + " show its text") + (r.cut ? " (the first " + r.pages + " pages)" : "") + " for reading; the attached file is what was signed.";
+    else if (r.what === "picture") shown = "Page 2 shows the picture; the attached file is what was signed.";
+    else shown = "This kind of file is attached only: open the attachment to read it.";
+  }
+  const lines = ["Original file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes", shown,
     "SHA-256: " + DHV.hex(o.docHash), "Key id: " + o.fp + "    Signer: " + o.npub.slice(0, 24) + "..." + o.npub.slice(-6),
     o.anchor ? "Stamped no earlier than Bitcoin block " + num(o.anchor.height) + " (mined " + utc(o.anchor.time) + ")" : "Stamped (time stated by the signer): " + utc(o.ts),
     o.proof ? "No-later-than proof: OpenTimestamps, attached as seal.ots (finished a few hours after stamping)" : "", "",
     "The seal below is calculated from the attached file's exact bytes.",
     "To check: open digihan.org/scan, scan the seal, then pick this PDF.",
-    "DigiHan format v0.4. It proves which key signed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || a[i - 1] !== "");
+    "DigiHan format v0.4. It proves which key signed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "" && i > 3));
   lines.forEach((t, i) => page.drawText(t, { x: 25 * MM, y: H - 40 * MM - i * 5.2 * MM, size: 9.5, font, color: rgb(.14, .13, .11) }));
-  const xmm = (W / MM - SEAL_MM) / 2, ymm = H / MM - 30 - SEAL_MM - 15;      // centred low, 15 mm clear around
-  page.drawImage(await out.embedPng(o.sealPng), { x: xmm * MM, y: H - (ymm + SEAL_MM) * MM, width: SEAL_MM * MM, height: SEAL_MM * MM });
-  if (src) try { (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p)); } catch (e) {}
   const now = new Date();
   await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The original file, exact bytes", creationDate: now, modificationDate: now });
   await out.attach(enc.encode(JSON.stringify(key.reg)), "digihan-registration.json", { mimeType: "application/json", description: "The signer's registration record", creationDate: now, modificationDate: now });
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v8 (format v0.4)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v12 (format v0.4)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
@@ -746,6 +754,139 @@ async function finishSeal(payload) {
     rekeyed = false;
   } catch (e) { stopSteps(); show($("sealMsg"), "bad", e.message); }
   pending = null; $("doSeal").disabled = false;
+}
+
+// ---------------- v12: readable pages for a text file or a picture ----------------
+// Drawn by the browser onto page-size pictures, so any script (Japanese included) shows as written. The
+// pages are for reading only: the attached file is what was signed and what a check uses.
+const TEXT_EXT = /\.(md|markdown|txt|text|csv|tsv|json|xml|ya?ml|log|ini|toml|html?|css|js|ts|py|sh)$/i;
+const IMG_EXT = /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)$/i;
+const SANS = '"Helvetica Neue", Helvetica, Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Noto Sans JP", sans-serif';
+const MONO = 'Menlo, Consolas, "DejaVu Sans Mono", "Noto Sans Mono CJK JP", monospace';
+const MAX_PAGES_TEXT = 200, MAX_PAGES_PICTURE = 30;      // real PDF text is small; pictures of text are not
+const PAGE_IMG = { type: "image/jpeg", quality: 0.8, scale: 1.6 };   // pictures of text: about 60 KB a typical page
+async function readablePages(out, d, W, H) {
+  if (IMG_EXT.test(d.name) || /^image\//.test(d.type)) {
+    try {
+      let img;
+      if (isPng(d.bytes)) img = await out.embedPng(d.bytes);
+      else if (d.bytes[0] === 0xff && d.bytes[1] === 0xd8) img = await out.embedJpg(d.bytes);
+      else {
+        const bmp = await createImageBitmap(new Blob([d.bytes], { type: d.type || "image/*" })), c = document.createElement("canvas");
+        c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+        img = await out.embedPng(new Uint8Array(await (await new Promise(r => c.toBlob(r, "image/png"))).arrayBuffer()));
+      }
+      const p = out.addPage([W, H]), m = 36, k = Math.min((W - 2 * m) / img.width, (H - 2 * m - 24) / img.height);
+      const w = img.width * k, h = img.height * k;
+      p.drawImage(img, { x: (W - w) / 2, y: (H - h) / 2 + 12, width: w, height: h });
+      const foot = await footPng(d.name + " · shown for reading; the attached file is what was signed", W);
+      p.drawImage(await out.embedPng(foot), { x: 0, y: 0, width: W, height: 30 });
+      return { what: "picture", pages: 1 };
+    } catch (e) { return { what: null, pages: 0 }; }
+  }
+  if (TEXT_EXT.test(d.name) || /^text\//.test(d.type)) {
+    let text; try { text = new TextDecoder("utf-8", { fatal: true }).decode(d.bytes); } catch (e) { return { what: null, pages: 0 }; }
+    const md = /\.(md|markdown)$/i.test(d.name) || /markdown/.test(d.type);
+    text = text.replace(/^﻿/, "").replace(/\t/g, "    ").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
+    const items = textItems(text, md);
+    // plain letters: real PDF text (small, sharp, searchable); any other script: pictures of the text drawn by the browser
+    const F = { sans: await out.embedFont(PDFLib.StandardFonts.Helvetica), bold: await out.embedFont(PDFLib.StandardFonts.HelveticaBold), mono: await out.embedFont(PDFLib.StandardFonts.Courier) };
+    let vector = true; try { F.sans.encodeText(items.map(x => x.t).join(" ")); } catch (e) { vector = false; }   // a line break is not a character the font can encode
+    if (vector) {
+      const pages = layoutText(items, (kind, size, t) => F[kind].widthOfTextAtSize(t, size), W, H, MAX_PAGES_TEXT);
+      pages.list.forEach((lines, k) => {
+        const pg = out.addPage([W, H]);
+        for (const ln of lines) {
+          if (ln.rule) { pg.drawRectangle({ x: 54, y: H - ln.y - 6, width: W - 108, height: 0.6, color: PDFLib.rgb(.75, .74, .72) }); continue; }
+          if (ln.t) pg.drawText(ln.t, { x: 54 + ln.indent, y: H - ln.y - ln.size * 0.82, size: ln.size, font: F[ln.kind], color: ln.grey ? PDFLib.rgb(.42, .4, .38) : PDFLib.rgb(.14, .13, .11) });
+        }
+        const foot = ascii(d.name) + " · page " + (k + 1) + " of " + pages.list.length + " · shown for reading; the attached file is what was signed";
+        pg.drawText(foot, { x: (W - F.sans.widthOfTextAtSize(foot, 8)) / 2, y: 26, size: 8, font: F.sans, color: PDFLib.rgb(.42, .4, .38) });
+      });
+      return { what: "text", pages: pages.list.length, cut: pages.cut };
+    }
+    const r = await textPagePictures(items, d.name, W, H);
+    for (const pic of r.pics) out.addPage([W, H]).drawImage(await (PAGE_IMG.type === "image/jpeg" ? out.embedJpg(pic) : out.embedPng(pic)), { x: 0, y: 0, width: W, height: H });
+    return { what: "text", pages: r.pics.length, cut: r.cut };
+  }
+  return { what: null, pages: 0 };
+}
+async function footPng(t, W) {                             // a small grey line at the foot of a picture page
+  const SC = 2, c = document.createElement("canvas"); c.width = W * SC; c.height = 30 * SC;
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = "#6b6660"; g.font = 8 * SC + "px " + SANS; g.textAlign = "center"; g.fillText(t, c.width / 2, 18 * SC);
+  return new Uint8Array(await (await new Promise(r => c.toBlob(r, "image/png"))).arrayBuffer());
+}
+function mdInline(t) {                                    // a light reading of Markdown: the words, without the marks
+  return t.replace(/!\[([^\]]*)\]\([^)]*\)/g, "[picture: $1]").replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+          .replace(/(\*\*|__)(.+?)\1/g, "$2").replace(/`([^`]+)`/g, "$1");
+}
+function wrapLine(measure, t, maxW) {                     // by words where there are spaces, by characters otherwise
+  if (!t) return [""];
+  const out = []; let line = "", cut = -1;
+  for (const ch of t) {
+    const test = line + ch;
+    if (line && measure(test) > maxW) {
+      if (cut > line.length * 0.5 && ch !== " ") { out.push(line.slice(0, cut)); line = line.slice(cut + 1) + ch; }   // a space late in the line: break there; text without spaces (Japanese): by character
+      else { out.push(line); line = ch === " " ? "" : ch; }
+      cut = line.lastIndexOf(" ");
+    } else { line = test; if (ch === " ") cut = line.length - 1; }
+  }
+  out.push(line); return out;
+}
+function textItems(text, md) {                            // the lines, with a light reading of Markdown (sizes in points)
+  const items = []; let fence = false;
+  for (const raw of text.replace(/\r\n?/g, "\n").split("\n")) {
+    let t = raw, size = 9, kind = "mono", grey = false, before = 0, rule = false, indent = 0;
+    if (md) {
+      kind = "sans"; size = 10.5;
+      if (/^\s*(```|~~~)/.test(raw)) { fence = !fence; continue; }
+      if (fence) { kind = "mono"; size = 9; }
+      else {
+        const h = raw.match(/^(#{1,6})\s+(.*)$/);
+        if (h) { t = mdInline(h[2]); size = [17, 14.5, 12.5, 11.5, 11, 11][h[1].length - 1]; kind = "bold"; before = 8; }
+        else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(raw)) { rule = true; t = ""; }
+        else if (/^\s*>\s?/.test(raw)) { t = mdInline(raw.replace(/^\s*>\s?/, "")); grey = true; indent = 14; }
+        else { const bl = raw.match(/^(\s*)[-*+]\s+(.*)$/); t = bl ? bl[1] + "•  " + mdInline(bl[2]) : mdInline(raw); }
+      }
+    }
+    items.push({ t, kind, size, grey, before, rule, indent });
+  }
+  return items;
+}
+function layoutText(items, measure, W, H, maxPages) {     // wrapped lines placed on pages, in points from the top
+  const M = 54, maxW = W - 2 * M, bottom = H - M - 14, list = [[]]; let y = M, cut = false;
+  outer: for (const it of items) {
+    const lh = it.size * 1.45;
+    const lines = it.rule ? [null] : wrapLine(t => measure(it.kind, it.size, t), it.t, maxW - it.indent);
+    for (let i = 0; i < lines.length; i++) {
+      const need = (i ? 0 : it.before) + (it.rule ? 12 : lh);
+      if (y + need > bottom && list[list.length - 1].length) {
+        if (list.length >= maxPages) { cut = true; break outer; }
+        list.push([]); y = M;
+      }
+      list[list.length - 1].push(it.rule ? { rule: true, y } : { ...it, t: lines[i], y: y + (i ? 0 : it.before) });
+      y += need;
+    }
+  }
+  return { list, cut };
+}
+async function textPagePictures(items, name, W, H) {
+  const SC = PAGE_IMG.scale, c = document.createElement("canvas"); c.width = Math.round(W * SC); c.height = Math.round(H * SC);
+  const g = c.getContext("2d"), fontOf = (kind, size) => (kind === "bold" ? "700 " : "400 ") + size * SC + "px " + (kind === "mono" ? MONO : SANS);
+  const pages = layoutText(items, (kind, size, t) => { g.font = fontOf(kind, size); return g.measureText(t).width / SC; }, W, H, MAX_PAGES_PICTURE);
+  const pics = [];
+  for (let k = 0; k < pages.list.length; k++) {
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.textBaseline = "top"; g.textAlign = "start";
+    for (const ln of pages.list[k]) {
+      if (ln.rule) { g.fillStyle = "rgba(35,32,29,.25)"; g.fillRect(54 * SC, (ln.y + 5) * SC, (W - 108) * SC, 1.2 * SC); continue; }
+      g.font = fontOf(ln.kind, ln.size); g.fillStyle = ln.grey ? "#6b6660" : "#23201d"; g.fillText(ln.t, (54 + ln.indent) * SC, ln.y * SC);
+    }
+    g.font = fontOf("sans", 8); g.fillStyle = "#6b6660"; g.textAlign = "center";
+    g.fillText(name + " · page " + (k + 1) + " of " + pages.list.length + " · shown for reading; the attached file is what was signed", c.width / 2, (H - 34) * SC);
+    pics.push(new Uint8Array(await (await new Promise(r => c.toBlob(r, PAGE_IMG.type, PAGE_IMG.quality))).arrayBuffer()));
+  }
+  return { pics, cut: pages.cut };
 }
 
 // ---------------- v6: a PNG picture with the seal in a corner ----------------

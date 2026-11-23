@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.5.14 (2026-11-23): the stamped PDF shows the document
+
+* Stamping page v12: for a file that is not a PDF, the stamped PDF now shows the document after the cover
+  page, so it can be read on any phone: a text file (.md, .txt, .csv, .json and similar) as text, with a
+  light reading of Markdown (headings, bullets, quotes, code), and a picture as a picture. Text in plain
+  letters becomes real PDF text (small, sharp, searchable; up to 200 pages); text in other scripts
+  (Japanese, for example) is drawn by the browser as page pictures (up to 30 pages). The original file
+  stays attached unchanged and is what was signed; the cover page says which pages show it. Other files
+  (spreadsheets, for example) are attached only, and the cover says so.
+* Scanner v22: when a file is loaded, its name shows at once, even before the signer's key is found. A
+  stamped PDF that cannot be read now says so instead of nothing happening. Of the seals drawn in a PDF,
+  the one matching the stored seal data is used (a picture shown on a later page may contain another seal).
+
 ## v0.5.13 (2026-11-23): up to 21 seals on one device
 
 * Stamping page v11: a device keeps up to 21 seals (each its encrypted key file, or the public parts of a
