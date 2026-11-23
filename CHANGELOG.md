@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.11 (2026-11-23): check a stamped PDF without the camera; DH stamps for finished steps
+
+* Scanner v19: the photo button (now a picture and a folder) also takes a stamped PDF. The scanner reads
+  the seal data the PDF stores (DigiHanPayload) and the seal drawn in it (from its picture, including
+  PDFs made by sign_pdf.py), requires the two to match, and checks the signature against the signed file
+  attached inside. A result row says where the seal was read from. If the drawn seal and the stored seal
+  data differ: "The drawn seal and the file's seal data differ".
+* Stamping page v9: each finished step is stamped with the DH logo, tilted at random between -7 and +7
+  degrees.
+
 ## v0.5.10 (2026-11-23): steady layout, the key on this device, progress you can see; scanner resets
 
 * Stamping page v8: one column at every width (wider on a desktop). "Make a key here" and "Use a key I

@@ -120,17 +120,18 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v18 · format v0.4</div>
+    <div class="v">scanner v19 · format v0.4</div>
   </div>
 
   <div class="scan-foot" id="foot">
     <div class="scan-status" id="status"></div>
     <div class="scan-ctlrow">
-      <button class="photo-btn" id="photoBtn" aria-label="Decode a seal from a photo">
+      <button class="photo-btn" id="photoBtn" aria-label="Read a seal from a photo or a stamped file">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
              stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.6"/>
-          <path d="M3 17l5-5 4 4 3.5-3.5L21 18"/>
+          <rect x="1.8" y="5" width="9" height="14" rx="1.6"/><circle cx="5" cy="8.9" r="1.2"/><path d="M2.2 16.6l3.2-3.2 2.4 2.4 2.6-2.6"/>
+          <path d="M12 3.5v17" opacity=".45"/>
+          <path d="M13.4 9a1 1 0 0 1 1-1h2.2l1.4 1.6h3.2a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1h-6.8a1 1 0 0 1-1-1z"/>
         </svg>
       </button>
       <button class="scan-btn" id="stopBtn">Close</button>
@@ -161,6 +162,7 @@ input[type=file] { display:none; }
       <div class="k">signature</div><div class="v" id="r_sig"></div>
       <div class="k">RS repair</div><div class="v" id="r_corr"></div>
       <div class="k">frames</div><div class="v" id="r_frames"></div>
+      <div class="k">read from</div><div class="v" id="r_src"></div>
     </div>
     <button class="scan-btn" id="docBtn">Check against a document…</button>
     <button class="scan-btn" id="keyBtn">Add a signer's key…</button>
@@ -172,7 +174,7 @@ input[type=file] { display:none; }
   </div>
 </div>
 
-<input type="file" id="fileIn" accept="image/*">
+<input type="file" id="fileIn" accept="image/*,application/pdf,.pdf">
 <input type="file" id="docIn">
 <canvas id="work" class="hide"></canvas>
 
@@ -209,20 +211,21 @@ function grayFrom(src, sw, sh) {
   return { g, w, h };
 }
 
-async function showResult(r, inside) {
+async function showResult(r, inside, src) {
   stopCamera("decoded");
   const p = r.data, parsed = parsePayload(p);
   const dg = await crypto.subtle.digest("SHA-256", p);
   $("r_digest").textContent = Array.from(new Uint8Array(dg).slice(0, 4),
     b => b.toString(16).padStart(2, "0")).join("");
-  $("r_geom").textContent = (r.geom.square ? "square · kakuin " : "round · jitsuin ") + r.geom.d + "mm";
+  $("r_geom").textContent = r.geom ? (r.geom.square ? "square · kakuin " : "round · jitsuin ") + r.geom.d + "mm" : "—";
   $("r_ver").textContent = parsed.ver + " (flags " + parsed.flags + ")";
   $("r_fp").textContent = parsed.fp.replace(/(.{4})(?=.)/g, "$1 ");
   $("r_ts").textContent = (parsed.flags & 1) ? "anchored to Bitcoin block " + parsed.ts.toLocaleString("en-US")
     : new Date(parsed.ts * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z, stated by the signer";
   $("r_sig").textContent = parsed.sig.slice(0, 24) + "…" + parsed.sig.slice(-8);
-  $("r_corr").textContent = r.corrected + " byte(s)";
+  $("r_corr").textContent = r.corrected === null ? "—" : r.corrected + " byte(s)";
   $("r_frames").textContent = frames;
+  $("r_src").textContent = src ? src.from : (frames > 1 ? "the camera" : "a photo");
   say("");
   sheet.classList.add("up");
   if (navigator.vibrate) navigator.vibrate(60);
@@ -230,6 +233,10 @@ async function showResult(r, inside) {
   $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
   $("r_proof").textContent = "—";
   if (inside) await useInside(current, inside.list, inside.from);   // v17: a stamped picture carries its files
+  if (src && src.mismatch) {                                        // v19: the drawn seal and the file's seal data differ
+    verdict("bad", "The drawn seal and the file's seal data differ", src.mismatch);
+    return;
+  }
   await siteProof(current);
   verdict("work", "Seal read — looking up the signer's key", "");
   runCheck();
@@ -531,6 +538,95 @@ $("docIn").addEventListener("change", async ev => {
   else if (isPng(bytes)) await useInside(c, pngInside(bytes), f.name);         // v17: a stamped picture
   runCheck();
 });
+// ---------------- v19: a stamped PDF loaded with the photo/file button: no camera needed ----------------
+// The stamping page and sign_pdf.py write the ring's 78 bytes into the PDF's document information
+// (DigiHanPayload) and attach the signed file, the key record, the artwork and the time proof. The seal
+// drawn on the cover page is read too, from its picture inside the PDF, and must match.
+function pdfSealData(bytes) {
+  const t = new TextDecoder("latin1").decode(bytes);
+  let m = t.match(/\/DigiHanPayload\s*\(([0-9a-fA-F]{156})\)/);
+  if (m) return DHV.unhex(m[1].toLowerCase());
+  m = t.match(/\/DigiHanPayload\s*<([0-9a-fA-F\s]+)>/);              // a hex string holding the same text
+  if (m) { const h = m[1].replace(/\s+/g, ""); let s = ""; for (let i = 0; i + 1 < h.length; i += 2) s += String.fromCharCode(parseInt(h.slice(i, i + 2), 16));
+    s = s.replace(/^þÿ/, "").replace(/\u0000/g, ""); if (/^[0-9a-f]{156}$/i.test(s)) return DHV.unhex(s.toLowerCase()); }
+  return null;
+}
+function a85(data) {                                                // ASCII85 (reportlab writes pictures this way)
+  const out = []; let n = 0, k = 0;
+  for (const c of new TextDecoder("latin1").decode(data)) {
+    if (c === "~") break; if (c <= " ") continue;
+    if (c === "z" && k === 0) { out.push(0, 0, 0, 0); continue; }
+    n = n * 85 + (c.charCodeAt(0) - 33); k++;
+    if (k === 5) { out.push((n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255); n = 0; k = 0; }
+  }
+  if (k > 1) { for (let i = k; i < 5; i++) n = n * 85 + 84; for (let i = 0; i < k - 1; i++) out.push((n >>> (24 - 8 * i)) & 255); }
+  return new Uint8Array(out);
+}
+async function inflate(d) { return new Uint8Array(await new Response(new Blob([d]).stream().pipeThrough(new DecompressionStream("deflate"))).arrayBuffer()); }
+function unpredict(d, colors, columns) {                            // PNG row filters (/Predictor 10 to 15)
+  const bpr = colors * columns, rows = Math.floor(d.length / (bpr + 1)), out = new Uint8Array(rows * bpr);
+  for (let y = 0; y < rows; y++) {
+    const f = d[y * (bpr + 1)], src = y * (bpr + 1) + 1, o = y * bpr;
+    for (let x = 0; x < bpr; x++) {
+      const a = x >= colors ? out[o + x - colors] : 0, b = y ? out[o - bpr + x] : 0, c = x >= colors && y ? out[o - bpr + x - colors] : 0;
+      let v = d[src + x];
+      if (f === 1) v += a; else if (f === 2) v += b; else if (f === 3) v += (a + b) >> 1;
+      else if (f === 4) { const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c); v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c; }
+      out[o + x] = v & 255;
+    }
+  }
+  return out;
+}
+async function pdfImages(bytes) {                                   // square-ish pictures as gray pixels
+  const out = [], txt = new TextDecoder("latin1").decode(bytes), re = /\/Subtype\s*\/Image/g; let m;
+  while ((m = re.exec(txt)) && out.length < 12) {
+    try {
+      const objStart = txt.lastIndexOf(" obj", m.index), sre = />>\s*stream\r?\n/g; sre.lastIndex = m.index; const sm = sre.exec(txt);
+      if (objStart < 0 || !sm) continue;
+      const dict = txt.slice(objStart, sm.index + 2), num = k => { const q = dict.match(new RegExp("/" + k + "\\s+(\\d+)(?!\\s+\\d+\\s+R)")); return q ? +q[1] : null; };
+      const w = num("Width"), h = num("Height"), bpc = num("BitsPerComponent") || 8;
+      if (!w || !h || w < 150 || h < 150 || w / h > 1.25 || h / w > 1.25 || bpc !== 8 || /\/ImageMask\s+true/.test(dict)) continue;
+      const s0 = sm.index + sm[0].length, len = num("Length"); if (!len) continue;
+      let data = bytes.slice(s0, s0 + len), jpeg = false;
+      const filters = (dict.match(/\/Filter\s*(\[[^\]]*\]|\/\w+)/) || ["", ""])[1].match(/\w+/g) || [];
+      for (const fl of filters) {
+        if (fl === "ASCII85Decode") data = a85(data);
+        else if (fl === "FlateDecode") data = await inflate(data);
+        else if (fl === "DCTDecode") jpeg = true;
+        else throw new Error("filter " + fl);
+      }
+      let g;
+      if (jpeg) {
+        const bmp = await createImageBitmap(new Blob([data], { type: "image/jpeg" })); ({ g } = grayFrom(bmp, w, h));
+        out.push({ g: g.slice(), w: work.width, h: work.height }); continue;
+      }
+      const colors = /\/DeviceGray/.test(dict) ? 1 : /\/DeviceCMYK/.test(dict) ? 4 : 3;
+      const pred = (dict.match(/\/Predictor\s+(\d+)/) || [])[1];
+      if (pred && +pred >= 10) data = unpredict(data, colors, w);
+      if (data.length < w * h * colors) continue;
+      g = new Uint8Array(w * h);
+      for (let i = 0, j = 0; j < g.length; i += colors, j++)
+        g[j] = colors === 1 ? data[i] : colors === 3 ? (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000 | 0
+          : 255 - Math.min(255, (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000 + data[i + 3]);
+      out.push({ g, w, h });
+    } catch (e) {}
+  }
+  return out;
+}
+async function checkStampedPdf(f, b) {
+  say("reading the PDF…");
+  const meta = pdfSealData(b);
+  let drawn = null;
+  for (const im of await pdfImages(b)) { const r = decodePhoto(im.g, im.w, im.h); if (r) { drawn = r; break; } }
+  if (!meta && !drawn) { say("no DigiHan seal found in that PDF"); return; }
+  frames = 1;
+  const inside = { list: await pdfAttachments(b), from: f.name };
+  if (meta && drawn && DHV.hex(drawn.data) !== DHV.hex(meta))
+    return showResult(drawn, inside, { from: "the seal drawn in " + f.name, mismatch: "The seal drawn in this PDF does not match the seal data in its file. Do not rely on this PDF." });
+  if (drawn) return showResult(drawn, inside, { from: "the seal drawn in " + f.name + (meta ? " (matches the file's seal data)" : "") });
+  showResult({ data: meta, geom: null, corrected: null }, inside, { from: "the seal data in " + f.name + " (the drawn seal could not be read from the file)" });
+}
+
 // the files a stamped PDF or a stamped picture carries: the original, the registration, the artwork, the time proof
 async function useInside(c, list, from) {
   for (const a of list) {
@@ -611,7 +707,11 @@ $("fileIn").addEventListener("change", async ev => {
   if (!f) return;
   say("reading photo…");
   let inside = null;                             // v17: a stamped picture: its original and files come along
-  try { const b = new Uint8Array(await f.arrayBuffer()); if (isPng(b)) { const l = pngInside(b); if (l.length) inside = { list: l, from: f.name }; } } catch (e) {}
+  try {
+    const b = new Uint8Array(await f.arrayBuffer());
+    if (/^%PDF/.test(new TextDecoder("latin1").decode(b.slice(0, 5)))) { ev.target.value = ""; return checkStampedPdf(f, b); }   // v19
+    if (isPng(b)) { const l = pngInside(b); if (l.length) inside = { list: l, from: f.name }; }
+  } catch (e) {}
   const img = new Image();
   img.onload = () => {
     frames = 1;
