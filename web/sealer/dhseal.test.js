@@ -75,6 +75,15 @@ const h2b = h => Uint8Array.from(Buffer.from(h, "hex")), b2h = b => Buffer.from(
   assert.strictEqual(b2h(DHS.unb64(DHS.b64(bigger))), b2h(bigger)); n++;
   const kfBig = await DHS.lockKey(sk, pub, "correct horse battery", bigger, reg);
   assert.strictEqual(b2h(DHS.unb64(kfBig.center_png)), b2h(bigger)); n++;
+  // 5c (release 0.6.2): base64 from a table, every length near the 3-byte groups and the 3072-byte pieces;
+  // and no bytes handed to a function as arguments, at any size (no spread, no apply)
+  for (const len of [0, 1, 2, 3, 4, 5, 6, 3069, 3070, 3071, 3072, 3073, 3074, 6143, 6144, 6145, 700001]) {
+    const u = crypto.getRandomValues(new Uint8Array(Math.min(len, 65536))), v = new Uint8Array(len); for (let i = 0; i < len; i += u.length || 1) v.set(u.subarray(0, Math.min(u.length, len - i)), i);
+    assert.strictEqual(DHS.b64(v), Buffer.from(v).toString("base64"), "base64, " + len + " bytes"); n++;
+  }
+  const src = require("fs").readFileSync(__dirname + "/dhseal.js", "utf8").replace(/\/\/.*$/gm, "");
+  assert.ok(!/fromCharCode\s*\(\s*\.\.\.|fromCharCode\.apply/.test(src), "dhseal.js hands bytes to fromCharCode as arguments"); n++;
+  assert.strictEqual(DHS.RELEASE, "0.6.2"); n++;
   // 6. payload version 2 (format v0.5): the stamp event. The fixed vector is checked by python/tests too.
   const V = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "python", "tests", "stamp_event_vector.json")));
   const vsk2 = h2b(V.secret_key), vpub = DHS.pubFromSecret(vsk2), vdoc = await DHV.sha256(new TextEncoder().encode(V.document_text));

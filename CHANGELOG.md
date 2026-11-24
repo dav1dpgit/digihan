@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.6.2 (2026-11-24): a seal inside a seal; base64 without arguments
+
+* Fixed: a seal whose artwork is a picture of another seal, ring and all, was read as that inner seal.
+  The phone's ring reader tries a tight centre crop first, and on a seal that fills the picture that crop
+  holds only the inner ring. So a photo of the seal was reported as the inner seal's key, and the seal's
+  own stamped PDF was refused ("the drawn seal and the file's seal data differ"). The reader
+  (web/scanner/digihan.js) now keeps looking after a ring is read: the larger crops, the outlines and the
+  larger corner crops are tried too, and a ring that encloses the one read wins. A ring is enclosed when it
+  lies inside the other ring's centre circle. SPEC.md, section 8, step 1 now says it: the seal is the
+  outermost ring; a ring in the centre artwork is artwork. The format is unchanged. The Python tools
+  already read from the outside in and were not affected. New tests: tests/make_nested.py (150 frames:
+  the inner seal filling the centre, small and off centre, three deep; held at 60%, 80% and 95% of the
+  frame; phone screenshots). Before the fix, 13 were read as the inner seal; now none are, by either
+  path. The 60 screenshots and 220 camera frames read exactly as before. A frame that reads now takes
+  about 20 ms instead of 6 (once, on the frame that reads).
+* Fixed, again: "Maximum call stack size exceeded" when making a seal with a photo as its artwork was
+  still reported after v0.6.1. v0.6.1 passed the picture's bytes to a function 32 KB at a time, which
+  still depends on the browser's limit on arguments (WebKit's is about 65,536, and less if the stack runs
+  out first). Which copy of the code that phone ran was not seen. dhseal.js and nostrsign.js now make
+  base64 from a table, with no bytes passed as arguments at any size; dhseal.test.js checks every length
+  near the 3-byte and 3072-byte boundaries and that the code passes no bytes as arguments.
+* Stamping page v17 and scanner v25 show their release (0.6.2) and the release of the code they loaded.
+  A phone keeps a copy of the code for offline use, and an open tab keeps the code it opened with; an
+  older copy is now named on the page, with "close this tab and open the page again", instead of failing
+  later. The offline copy is renewed (digihan-offline-v4).
+
 ## v0.6.1 (2026-11-24): a photo as the seal's artwork
 
 * Fixed: making a seal with a picture as its artwork could stop with "Maximum call stack size exceeded".

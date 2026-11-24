@@ -6,6 +6,7 @@
 "use strict";
 
 const DHS = (() => {
+  const RELEASE = "0.6.2";        // the page compares this with its own release: an older copy of this file shows up
   const { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, fingerprint } = DHV;
   const { P, N, G, mod, mul, affine, toInt, toBytes32 } = DHV.curve;
   const enc = new TextEncoder();
@@ -189,9 +190,23 @@ const DHS = (() => {
     const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
     return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
   }
-  // in pieces of 32 KB: passing every byte as its own argument (fromCharCode(...u8)) fails on a big picture
-  // ("Maximum call stack size exceeded" with a photo as the artwork, about 700 KB)
-  const b64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  // base64 from a table (release 0.6.2). No step hands the bytes to a function as arguments, so no browser's
+  // limit on arguments or stack applies. Release 0.6.0 passed every byte at once (fromCharCode(...u8)), which
+  // fails with "Maximum call stack size exceeded" on a photo artwork (about 700 KB); 0.6.1 passed 32 KB at a
+  // time, which still relies on that limit (WebKit's is about 65,536 arguments, less if the stack runs out).
+  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const b64 = u8 => {
+    const parts = [];
+    for (let i = 0; i < u8.length; i += 3072) {              // 3072 bytes (a multiple of 3) -> 4096 characters
+      const end = Math.min(i + 3072, u8.length); let s = "";
+      for (let j = i; j < end; j += 3) {
+        const n = (u8[j] << 16) | ((j + 1 < end ? u8[j + 1] : 0) << 8) | (j + 2 < end ? u8[j + 2] : 0);
+        s += B64[n >> 18] + B64[(n >> 12) & 63] + (j + 1 < end ? B64[(n >> 6) & 63] : "=") + (j + 2 < end ? B64[n & 63] : "=");
+      }
+      parts.push(s);
+    }
+    return parts.join("");
+  };
   const unb64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
   async function lockKey(sk, pub, password, centerPng, reg) {
     const salt = random(16), nonce = random(12);
@@ -219,6 +234,6 @@ const DHS = (() => {
 
   return { NSYM, GEOM, rsEncode, buildStream, sealSize, drawSeal, pubFromSecret, schnorrSign, newSecret, sealPayload,
            sealMessage, assemble, signedStamp, draftRegistration, finishRegistration, registration, readPublicKey,
-           lockKey, unlockKey, needsUpgrade, ARGON, b64, unb64, npubEncode };
+           lockKey, unlockKey, needsUpgrade, ARGON, b64, unb64, npubEncode, RELEASE };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHS;

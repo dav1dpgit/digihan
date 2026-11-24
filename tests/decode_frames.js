@@ -12,9 +12,10 @@ const by = new Map();
 for (const r of rows) {
   const d = decode(new Uint8Array(fs.readFileSync(r.f)), r.w, r.h);
   const ok = !!d && Buffer.from(d.data).toString('hex') === r.payload;
-  if (!by.has(r.cond)) by.set(r.cond, [0, 0]);
-  const v = by.get(r.cond); v[0] += ok ? 1 : 0; v[1]++;
+  if (!by.has(r.cond)) by.set(r.cond, [0, 0, 0]);
+  const v = by.get(r.cond); v[0] += ok ? 1 : 0; v[1]++; v[2] += d && !ok ? 1 : 0;   // v[2]: read as a different seal
 }
-let a = 0, n = 0;
-for (const [c, [k, m]] of by) { console.log(c.padEnd(34), `${k}/${m}`); a += k; n += m; }
-console.log('TOTAL'.padEnd(34), `${a}/${n}`);
+let a = 0, n = 0, x = 0;
+const other = o => o ? `   (${o} read as a different seal)` : '';
+for (const [c, [k, m, o]] of by) { console.log(c.padEnd(34), `${k}/${m}${other(o)}`); a += k; n += m; x += o; }
+console.log('TOTAL'.padEnd(34), `${a}/${n}${other(x)}`);

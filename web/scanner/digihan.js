@@ -1,8 +1,10 @@
 // DigiHan ring decoder, format v0.4 (the ring is unchanged since v0.3) — self-contained JS port of digihan.py
+// 2026-11-24 (release 0.6.2): a seal inside a seal — the outermost ring wins (see outermost(), below)
 // Payload: 78 bytes = ver(4b)|flags(4b)|fingerprint(64b)|timestamp(40b)|sig(512b)
 // Stream: 28-bit sync 0xE769C57 || RS(123,78) codeword bits, track-major from the innermost
 // track; bit 0 starts at 12 o'clock under the key bridge and the stream runs clockwise.
 "use strict";
+const DECODER_RELEASE = "0.6.2";     // the scanner page compares this with its own release (an older copy shows up)
 
 // v0.2: 28-bit sync 0xE769C57 (low cyclic autocorrelation, runs <= 3).
 // 28 + 8*(78+45) === 1012 === ring capacity: no blank arc, spare capacity
@@ -662,7 +664,9 @@ function decodeWithGeom(im, g) {
           for (let i = 0; i < C; i++) bits.push(v[i] < th ? 1 : 0);
         }
         const res = bitsToPayload(bits);
-        if (res) return { ...res, geom: g, scale };
+        // cx, cy, rimPx: where the ring was found (its rim's centre and outer radius, in this image's pixels),
+        // so a ring found inside another seal's artwork can be told from that seal (see outermost below)
+        if (res) return { ...res, geom: g, scale, cx: rim.ctr[0], cy: rim.ctr[1], rimPx: scale * g.rRimOut };
       }
     }
   }
@@ -687,26 +691,46 @@ function cropCenter(gray, w, h, frac) {
   return { g: out, w: s, h: s };
 }
 
+// ---------------- a seal inside a seal: the outermost ring wins (2026-11-24) ----------------
+// A seal's artwork can itself be a picture of a seal, ring and all. That inner ring is readable, and it is
+// a real seal's data, but it is not the seal being looked at: it is artwork. Every search below can find it
+// first (the tight centre crop holds only the inner ring), so a ring that is read is not the answer until
+// the larger crops have been tried too; a larger ring that encloses it is the seal. Enclosing: the inner
+// ring lies inside the outer seal's centre circle (rCenter / rRimOut = 0.68 of the rim; 0.8 allows for a
+// tilted photo). Positions are in the pixels of the whole picture; shift() moves a crop's result there.
+const shift = (r, x0, y0) => r && { ...r, cx: r.cx + x0, cy: r.cy + y0 };
+function encloses(o, r) {
+  return o.rimPx > r.rimPx * 1.2 && Math.hypot(o.cx - r.cx, o.cy - r.cy) + r.rimPx <= o.rimPx * 0.8;
+}
+function outermost(best, r) {
+  if (!r) return best;
+  if (!best) return r;
+  return encloses(r, best) ? r : best;
+}
+
 function decodeGray(gray, w, h) {
   // crop ladder: user centers the seal in the reticle, so try tight first;
   // each crop gets its own Otsu threshold (handles gradients + desk clutter)
   // 0.9 x min-dimension primary region,
   // NO downscale (px-per-module is the load-bearing variable). Tighter and
   // full-frame rungs follow for clutter/framing variance.
+  // 2026-11-24: after a ring is read, the larger crops are still tried; a ring there that encloses it wins
+  // (a seal inside a seal). A frame where nothing is read costs the same as before.
   const crops = [0.72, 0.9, -1];               // -1 = full uncropped frame
+  let best = null;
   for (const fc of crops) {
-    let im;
+    let im, x0 = 0, y0 = 0;
     if (fc < 0) im = makeImg(gray, w, h);
     else {
       const c = cropCenter(gray, w, h, fc);
-      im = makeImg(c.g, c.w, c.h);
+      im = makeImg(c.g, c.w, c.h); x0 = (w - c.w) >> 1; y0 = (h - c.h) >> 1;
     }
     for (const g of PROFILES) {
       const r = decodeWithGeom(im, g);
-      if (r) return r;
+      if (r) { best = outermost(best, shift(r, x0, y0)); break; }
     }
   }
-  return null;
+  return best;
 }
 
 // ---------------- photos: find the seal by its outline first ----------------
@@ -757,15 +781,20 @@ function cropBox(gray, w, h, cx, cy, side) {
   return { g: out, w: cw, h: ch };
 }
 function decodeOutlines(gray, w, h) {
+  // largest outline first, so an outer seal is tried before any seal drawn in its artwork; every outline is
+  // still tried, and only a ring that encloses the one already read replaces it
+  let best = null;
   for (const o of sealOutlines(gray, w, h)) {
-    const c = cropBox(gray, w, h, o.cx, o.cy, o.side * 1.22);     // the rim plus a quiet margin
+    const side = o.side * 1.22;                                   // the rim plus a quiet margin
+    const x0 = Math.max(0, Math.round(o.cx - side / 2)), y0 = Math.max(0, Math.round(o.cy - side / 2));   // as cropBox
+    const c = cropBox(gray, w, h, o.cx, o.cy, side);
     const im = makeImg(c.g, c.w, c.h);
     for (const g of PROFILES) {
       const r = decodeWithGeom(im, g);
-      if (r) return r;
+      if (r) { best = outermost(best, shift(r, x0, y0)); break; }
     }
   }
-  return null;
+  return best;
 }
 // For a still picture: the camera's ladder first, then the outline search; each also inverted, for a
 // seal shown light on dark.
@@ -773,27 +802,34 @@ function decodeOutlines(gray, w, h) {
 // outline search above ranks a busy photo's own shapes first, so each corner is also tried as a square
 // crop, read like a camera frame. The stamping page puts the seal, on a white disc, 3% from the edges.
 function decodeCorners(gray, w, h) {
-  const s = Math.min(w, h);
-  for (const f of [0.36, 0.46, 0.58, 0.28, 0.72, 0.9]) {      // larger crops last: a seal filling most of a small picture
+  const s = Math.min(w, h), SIZES = [0.36, 0.46, 0.58, 0.28, 0.72, 0.9];   // larger crops last: a seal filling most of a small picture
+  const at = (f, k) => {                                      // corner k (0..3) as a square crop of side s*f, or null
     const side = Math.round(s * f);
-    if (side < 100) continue;
-    for (const [cx, cy] of [[w - side / 2, h - side / 2], [side / 2, h - side / 2], [w - side / 2, side / 2], [side / 2, side / 2]]) {
-      const c = cropBox(gray, w, h, cx, cy, side);
-      const r = decodeGray(c.g, c.w, c.h);
-      if (r) return r;
-    }
+    if (side < 100) return null;
+    const [cx, cy] = [[w - side / 2, h - side / 2], [side / 2, h - side / 2], [w - side / 2, side / 2], [side / 2, side / 2]][k];
+    const c = cropBox(gray, w, h, cx, cy, side);
+    return shift(decodeGray(c.g, c.w, c.h), Math.max(0, Math.round(cx - side / 2)), Math.max(0, Math.round(cy - side / 2)));
+  };
+  for (const f of SIZES) for (let k = 0; k < 4; k++) {
+    let r = at(f, k);
+    if (!r) continue;
+    // the larger crops of the same corner: a seal around this one (a seal inside a seal) wins
+    for (const f2 of SIZES) if (f2 > f) r = outermost(r, at(f2, k));
+    return r;
   }
   return null;
 }
 function decodePhoto(gray, w, h) {
-  let r = decodeGray(gray, w, h) || decodeOutlines(gray, w, h) || decodeCorners(gray, w, h);
+  // the centre crops, then the outlines (each tried even after a ring is read, for a seal around it), and
+  // the corners only when neither read anything
+  let r = outermost(decodeGray(gray, w, h), decodeOutlines(gray, w, h)) || decodeCorners(gray, w, h);
   if (r) return r;
   const inv = new Uint8Array(gray.length);
   for (let i = 0; i < gray.length; i++) inv[i] = 255 - gray[i];
-  return decodeGray(inv, w, h) || decodeOutlines(inv, w, h);
+  return outermost(decodeGray(inv, w, h), decodeOutlines(inv, w, h));
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { decodeGray, decodePhoto, decodeCorners, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
+  module.exports = { DECODER_RELEASE, decodeGray, decodePhoto, decodeCorners, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
                      parsePayload, rsDecode };
 }

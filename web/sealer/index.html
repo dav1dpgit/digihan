@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%23b2382c'/%3E%3Cg transform='translate(50 50) scale(0.92) translate(-50 -50)' fill='none' stroke='%23f3f4f1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='11' y='11' width='78' height='78' rx='7' stroke-width='7'/%3E%3Cg stroke-width='9'%3E%3Cpath d='M25,23 V77'/%3E%3Cpath d='M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25'/%3E%3Cpath d='M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
 <style>
-/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device */
+/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device. v17 (release 0.6.2): the page names its code's release */
 :root {
   --paper: #f3f4f1; --card: #fbfbf9; --vermillion: #b2382c; --sumi: #23201d; --sumi-soft: #6b6660;
   --rule: rgba(35, 32, 29, .12); --ok: #2f7d4f; --warn: #9a6a12; --bad: #b2382c;
@@ -92,6 +92,7 @@ button:disabled { opacity: .5; cursor: default; }
 .msg.ok { color: var(--ok); background: rgba(47,125,79,.08); }
 .msg.warn { color: var(--warn); background: rgba(154,106,18,.08); }
 .msg.bad { color: var(--bad); background: rgba(178,56,44,.08); }
+#relMsg { margin: 0 0 14px; }                         /* v17: an older copy of the code, named */
 /* v11: the seals kept on this device (up to 21) */
 #sealsBox { margin: 6px 0 16px; }
 .seals-h { font-size: 13.5px; margin-bottom: 8px; } .seals-h span { color: var(--sumi-soft); margin-left: 8px; }
@@ -171,6 +172,7 @@ html { scrollbar-gutter: stable; }
 <div class="wrap">
 
 <h1>Stamp a document</h1>
+<div class="msg bad hide" id="relMsg"></div>
 <p class="lead">Your key is made and kept on this device, or stays elsewhere: in a Nostr signer app, offline, or on another device. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
 
 <!-- 1. the key -->
@@ -343,7 +345,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v16 · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v17 · release <span id="relCode">0.6.2</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -374,6 +376,15 @@ html { scrollbar-gutter: stable; }
 const $ = id => document.getElementById(id);
 const enc = new TextEncoder();
 const ART_PX = 600, DPMM = 24, MM = 72 / 25.4, SEAL_MM = 45;
+// v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
+// offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
+// instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
+const RELEASE = "0.6.2";
+if (DHS.RELEASE !== RELEASE) {
+  $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE || "an older release") + ")";
+  show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") +
+    "; the page is release " + RELEASE + "). Close this tab and open digihan.org/seal again.");
+}
 const EXPLORERS = ["https://mempool.space/api", "https://blockstream.info/api"];
 let key = null;          // {kf, pub, png, reg, art}
 let doc = null;          // {name, bytes, type}
@@ -1018,7 +1029,7 @@ async function buildPdf(o) {
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.stampEvent) await out.attach(enc.encode(JSON.stringify(o.stampEvent)), "digihan-stamp.json", { mimeType: "application/json", description: "The signed Nostr stamp event (payload version 2)", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v16 (format v0.5)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v17 (format v0.5)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));

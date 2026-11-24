@@ -120,7 +120,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v24 · format v0.5</div>
+    <div class="v">scanner v25 · release <span id="relCode">0.6.2</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -195,6 +195,12 @@ const MAXDIM = 1400;
 let scanning = false, frames = 0, stream = null, track = null, busy = false;
 
 function say(t) { statusEl.textContent = t; }
+// v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
+// for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
+// The reader before release 0.6.2 has no DECODER_RELEASE.
+const RELEASE = "0.6.2";
+if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
+  $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
 function grayFrom(src, sw, sh) {
   const scale = Math.min(1, MAXDIM / Math.max(sw, sh));

@@ -12,7 +12,20 @@ const DHN = (() => {
   const { hex, unhex, curve } = DHV;
   const enc = new TextEncoder(), dec = new TextDecoder();
   const cat = (...a) => { const o = new Uint8Array(a.reduce((s, x) => s + x.length, 0)); let k = 0; for (const x of a) { o.set(x, k); k += x.length; } return o; };
-  const b64 = u => { let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+  // base64 from a table, as in dhseal.js (release 0.6.2): no bytes handed to a function as arguments
+  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const b64 = u => {
+    const parts = [];
+    for (let i = 0; i < u.length; i += 3072) {
+      const end = Math.min(i + 3072, u.length); let s = "";
+      for (let j = i; j < end; j += 3) {
+        const n = (u[j] << 16) | ((j + 1 < end ? u[j + 1] : 0) << 8) | (j + 2 < end ? u[j + 2] : 0);
+        s += B64[n >> 18] + B64[(n >> 12) & 63] + (j + 1 < end ? B64[(n >> 6) & 63] : "=") + (j + 2 < end ? B64[n & 63] : "=");
+      }
+      parts.push(s);
+    }
+    return parts.join("");
+  };
   const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
   const rnd = n => crypto.getRandomValues(new Uint8Array(n));
   const now = () => Math.floor(Date.now() / 1000);

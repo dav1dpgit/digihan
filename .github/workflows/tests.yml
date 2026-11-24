@@ -29,6 +29,12 @@ jobs:
       - name: Phone decoder on 60 screenshots (photo path)
         working-directory: tests
         run: python make_screens.py && node decode_frames.js photo screens | tee screens.txt && grep -q "TOTAL.*60/60" screens.txt
+      - name: Phone decoder, a seal inside a seal (the outer ring is read, never the one in the artwork)
+        working-directory: tests
+        run: |
+          python make_nested.py
+          node decode_frames.js photo nested | tee nested.txt && grep -q "TOTAL *150/150$" nested.txt
+          node decode_frames.js camera nested | tee nested_camera.txt && ! grep -q "different seal" nested_camera.txt
   online:
     runs-on: ubuntu-latest
     timeout-minutes: 10

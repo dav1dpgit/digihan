@@ -180,6 +180,10 @@ stored or published.
 ## 8. Verification
 
 1. Read the ring (section 3) and correct it with Reed–Solomon. If it cannot be corrected, the seal is unreadable.
+   The seal is the outermost ring. The center artwork may itself show a seal, ring and all (a picture of
+   a seal used as artwork); a ring inside another seal's center artwork is artwork, and a reader MUST NOT
+   take it as the seal. A reader that reads a ring SHOULD look for a larger ring around it and, if one
+   encloses it, read that one instead.
 2. Check version and flags (section 5).
 3. Find the public key whose fingerprint matches. The fingerprint is only an index: confirm
    SHA-256(public key)[0:8] equals it.
@@ -234,7 +238,9 @@ Later tiers (canonical content, printed canonical string) are not yet defined.
 
 **v0.5 (from v0.4).** Payload version 2, the stamp event (section 6.2): the signature is made over a
 Nostr event built from the same parts, so Nostr signer apps can stamp. The ring, the payload layout, the
-flags and the time proofs are unchanged; version 1 seals are unchanged.
+flags and the time proofs are unchanged; version 1 seals are unchanged. Clarified 2026-11-24: the seal is
+the outermost ring, and a ring drawn in the center artwork is artwork (section 8, step 1); the format is
+unchanged.
 
 **v0.4 (from v0.3).** Flag bit 0 defined: anchored seals, "made no earlier than block A" (section 11.1).
 OpenTimestamps proofs over the payload, "existed no later than block B" (section 11.2). Block data from a

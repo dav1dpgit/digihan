@@ -39,6 +39,25 @@ def test_round_trip(geom, cell):
     assert got == p and n == 0
 
 
+def test_seal_inside_a_seal_reads_the_outer_ring():
+    """2026-11-24: a seal whose artwork is a picture of another seal, ring and all (SPEC section 8, step 1):
+    the outer ring is the seal; the inner one is artwork. Two and three deep."""
+    from PIL import Image, ImageDraw
+    rng = np.random.default_rng(11)
+    def seal(payload, art):
+        im = dh.render(G, dh.build_stream(payload, 45), 15.0, "empty", cell="dot").convert("L")
+        if art is not None:                                      # as the stamping page draws an uploaded picture
+            side = int(round(2 * G.r_center * 15.0)); c = im.width / 2
+            a = art.resize((side, side), Image.LANCZOS)
+            m = Image.new("L", (side, side), 0); ImageDraw.Draw(m).ellipse([0, 0, side - 1, side - 1], fill=255)
+            im.paste(a, (int(c - side / 2), int(c - side / 2)), m)
+        return im
+    p1, p2, p3 = (rng.integers(0, 256, 78, dtype=np.uint8).tobytes() for _ in range(3))
+    two = seal(p2, seal(p1, None)); three = seal(p3, two)
+    assert dh.decode(two, G, 45)[0] == p2
+    assert dh.decode(three, G, 45)[0] == p3
+
+
 def test_bit0_under_key_bridge():
     s = np.zeros(1012, np.uint8); s[0] = 1
     a = np.asarray(dh.render(G, s, 15.0, "empty", cell="dot"))
