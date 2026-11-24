@@ -219,7 +219,8 @@ v0.3 defines tier 1: `doc_hash` is over the exact bytes of the file. The referen
   tool writes it into a new file (`python/timestamp.py attach`); the stamped PDF is not changed.
 
 **A stamped picture (PNG).** For a PNG file, the stamping page can also write a copy of the picture with
-the seal drawn in one corner, on a white disc, 3% of the shorter side from the edges. The seal signs the
+the seal drawn in one corner, on a white disc, 3% of the shorter side from the edges (in a bottom corner,
+above the website line, if the stamping page was asked to show one under the seal). The seal signs the
 ORIGINAL picture's bytes; the copy's own bytes are not what was signed. The copy carries what a verifier
 needs inside its own file, before `IEND`:
 

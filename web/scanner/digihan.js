@@ -1,10 +1,11 @@
 // DigiHan ring decoder, format v0.4 (the ring is unchanged since v0.3) — self-contained JS port of digihan.py
 // 2026-11-24 (release 0.6.2): a seal inside a seal — the outermost ring wins (see outermost(), below)
+// 2026-11-24 (release 0.6.4): a stamped picture's seal is also found by its white disc (see sealPlates(), below)
 // Payload: 78 bytes = ver(4b)|flags(4b)|fingerprint(64b)|timestamp(40b)|sig(512b)
 // Stream: 28-bit sync 0xE769C57 || RS(123,78) codeword bits, track-major from the innermost
 // track; bit 0 starts at 12 o'clock under the key bridge and the stream runs clockwise.
 "use strict";
-const DECODER_RELEASE = "0.6.3";     // the scanner page compares this with its own release (an older copy shows up)
+const DECODER_RELEASE = "0.6.4";     // the scanner page compares this with its own release (an older copy shows up)
 
 // v0.2: 28-bit sync 0xE769C57 (low cyclic autocorrelation, runs <= 3).
 // 28 + 8*(78+45) === 1012 === ring capacity: no blank arc, spare capacity
@@ -819,10 +820,54 @@ function decodeCorners(gray, w, h) {
   }
   return null;
 }
+// 0.6.4: a stamped picture's seal sits on a white disc (the stamping page's plate, 1.2 x the seal), in a corner,
+// or raised above a corner by the website label under it. On a dark or busy photo one threshold for the whole
+// picture can miss the seal's own outline, and a corner crop misses a raised seal; so the disc itself is
+// looked for: near-white, roughly round, hollow (the seal is inside it), at least 100 px across. Each disc
+// found is cropped and read like a camera frame, with its own threshold.
+function sealPlates(gray, w, h) {
+  const S = 2, W = Math.ceil(w / S), H = Math.ceil(h / S), bin = new Uint8Array(W * H);
+  for (let y = 0; y < h; y += S) for (let x = 0; x < w; x += S) if (gray[y * w + x] >= 235) bin[(y / S) * W + x / S] = 1;
+  const lab = new Int32Array(W * H), stack = new Int32Array(W * H), out = [];
+  let next = 0;
+  for (let s = 0; s < W * H; s++) {
+    if (!bin[s] || lab[s]) continue;
+    next++;
+    let sp = 0, n = 0, x0 = W, y0 = H, x1 = 0, y1 = 0;
+    stack[sp++] = s; lab[s] = next;
+    while (sp) {
+      const p = stack[--sp], px = p % W, py = (p / W) | 0;
+      n++; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const qx = px + dx, qy = py + dy;
+        if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
+        const q = qy * W + qx;
+        if (bin[q] && !lab[q]) { lab[q] = next; stack[sp++] = q; }
+      }
+    }
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    if (Math.min(bw, bh) * S < 100 || bw / bh > 1.3 || bh / bw > 1.3) continue;      // too small, or not round
+    if (n / (bw * bh) > 0.7) continue;                                              // a solid bright area, not a disc around a seal
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    if (lab[(my | 0) * W + (mx | 0)] === next) continue;                           // not hollow: no seal inside
+    out.push({ cx: mx * S + S / 2, cy: my * S + S / 2, side: Math.max(bw, bh) * S, area: bw * bh });
+  }
+  out.sort((a, b) => b.area - a.area);
+  return out.slice(0, 4);
+}
+function decodePlates(gray, w, h) {
+  let best = null;
+  for (const o of sealPlates(gray, w, h)) {
+    const side = o.side * 1.06, x0 = Math.max(0, Math.round(o.cx - side / 2)), y0 = Math.max(0, Math.round(o.cy - side / 2));
+    const c = cropBox(gray, w, h, o.cx, o.cy, side);
+    best = outermost(best, shift(decodeGray(c.g, c.w, c.h), x0, y0));
+  }
+  return best;
+}
 function decodePhoto(gray, w, h) {
-  // the centre crops, then the outlines (each tried even after a ring is read, for a seal around it), and
-  // the corners only when neither read anything
-  let r = outermost(decodeGray(gray, w, h), decodeOutlines(gray, w, h)) || decodeCorners(gray, w, h);
+  // the centre crops, then the outlines (each tried even after a ring is read, for a seal around it); when
+  // neither read anything, the white discs (0.6.4), then the corners
+  let r = outermost(decodeGray(gray, w, h), decodeOutlines(gray, w, h)) || decodePlates(gray, w, h) || decodeCorners(gray, w, h);
   if (r) return r;
   const inv = new Uint8Array(gray.length);
   for (let i = 0; i < gray.length; i++) inv[i] = 255 - gray[i];
@@ -830,6 +875,6 @@ function decodePhoto(gray, w, h) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { DECODER_RELEASE, decodeGray, decodePhoto, decodeCorners, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
+  module.exports = { DECODER_RELEASE, decodeGray, decodePhoto, decodeCorners, decodePlates, sealPlates, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
                      parsePayload, rsDecode };
 }

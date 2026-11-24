@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.6.4 (2026-11-24): the website under the seal (optional)
+
+* Stamping page v19: a tick box, off by default, "Add the website below the seal". In the PDF,
+  https://digihan.org goes under the seal on the first page as a link; its top is 6 mm below the seal, and
+  the clear space recorded for readers (DigiHanSealBox) is then 5 mm instead of 15 (SPEC.md asks for at
+  least 3). In the stamped picture it goes on a small white label under the seal's white disc; in a bottom
+  corner the seal sits higher by the label. If the seal and the label do not fit a small picture, the
+  stamped picture is made with the seal only and the page says so; the PDF still shows the website.
+* Fixed: the message for a picture too small for its seal gave too low a size (it used an older size of
+  the white disc, 1.07 of the seal instead of 1.2): a 300 x 300 picture now reads "at least about 400
+  pixels" (was 350).
+* The phone's ring reader also looks for a stamped picture's white disc and reads the seal inside it, with
+  its own threshold (web/scanner/digihan.js, sealPlates). On a dark, busy photo the outline search can miss
+  the seal, and the corner crops miss a seal raised by the label. Only tried when the centre crops and the
+  outlines read nothing; the 60 screenshots, 150 nested-seal frames and 220 camera frames read as before.
+* Offline copy v6.
+
 ## v0.6.3 (2026-11-24): photos upright; a stamped JPEG picture
 
 * Fixed: a phone photo showed turned a quarter in the stamped PDF. A phone saves a photo as its sensor

@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%23b2382c'/%3E%3Cg transform='translate(50 50) scale(0.92) translate(-50 -50)' fill='none' stroke='%23f3f4f1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='11' y='11' width='78' height='78' rx='7' stroke-width='7'/%3E%3Cg stroke-width='9'%3E%3Cpath d='M25,23 V77'/%3E%3Cpath d='M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25'/%3E%3Cpath d='M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
 <style>
-/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device. v17 (release 0.6.2): the page names its code's release. v18 (release 0.6.3): JPEG photos upright in the PDF; a stamped JPEG picture */
+/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device. v17 (release 0.6.2): the page names its code's release. v18 (release 0.6.3): JPEG photos upright in the PDF; a stamped JPEG picture. v19 (release 0.6.4): the website under the seal, if asked */
 :root {
   --paper: #f3f4f1; --card: #fbfbf9; --vermillion: #b2382c; --sumi: #23201d; --sumi-soft: #6b6660;
   --rule: rgba(35, 32, 29, .12); --ok: #2f7d4f; --warn: #9a6a12; --bad: #b2382c;
@@ -279,6 +279,7 @@ html { scrollbar-gutter: stable; }
     <label class="check"><input type="checkbox" id="optOverlay" checked><span>Also make a stamped picture: a copy with the seal in a corner<small>The stamped picture carries your original picture, unchanged, inside its file, so the scanner can check the stamped picture on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
     <label class="field" id="cornerField">Corner <select id="overlayCorner"><option value="br">Bottom right</option><option value="bl">Bottom left</option><option value="tr">Top right</option><option value="tl">Top left</option></select></label>
   </div>
+  <label class="check"><input type="checkbox" id="optSite"><span>Add the website below the seal<small>https://digihan.org in small type under the seal, in the PDF and in the stamped picture, so whoever sees the seal knows where to check it.</small></span></label>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
   <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was stamped no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
   <div class="msg warn hide" id="netNote"></div>
@@ -345,7 +346,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v18 · release <span id="relCode">0.6.3</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v19 · release <span id="relCode">0.6.4</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -376,10 +377,11 @@ html { scrollbar-gutter: stable; }
 const $ = id => document.getElementById(id);
 const enc = new TextEncoder();
 const ART_PX = 600, DPMM = 24, MM = 72 / 25.4, SEAL_MM = 45;
+const SITE_URL = "https://digihan.org";     // v19: shown under the seal when "Add the website below the seal" is ticked
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.6.3";
+const RELEASE = "0.6.4";
 if (DHS.RELEASE !== RELEASE) {
   $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE || "an older release") + ")";
   show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") +
@@ -1005,6 +1007,17 @@ async function buildPdf(o) {
   page.drawText("DigiHan seal", { x: 25 * MM, y: H - 28 * MM, size: 15, font: bold, color: rgb(.14, .13, .11) });
   const xmm = (W / MM - SEAL_MM) / 2, ymm = H / MM - 30 - SEAL_MM - 15;      // centred low, 15 mm clear around
   page.drawImage(await out.embedPng(o.sealPng), { x: xmm * MM, y: H - (ymm + SEAL_MM) * MM, width: SEAL_MM * MM, height: SEAL_MM * MM });
+  // v19: the website under the seal, if asked: a link, its top 6 mm below the seal, so the clear space recorded
+  // for readers (DigiHanSealBox) becomes 5 mm instead of 15 (the spec asks for at least 3)
+  let clear = 15;
+  if (o.site) {
+    const t = SITE_URL, size = 9, tw = font.widthOfTextAtSize(t, size), x = (W - tw) / 2, y = H - (ymm + SEAL_MM + 8.5) * MM;
+    page.drawText(t, { x, y, size, font, color: rgb(.42, .4, .38) });
+    const link = out.context.register(out.context.obj({ Type: "Annot", Subtype: "Link", Rect: [x, y - 2, x + tw, y + size], Border: [0, 0, 0],
+      A: { Type: "Action", S: "URI", URI: PDFString.of(SITE_URL) } }));
+    page.node.set(PDFName.of("Annots"), out.context.obj([link]));
+    clear = 5;
+  }
   if (src) try { (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p)); } catch (e) {}
   // v12: a text file or a picture is shown on the pages after the cover; the attached file stays what was signed
   let shown = "";
@@ -1029,11 +1042,11 @@ async function buildPdf(o) {
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.stampEvent) await out.attach(enc.encode(JSON.stringify(o.stampEvent)), "digihan-stamp.json", { mimeType: "application/json", description: "The signed Nostr stamp event (payload version 2)", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v18 (format v0.5)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v19 (format v0.5)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
-  set("DigiHanSealBox", PDFString.of(`${xmm.toFixed(2)},${ymm.toFixed(2)},${SEAL_MM.toFixed(1)},15`));
+  set("DigiHanSealBox", PDFString.of(`${xmm.toFixed(2)},${ymm.toFixed(2)},${SEAL_MM.toFixed(1)},${clear}`));
   set("DigiHanFormat", PDFString.of("DigiHan format v0.5, cover sheet, doc tier 1 (byte-exact)"));
   return out.save({ useObjectStreams: false });
 }
@@ -1146,7 +1159,8 @@ async function finishSeal(payload, stampEvent) {
     }
     const fp = await DHV.fingerprint(key.pub), npub = DHV.npubEncode(key.pub);
     const isPdf = /^%PDF/.test(new TextDecoder("latin1").decode(doc.bytes.slice(0, 5)));
-    const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub, stampEvent }); done(k++);
+    const site = $("optSite").checked;                       // v19
+    const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub, stampEvent, site }); done(k++);
     const base = doc.name.replace(/\.[^.]+$/, "") || "document";
     $("sealDl").href = save(pdf, base + "_stamped.pdf", "application/pdf"); $("sealDl").download = base + "_stamped.pdf";
     $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
@@ -1154,10 +1168,11 @@ async function finishSeal(payload, stampEvent) {
     let overlayNote = "";
     if ((isPng(doc.bytes) || isJpeg(doc.bytes)) && $("optOverlay").checked) {        // v18: a JPEG photo too, kept as JPEG
       try {
-        const pic = await buildOverlay(doc, payload, proof, stampEvent);
+        const pic = await buildOverlay(doc, payload, proof, stampEvent, site);
         const u = save(pic.bytes, base + "_stamped." + pic.ext, pic.type);
         $("overlayDl").href = u; $("overlayDl").download = base + "_stamped." + pic.ext; $("overlayRow").classList.remove("hide");
         $("overlayImg").src = u; $("overlayImg").classList.remove("hide");
+        if (pic.note) overlayNote = pic.note;                                           // v19: shown as a warning
       } catch (e) { overlayNote = " " + e.message; }
     }
     const dg = DHV.hex((await DHV.sha256(payload)).slice(0, 4));
@@ -1481,19 +1496,29 @@ const OVERLAY_PLATE = 1.2;                                 // v11: the white dis
 const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
 const JPEG_QUALITY = 0.92;                                 // 0.6.3: a stamped JPEG picture; the seal is read back after this compression
 // a stamped picture in the original's own format (PNG or JPEG, release 0.6.3): {bytes, ext, type}
-async function buildOverlay(doc, payload, proof, stampEvent) {
+async function buildOverlay(doc, payload, proof, stampEvent, site) {
   const jpeg = isJpeg(doc.bytes), type = jpeg ? "image/jpeg" : "image/png";
   const pic = await uprightCanvas(doc.bytes);
   const W = pic.width, H = pic.height, short = Math.min(W, H), shrink = Math.min(1, SCAN_MAXDIM / Math.max(W, H));
   const margin = Math.max(8, Math.round(short * 0.03)), corner = $("overlayCorner").value;
-  let S = Math.max(Math.round(short * 0.28), Math.ceil(MIN_READ_PX / shrink));
+  let S = Math.max(Math.round(short * 0.28), Math.ceil(MIN_READ_PX / shrink)); const S0 = S;
   for (let attempt = 0; attempt < 3; attempt++, S = Math.round(S * 1.25)) {
     const plate = Math.round(S * OVERLAY_PLATE);
-    if (plate + 2 * margin > short) break;
+    // v19: the website on a white label under the plate, if asked; the plate and label together fit the corner
+    const fs = Math.round(S * 0.075), lab = site ? { h: Math.round(fs * 1.8), gap: Math.round(fs * 0.35) } : null;
+    const block = plate + (lab ? lab.gap + lab.h : 0);
+    if (block + 2 * margin > short) break;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     const ctx = cv.getContext("2d"); ctx.drawImage(pic, 0, 0);
-    const cx = corner[1] === "r" ? W - margin - plate / 2 : margin + plate / 2, cy = corner[0] === "b" ? H - margin - plate / 2 : margin + plate / 2;
+    const cx = corner[1] === "r" ? W - margin - plate / 2 : margin + plate / 2, cy = corner[0] === "b" ? H - margin - block + plate / 2 : margin + plate / 2;
     ctx.beginPath(); ctx.arc(cx, cy, plate / 2, 0, 2 * Math.PI); ctx.fillStyle = "#fff"; ctx.fill();
+    if (lab) {
+      ctx.font = "600 " + fs + "px " + SANS; const tw = ctx.measureText(SITE_URL).width, lw = Math.round(tw + fs * 1.4), ly = cy + plate / 2 + lab.gap;
+      const r = lab.h / 2, x0 = cx - lw / 2;                 // a pill, drawn with arcs (roundRect is missing in older Safari)
+      ctx.beginPath(); ctx.arc(x0 + r, ly + r, r, Math.PI / 2, 3 * Math.PI / 2); ctx.arc(x0 + lw - r, ly + r, r, -Math.PI / 2, Math.PI / 2); ctx.closePath();
+      ctx.fillStyle = "#fff"; ctx.fill();
+      ctx.fillStyle = "#57524c"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(SITE_URL, cx, ly + lab.h / 2 + fs * 0.04);
+    }
     const dpmm = (S - 8) / 45, sz = DHS.sealSize(dpmm), sc = document.createElement("canvas"); sc.width = sc.height = sz;
     DHS.drawSeal(sc.getContext("2d"), payload, key.art, dpmm);
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, sz / 2, 0, 2 * Math.PI); ctx.clip(); ctx.drawImage(sc, Math.round(cx - sz / 2), Math.round(cy - sz / 2)); ctx.restore();
@@ -1512,8 +1537,14 @@ async function buildOverlay(doc, payload, proof, stampEvent) {
                    ...(stampEvent ? [{ name: "digihan-stamp.json", bytes: enc.encode(JSON.stringify(stampEvent)) }] : [])];
     return { bytes: jpeg ? jpegWith(out, payload, files) : withInside(out, payload, files), ext: jpeg ? "jpg" : "png", type };
   }
-  // the seal did not fit, or did not read back at any size that fits: the picture is too small
-  const need = Math.ceil((Math.round(S * 1.07) + 2 * margin) / 50) * 50;
+  // v19: the seal and the website together did not fit: the stamped picture is made with the seal only
+  if (site) {
+    const r = await buildOverlay(doc, payload, proof, stampEvent, false);
+    return { ...r, note: " The website did not fit under the seal in this picture, so the stamped picture has the seal only; the PDF shows the website." };
+  }
+  // the seal did not fit, or did not read back at any size that fits: the picture is too small. The smallest
+  // readable seal on its white disc, plus the margins (v19: was worked out from an older disc size, 1.07)
+  const need = Math.ceil((Math.round(S0 * OVERLAY_PLATE) + 2 * margin) / 50) * 50;
   throw new Error("This picture is too small for a readable seal in its corner: its shorter side needs to be at least about "
     + need + " pixels (it is " + short + "). The PDF was made as usual.");
 }
