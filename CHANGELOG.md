@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.1 (2026-11-24): a photo as the seal's artwork
+
+* Fixed: making a seal with a picture as its artwork could stop with "Maximum call stack size exceeded".
+  The key file keeps the artwork as base64 text, and dhseal.js made that text by passing every byte of the
+  picture to one function call as its own argument. A photo saved as the 600 x 600 artwork is about 700 KB,
+  more arguments than a browser allows; lettered artwork is small, so it never showed. The text is now
+  made in pieces of 32 KB. Tested with a 690 KB artwork (seal made, public record sent, stamped, checked)
+  and a 2 MB round trip in dhseal.test.js.
+
 ## v0.6.0 (2026-11-23): Nostr signers, a second device, and the stamp event (format v0.5)
 
 * Format v0.5 (SPEC.md, section 6.2): payload version 2, the **stamp event**. The ring, the 78-byte

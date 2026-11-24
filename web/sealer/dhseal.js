@@ -189,7 +189,9 @@ const DHS = (() => {
     const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
     return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
   }
-  const b64 = u8 => btoa(String.fromCharCode(...u8));
+  // in pieces of 32 KB: passing every byte as its own argument (fromCharCode(...u8)) fails on a big picture
+  // ("Maximum call stack size exceeded" with a photo as the artwork, about 700 KB)
+  const b64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
   const unb64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
   async function lockKey(sk, pub, password, centerPng, reg) {
     const salt = random(16), nonce = random(12);

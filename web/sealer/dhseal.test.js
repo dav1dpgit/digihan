@@ -69,6 +69,12 @@ const h2b = h => Uint8Array.from(Buffer.from(h, "hex")), b2h = b => Buffer.from(
   assert.strictEqual(b2h(DHS.readPublicKey(DHS.npubEncode(pub))), b2h(pub)); n++;
   assert.strictEqual(b2h(DHS.readPublicKey(b2h(pub).toUpperCase())), b2h(pub)); n++;
   assert.strictEqual(DHS.readPublicKey("npub1notakey"), null); n++;
+  // 5b. base64 of a big picture (a photo as the artwork): no "Maximum call stack size exceeded"
+  const big = crypto.getRandomValues(new Uint8Array(65536)), bigger = new Uint8Array(65536 * 31); for (let i = 0; i < bigger.length; i += 65536) bigger.set(big, i);
+  assert.strictEqual(DHS.b64(bigger), Buffer.from(bigger).toString("base64")); n++;
+  assert.strictEqual(b2h(DHS.unb64(DHS.b64(bigger))), b2h(bigger)); n++;
+  const kfBig = await DHS.lockKey(sk, pub, "correct horse battery", bigger, reg);
+  assert.strictEqual(b2h(DHS.unb64(kfBig.center_png)), b2h(bigger)); n++;
   // 6. payload version 2 (format v0.5): the stamp event. The fixed vector is checked by python/tests too.
   const V = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "python", "tests", "stamp_event_vector.json")));
   const vsk2 = h2b(V.secret_key), vpub = DHS.pubFromSecret(vsk2), vdoc = await DHV.sha256(new TextEncoder().encode(V.document_text));
