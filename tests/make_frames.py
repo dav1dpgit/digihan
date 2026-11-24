@@ -36,6 +36,7 @@ def job(args):
     ci, t = args
     name, ppm, blur, noise, jpeg, ig, tilt, pap = CONDITIONS[ci]
     payload = np.random.default_rng(1000 * ci + t).integers(0, 256, 78, dtype=np.uint8).tobytes()
+    payload = bytes([0x10 | (payload[0] & 0x0F)]) + payload[1:]  # payload version 1 (a reader refuses version 0, release 0.6.5)
     img = degrade(seal(payload), np.random.default_rng(50000 + 1000 * ci + t), ppm, G, DPMM, blur, noise, jpeg, True, ig, tilt, pap)
     a = np.asarray(img.convert("L"), np.uint8); fn = os.path.join("frames", f"{ci}_{t}.gray"); a.tofile(fn)
     return {"ci": ci, "cond": name, "t": t, "f": fn, "w": int(a.shape[1]), "h": int(a.shape[0]), "payload": payload.hex()}

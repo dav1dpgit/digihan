@@ -120,7 +120,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v26 · release <span id="relCode">0.6.4</span> · format v0.5</div>
+    <div class="v">scanner v27 · release <span id="relCode">0.6.5</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -198,7 +198,7 @@ function say(t) { statusEl.textContent = t; }
 // v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
 // for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
 // The reader before release 0.6.2 has no DECODER_RELEASE.
-const RELEASE = "0.6.4";
+const RELEASE = "0.6.5";
 if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
   $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
@@ -214,7 +214,7 @@ function grayFrom(src, sw, sh) {
   const d = ctx.getImageData(0, 0, w, h).data, g = new Uint8Array(w * h);
   for (let i = 0, j = 0; j < g.length; i += 4, j++)
     g[j] = (d[i] * 299 + d[i+1] * 587 + d[i+2] * 114) / 1000 | 0;
-  return { g, w, h };
+  return { g, w, h, d };                         // v27: d, the colour, for a seal with a transparent background
 }
 
 async function showResult(r, inside, src) {
@@ -254,9 +254,10 @@ function loop() {
     busy = true;
     frames++;
     try {
-      const { g, w, h } = grayFrom(video, video.videoWidth, video.videoHeight);
+      const { g, w, h, d } = grayFrom(video, video.videoWidth, video.videoHeight);
       const t0 = performance.now();
-      const r = decodeGray(g, w, h);
+      // v27: every third frame is read by the ink's colour (a seal with a transparent background on a picture)
+      const r = frames % 3 === 0 ? decodeInkFrame(inkGray(d, w, h), w, h) : decodeGray(g, w, h);
       const ms = Math.round(performance.now() - t0);
       if (r) { busy = false; showResult(r); return; }
       if (frames % 4 === 0) say("scanning · " + frames + " frames · " + ms + "ms");
@@ -798,10 +799,11 @@ $("fileIn").addEventListener("change", async ev => {
   const img = new Image();
   img.onload = () => {
     frames = 1;
-    const { g, w, h } = grayFrom(img, img.naturalWidth, img.naturalHeight);
+    const { g, w, h, d } = grayFrom(img, img.naturalWidth, img.naturalHeight);
     // v7: a photo or screenshot is searched for the seal's outline (a dark toolbar or an off-center seal
-    // no longer hides it), and tried inverted for a seal shown light on dark
-    const r = decodePhoto(g, w, h);
+    // no longer hides it), and tried inverted for a seal shown light on dark. v27: then read by the ink's
+    // colour, for a seal with a transparent background
+    const r = decodePhoto(g, w, h) || decodeInk(inkGray(d, w, h), w, h);
     if (r) showResult(r, inside);
     else say("no seal decoded in that photo — try closer or flatter");
     ev.target.value = "";

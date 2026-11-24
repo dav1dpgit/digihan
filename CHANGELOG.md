@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.6.5 (2026-11-24): the seal's angle and a transparent background in stamped pictures
+
+* Stamping page v20, stamped picture options: **Seal angle**, a slider from -15° to +15° (+ is clockwise;
+  default 0); **Transparent background** (default off): no white disc and no paper behind the seal, so the
+  picture shows between its dots. The page reads the picture back as the scanner would before offering it;
+  where a transparent seal does not read (the picture behind it is busy or red there), it puts a frosted
+  disc behind it (white at 55%, the picture still showing through), then the white disc, and says which.
+  A transparent or frosted seal is tried at one size (a bigger seal rarely helps there, and each failed try
+  costs seconds). Stamping now shows a step of its own for the stamped picture. On 22 real photos
+  (scikit-image's samples, at both a bottom and a top corner, +10° and -15°): 14 kept the transparent seal,
+  6 got the frosted disc, 2 (a red retina scan) the white disc; all 24 stamped pictures check valid, and the
+  slowest took 11.5 seconds on the test machine.
+* The phone's ring reader reads by the ink's colour (web/scanner/digihan.js, inkGray): dark where a pixel is
+  red to orange by how much colour it has, white elsewhere, so a picture's black, grey and white parts all
+  become paper. A still picture is read in grey first, then by colour (decodePicture). The camera reads
+  every third frame by colour, with the centre crops and the outlines (scanner v27). Tested with the camera
+  on transparent seals, and with transparent stamped pictures re-saved as an app would (1280 px, JPEG
+  quality 70): the seal read in each.
+* Fixed: the reader took an all-zero payload for a seal. An all-zero codeword passes the error correction
+  trivially, and an even, dark area read through the inverted search can give one; on a dark photo it was
+  reported as a seal of zeros, which stopped the reading by colour from being tried. Version 0 is now no
+  seal (SPEC.md section 5; the same in python/digihan.py). The test frames now use payload version 1;
+  before and after this release they read the same: 60/60 screenshots, 150/150 nested seals, 219/220 and
+  217/220 camera frames.
+* SPEC.md section 9: the seal's angle, the transparent and frosted backgrounds, and reading by colour.
+* Offline copy v7.
+
 ## v0.6.4 (2026-11-24): the website under the seal (optional)
 
 * Stamping page v19: a tick box, off by default, "Add the website below the seal". In the PDF,

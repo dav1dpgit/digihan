@@ -6,7 +6,7 @@
 "use strict";
 
 const DHS = (() => {
-  const RELEASE = "0.6.4";        // the page compares this with its own release: an older copy of this file shows up
+  const RELEASE = "0.6.5";        // the page compares this with its own release: an older copy of this file shows up
   const { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, fingerprint } = DHV;
   const { P, N, G, mod, mul, affine, toInt, toBytes32 } = DHV.curve;
   const enc = new TextEncoder();
@@ -57,10 +57,11 @@ const DHS = (() => {
   // drawSeal(ctx, payload, art, dpmm): white paper, vermilion ink, the center art inside its free zone.
   // art = an image or canvas (drawn to fill the center circle), or null. The canvas must be sealSize(dpmm) square.
   const sealSize = dpmm => Math.ceil(45 * dpmm) + 8;
-  function drawSeal(ctx, payload, art, dpmm, ink = "rgb(178,56,44)") {
+  // paper: the colour under the ink, or null for none (release 0.6.5: a seal with a transparent background)
+  function drawSeal(ctx, payload, art, dpmm, ink = "rgb(178,56,44)", paper = "#fff") {
     const g = GEOM, S = sealSize(dpmm), c = S / 2, mm = v => v * dpmm, stream = buildStream(payload);
     ctx.save();
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, S, S);
+    if (paper) { ctx.fillStyle = paper; ctx.fillRect(0, 0, S, S); }
     const disc = (r, fill) => { ctx.beginPath(); ctx.arc(c, c, mm(r), 0, 2 * Math.PI); ctx.fillStyle = fill; ctx.fill(); };
     const ring = (rIn, rOut) => { ctx.beginPath(); ctx.arc(c, c, mm(rOut), 0, 2 * Math.PI); ctx.arc(c, c, mm(rIn), 0, 2 * Math.PI, true); ctx.fillStyle = ink; ctx.fill(); };
     ring(g.rRimIn, g.rRimOut);

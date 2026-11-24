@@ -72,7 +72,7 @@ def screen(im):
 if __name__ == "__main__":
     os.makedirs("frames", exist_ok=True)
     rng = np.random.default_rng(7); rows = []
-    pay = lambda: rng.integers(0, 256, 78, dtype=np.uint8).tobytes()
+    pay = lambda: (lambda b: bytes([0x10 | (b[0] & 0x0F)]) + b[1:])(rng.integers(0, 256, 78, dtype=np.uint8).tobytes())  # payload version 1 (a reader refuses version 0, release 0.6.5)
     for t in range(5):
         p1, p2, p3 = pay(), pay(), pay()
         inner = seal_rgb(p1, lettered())

@@ -1,11 +1,12 @@
 // DigiHan ring decoder, format v0.4 (the ring is unchanged since v0.3) — self-contained JS port of digihan.py
 // 2026-11-24 (release 0.6.2): a seal inside a seal — the outermost ring wins (see outermost(), below)
 // 2026-11-24 (release 0.6.4): a stamped picture's seal is also found by its white disc (see sealPlates(), below)
+// 2026-11-24 (release 0.6.5): a seal with a transparent background is read by its ink's colour (see inkGray(), below)
 // Payload: 78 bytes = ver(4b)|flags(4b)|fingerprint(64b)|timestamp(40b)|sig(512b)
 // Stream: 28-bit sync 0xE769C57 || RS(123,78) codeword bits, track-major from the innermost
 // track; bit 0 starts at 12 o'clock under the key bridge and the stream runs clockwise.
 "use strict";
-const DECODER_RELEASE = "0.6.4";     // the scanner page compares this with its own release (an older copy shows up)
+const DECODER_RELEASE = "0.6.5";     // the scanner page compares this with its own release (an older copy shows up)
 
 // v0.2: 28-bit sync 0xE769C57 (low cyclic autocorrelation, runs <= 3).
 // 28 + 8*(78+45) === 1012 === ring capacity: no blank arc, spare capacity
@@ -576,7 +577,11 @@ function bitsToPayload(bits) {
     for (let k = 0; k < 8; k++) b = (b << 1) | body[i*8 + k];
     cw[i] = b;
   }
-  return rsDecode(cw);
+  // 0.6.5: version 0 is never a seal (SPEC section 5: versions 1 and 2). An all-zero codeword passes the
+  // error correction trivially, and an even, dark area read through the inverted search can give one; it was
+  // reported as a seal of zeros, and stopped the reading by colour from being tried
+  const r = rsDecode(cw);
+  return r && (r.data[0] >> 4) !== 0 ? r : null;
 }
 
 function decodeWithGeom(im, g) {
@@ -874,7 +879,39 @@ function decodePhoto(gray, w, h) {
   return outermost(decodeGray(inv, w, h), decodeOutlines(inv, w, h));
 }
 
+// ---------------- 0.6.5: a seal with a transparent background ----------------
+// The stamping page can draw the seal on a picture with no white disc behind it, so the picture shows between
+// its dots. In plain grey the picture's own dark parts then look like ink. The ring's ink is vermilion
+// (178, 56, 44), so a second grey picture is made from colour: dark where a pixel is red to orange (hue about
+// -20 to +35 degrees) by how much colour it has (the largest of r, g, b minus the smallest), white
+// everywhere else, so the picture's black, grey and white parts all become paper.
+function inkGray(rgba, w, h) {
+  const out = new Uint8Array(w * h);
+  for (let i = 0, j = 0; j < out.length; i += 4, j++) {
+    const r = rgba[i], g = rgba[i + 1], b = rgba[i + 2], c = r - (g < b ? g : b);
+    let v = 255;
+    if (r >= g && r >= b && c > 20) { const hue = (g - b) / c; if (hue > -0.35 && hue < 0.6) v = c >= 128 ? 0 : 255 - 2 * c; }
+    out[j] = v;
+  }
+  return out;
+}
+// a still picture (RGBA, as a canvas gives it): read in grey first, then by the ink's colour
+function decodePicture(rgba, w, h) {
+  const gray = new Uint8Array(w * h);
+  for (let i = 0, j = 0; j < gray.length; i += 4, j++) gray[j] = (rgba[i] * 299 + rgba[i + 1] * 587 + rgba[i + 2] * 114) / 1000 | 0;
+  return decodePhoto(gray, w, h) || decodeInk(inkGray(rgba, w, h), w, h);
+}
+// a camera frame read by the ink's colour: the centre crops, and the outlines (the picture around the seal can
+// have red or orange next to it, which the centre crops take in; the rim's outline is found apart from it)
+function decodeInkFrame(ink, w, h) {
+  return outermost(decodeGray(ink, w, h), decodeOutlines(ink, w, h));
+}
+// the ink-colour picture: as decodePhoto, but never inverted (in it the ink is always the dark part)
+function decodeInk(ink, w, h) {
+  return outermost(decodeGray(ink, w, h), decodeOutlines(ink, w, h)) || decodePlates(ink, w, h) || decodeCorners(ink, w, h);
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { DECODER_RELEASE, decodeGray, decodePhoto, decodeCorners, decodePlates, sealPlates, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
+  module.exports = { DECODER_RELEASE, decodeGray, decodePhoto, decodePicture, decodeInk, decodeInkFrame, inkGray, decodeCorners, decodePlates, sealPlates, sealOutlines, decodeWithGeom, makeImg, Geometry, PROFILES,
                      parsePayload, rsDecode };
 }

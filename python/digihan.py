@@ -72,6 +72,10 @@ def parse_stream(bits: np.ndarray, nsym: int):
     cw = np.packbits(body).tobytes()
     rs = RSCodec(nsym)
     decoded, _, errata = rs.decode(cw)
+    # 2026-11-24 (release 0.6.5): version 0 is never a seal (SPEC section 5); an all-zero codeword passes the
+    # error correction trivially (the phone reader, web/scanner/digihan.js, refuses it the same way)
+    if not decoded or decoded[0] >> 4 == 0:
+        raise ReedSolomonError("payload version 0: not a seal")
     return bytes(decoded), len(errata)
 
 # ---------------------------------------------------------------- rendering

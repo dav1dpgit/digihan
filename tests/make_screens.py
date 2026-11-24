@@ -36,6 +36,7 @@ if __name__ == "__main__":
     rows = []
     for t in range(20):
         payload = np.random.default_rng(77000 + t).integers(0, 256, 78, dtype=np.uint8).tobytes()
+        payload = bytes([0x10 | (payload[0] & 0x0F)]) + payload[1:]  # payload version 1 (a reader refuses version 0, release 0.6.5)
         for k, layout in enumerate(LAYOUTS):
             a = np.asarray(screen(payload, layout), np.uint8)
             fn = os.path.join("frames", "screens", f"{k}_{t}.gray"); a.tofile(fn)

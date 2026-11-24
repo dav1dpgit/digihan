@@ -89,6 +89,8 @@ Stream = sync word (28 bits) ‖ Reed–Solomon codeword (123 bytes, most signif
 
 * Version MUST be 1 or 2. A verifier MUST reject any other version. Version 1 signs the message of
   section 6.1; version 2 signs the stamp event of section 6.2. Both use the same fields and flags.
+  A reader SHOULD treat a decoded payload of version 0 as no seal and keep looking: an all-zero codeword
+  passes the Reed–Solomon check trivially, and an even, dark area can read as one.
 * Flag bit 2 (value 4): the center artwork is committed (section 6).
 * Flag bit 0 (value 1): the seal is **anchored** (section 11.1). The timestamp field holds a Bitcoin block
   height instead of a time.
@@ -228,6 +230,14 @@ needs inside its own file, before `IEND`:
 * One private chunk `dhFl` per file: 1 byte version (1), the file name in UTF-8, a 0 byte, then the
   file's exact bytes. The files are the original picture, and MAY include `digihan-registration.json`,
   `digihan-center.png` and `seal.ots`, with the same meaning as the PDF attachments above.
+
+**The seal's look in a stamped picture.** The seal MAY be turned (the stamping page allows -15° to +15°;
+readers find the start of the ring by its sync pattern and key bridge at any angle). It MAY be drawn with
+no white disc and no paper behind it (a transparent background), or on a partly see-through white disc.
+On a picture, the ring's ink (vermilion, 178/56/44) is then not always darker than what is behind it, so
+a reader that finds no seal in grey SHOULD read the picture again by the ink's colour: dark where a pixel
+is red to orange, by how much colour it has, and white elsewhere. The stamping page reads every stamped
+picture back this way before offering it.
 
 **A stamped picture (JPEG).** For a JPEG file, the copy is a JPEG and carries the same things in APP10
 segments (marker `FF EA`), placed after the picture's own leading APP segments. Each segment's data starts

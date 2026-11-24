@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%23b2382c'/%3E%3Cg transform='translate(50 50) scale(0.92) translate(-50 -50)' fill='none' stroke='%23f3f4f1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='11' y='11' width='78' height='78' rx='7' stroke-width='7'/%3E%3Cg stroke-width='9'%3E%3Cpath d='M25,23 V77'/%3E%3Cpath d='M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25'/%3E%3Cpath d='M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
 <style>
-/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device. v17 (release 0.6.2): the page names its code's release. v18 (release 0.6.3): JPEG photos upright in the PDF; a stamped JPEG picture. v19 (release 0.6.4): the website under the seal, if asked */
+/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device. v17 (release 0.6.2): the page names its code's release. v18 (release 0.6.3): JPEG photos upright in the PDF; a stamped JPEG picture. v19 (release 0.6.4): the website under the seal, if asked. v20 (release 0.6.5): the seal's angle and a transparent background in the stamped picture */
 :root {
   --paper: #f3f4f1; --card: #fbfbf9; --vermillion: #b2382c; --sumi: #23201d; --sumi-soft: #6b6660;
   --rule: rgba(35, 32, 29, .12); --ok: #2f7d4f; --warn: #9a6a12; --bad: #b2382c;
@@ -71,6 +71,8 @@ label.field input { display: block; width: 100%; margin-top: 4px; }
 label.field select { display: block; margin-top: 4px; font: inherit; color: var(--sumi); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--rule); background: #fff; }
 /* v6: the picture with the seal in a corner (PNG files) */
 #pngOpt { margin: 6px 0 4px; padding: 2px 12px 4px; border-left: 3px solid var(--rule); }
+#overlayAngle { accent-color: var(--vermillion); }                          /* v20: the seal's angle */
+.range-ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--sumi-soft); }
 .overlay-prev { display: block; max-width: 100%; max-height: 320px; margin-top: 12px; border-radius: 8px; border: 1px solid var(--rule); }
 input[type=text], input[type=password] { font: 16px var(--text); padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: #fff; color: var(--sumi); }
 input:focus-visible, button:focus-visible { outline: 2px solid var(--vermillion); outline-offset: 2px; }
@@ -278,6 +280,8 @@ html { scrollbar-gutter: stable; }
   <div id="pngOpt" class="hide">
     <label class="check"><input type="checkbox" id="optOverlay" checked><span>Also make a stamped picture: a copy with the seal in a corner<small>The stamped picture carries your original picture, unchanged, inside its file, so the scanner can check the stamped picture on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
     <label class="field" id="cornerField">Corner <select id="overlayCorner"><option value="br">Bottom right</option><option value="bl">Bottom left</option><option value="tr">Top right</option><option value="tl">Top left</option></select></label>
+    <label class="field" id="angleField">Seal angle: <b id="angleOut">0°</b><input type="range" id="overlayAngle" min="-15" max="15" step="1" value="0" aria-describedby="angleHelp"><small id="angleHelp" class="range-ends"><span>−15° (anticlockwise)</span><span>+15° (clockwise)</span></small></label>
+    <label class="check"><input type="checkbox" id="optClear"><span>Transparent background<small>No white disc behind the seal: the picture shows between its dots. The page checks that the seal still reads on this picture; where it does not, it puts a frosted disc behind the seal, or the white disc, and says so.</small></span></label>
   </div>
   <label class="check"><input type="checkbox" id="optSite"><span>Add the website below the seal<small>https://digihan.org in small type under the seal, in the PDF and in the stamped picture, so whoever sees the seal knows where to check it.</small></span></label>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
@@ -346,7 +350,7 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v19 · release <span id="relCode">0.6.4</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v20 · release <span id="relCode">0.6.5</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -381,7 +385,7 @@ const SITE_URL = "https://digihan.org";     // v19: shown under the seal when "A
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.6.4";
+const RELEASE = "0.6.5";
 if (DHS.RELEASE !== RELEASE) {
   $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE || "an older release") + ")";
   show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") +
@@ -962,6 +966,7 @@ async function merkleAt(h) {
 
 // ---------------- sealing ----------------
 $("pickDoc").addEventListener("click", () => $("docIn").click());
+$("overlayAngle").addEventListener("input", () => { const a = +$("overlayAngle").value; $("angleOut").textContent = (a > 0 ? "+" : a < 0 ? "−" : "") + Math.abs(a) + "°"; });   // v20
 $("docIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
   // v8: the previous document is dropped at once, so a quick tap on Stamp can never sign it by mistake
@@ -973,6 +978,7 @@ $("docIn").addEventListener("change", async ev => {
   $("docName").textContent = f.name + " · " + num(doc.bytes.length) + " bytes";
   $("pngOpt").classList.toggle("hide", !(isPng(doc.bytes) || isJpeg(doc.bytes)));   // v18: PNG or JPEG
 });
+const wantPicture = (d = doc) => !!d && (isPng(d.bytes) || isJpeg(d.bytes)) && $("optOverlay").checked;   // v20
 function stepNow(li) { if (!li) return; li.classList.add("now"); if (!li.querySelector(".dots")) li.appendChild(DOTS()); }
 function steps(list) {      // v8: a checkmark for each step done, moving dots on the step in progress
   const ol = $("sealSteps"); ol.innerHTML = "";
@@ -1042,7 +1048,7 @@ async function buildPdf(o) {
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.stampEvent) await out.attach(enc.encode(JSON.stringify(o.stampEvent)), "digihan-stamp.json", { mimeType: "application/json", description: "The signed Nostr stamp event (payload version 2)", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v19 (format v0.5)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v20 (format v0.5)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
@@ -1060,7 +1066,8 @@ $("doSeal").addEventListener("click", async () => {
   const wantAnchor = $("optAnchor").checked, wantStamp = $("optStamp").checked;
   const done = steps([key.offline ? "Reading the document" : "Opening your key", ...(key.offline ? [] : ["Reading the document"]),
     ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), key.signer ? "Waiting for your signer" : key.offline ? "Waiting for your signature" : "Signing",
-    "Drawing the seal and reading it back", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF"]);
+    "Drawing the seal and reading it back", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF",
+    ...(wantPicture() ? ["Making the stamped picture and reading it back"] : [])]);         // v20: a step of its own (it can take a while)
   $("doSeal").disabled = true;
   let k = 0, sk = null;
   try {
@@ -1166,14 +1173,15 @@ async function finishSeal(payload, stampEvent) {
     $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
     $("overlayRow").classList.add("hide"); $("overlayImg").classList.add("hide");
     let overlayNote = "";
-    if ((isPng(doc.bytes) || isJpeg(doc.bytes)) && $("optOverlay").checked) {        // v18: a JPEG photo too, kept as JPEG
+    if (wantPicture(doc)) {                                                          // v18: a JPEG photo too, kept as JPEG
       try {
-        const pic = await buildOverlay(doc, payload, proof, stampEvent, site);
+        const pic = await buildOverlay(doc, payload, proof, stampEvent, { site, angle: +$("overlayAngle").value, clear: $("optClear").checked });   // v20
         const u = save(pic.bytes, base + "_stamped." + pic.ext, pic.type);
         $("overlayDl").href = u; $("overlayDl").download = base + "_stamped." + pic.ext; $("overlayRow").classList.remove("hide");
         $("overlayImg").src = u; $("overlayImg").classList.remove("hide");
         if (pic.note) overlayNote = pic.note;                                           // v19: shown as a warning
       } catch (e) { overlayNote = " " + e.message; }
+      done(k++);
     }
     const dg = DHV.hex((await DHV.sha256(payload)).slice(0, 4));
     $("sealInfo").innerHTML = "";
@@ -1496,13 +1504,21 @@ const OVERLAY_PLATE = 1.2;                                 // v11: the white dis
 const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
 const JPEG_QUALITY = 0.92;                                 // 0.6.3: a stamped JPEG picture; the seal is read back after this compression
 // a stamped picture in the original's own format (PNG or JPEG, release 0.6.3): {bytes, ext, type}
-async function buildOverlay(doc, payload, proof, stampEvent, site) {
+// v20: opts = {site, angle, clear}: the website under the seal; the seal turned by angle degrees (-15 to +15,
+// + is clockwise); clear: no white disc and no paper behind the seal (a transparent background). The page
+// reads the seal back as the scanner would (in grey, then by the ink's colour) before offering the picture;
+// what does not read is given up in this order, with a note: the transparent background, then the website.
+const FROST = 0.55;                                         // v20: the frosted disc's whiteness (0: none, 1: the white disc)
+async function buildOverlay(doc, payload, proof, stampEvent, opts) {
+  const { site, angle, clear } = opts, frost = opts.frost || 0;
   const jpeg = isJpeg(doc.bytes), type = jpeg ? "image/jpeg" : "image/png";
   const pic = await uprightCanvas(doc.bytes);
   const W = pic.width, H = pic.height, short = Math.min(W, H), shrink = Math.min(1, SCAN_MAXDIM / Math.max(W, H));
   const margin = Math.max(8, Math.round(short * 0.03)), corner = $("overlayCorner").value;
   let S = Math.max(Math.round(short * 0.28), Math.ceil(MIN_READ_PX / shrink)); const S0 = S;
-  for (let attempt = 0; attempt < 3; attempt++, S = Math.round(S * 1.25)) {
+  // v20: a transparent or frosted seal is tried at one size: where it does not read, the picture behind it is
+  // the cause, and a bigger seal rarely helps (each try that fails costs seconds)
+  for (let attempt = 0; attempt < (clear ? 1 : 3); attempt++, S = Math.round(S * 1.25)) {
     const plate = Math.round(S * OVERLAY_PLATE);
     // v19: the website on a white label under the plate, if asked; the plate and label together fit the corner
     const fs = Math.round(S * 0.075), lab = site ? { h: Math.round(fs * 1.8), gap: Math.round(fs * 0.35) } : null;
@@ -1511,7 +1527,7 @@ async function buildOverlay(doc, payload, proof, stampEvent, site) {
     const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     const ctx = cv.getContext("2d"); ctx.drawImage(pic, 0, 0);
     const cx = corner[1] === "r" ? W - margin - plate / 2 : margin + plate / 2, cy = corner[0] === "b" ? H - margin - block + plate / 2 : margin + plate / 2;
-    ctx.beginPath(); ctx.arc(cx, cy, plate / 2, 0, 2 * Math.PI); ctx.fillStyle = "#fff"; ctx.fill();
+    if (!clear || frost) { ctx.beginPath(); ctx.arc(cx, cy, plate / 2, 0, 2 * Math.PI); ctx.fillStyle = clear ? "rgba(255,255,255," + frost + ")" : "#fff"; ctx.fill(); }
     if (lab) {
       ctx.font = "600 " + fs + "px " + SANS; const tw = ctx.measureText(SITE_URL).width, lw = Math.round(tw + fs * 1.4), ly = cy + plate / 2 + lab.gap;
       const r = lab.h / 2, x0 = cx - lw / 2;                 // a pill, drawn with arcs (roundRect is missing in older Safari)
@@ -1520,27 +1536,36 @@ async function buildOverlay(doc, payload, proof, stampEvent, site) {
       ctx.fillStyle = "#57524c"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(SITE_URL, cx, ly + lab.h / 2 + fs * 0.04);
     }
     const dpmm = (S - 8) / 45, sz = DHS.sealSize(dpmm), sc = document.createElement("canvas"); sc.width = sc.height = sz;
-    DHS.drawSeal(sc.getContext("2d"), payload, key.art, dpmm);
-    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, sz / 2, 0, 2 * Math.PI); ctx.clip(); ctx.drawImage(sc, Math.round(cx - sz / 2), Math.round(cy - sz / 2)); ctx.restore();
+    DHS.drawSeal(sc.getContext("2d"), payload, key.art, dpmm, undefined, clear ? null : "#fff");
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate((angle || 0) * Math.PI / 180);
+    ctx.beginPath(); ctx.arc(0, 0, sz / 2, 0, 2 * Math.PI); ctx.clip(); ctx.drawImage(sc, -sz / 2, -sz / 2); ctx.restore();
     const out = new Uint8Array(await (await new Promise(res => cv.toBlob(res, type, JPEG_QUALITY))).arrayBuffer());
     // read it back from the saved picture itself (after JPEG compression), shrunk as the scanner's photo button shrinks it
     const back = await createImageBitmap(new Blob([out], { type }));
     const w = Math.max(64, Math.round(W * shrink)), h = Math.max(64, Math.round(H * shrink)), wk = document.createElement("canvas"); wk.width = w; wk.height = h;
     const g2 = wk.getContext("2d", { willReadFrequently: true }); g2.fillStyle = "#fff"; g2.fillRect(0, 0, w, h); g2.drawImage(back, 0, 0, w, h);
     if (back.close) back.close();
-    const d = g2.getImageData(0, 0, w, h).data, gray = new Uint8Array(w * h);
-    for (let i = 0, j = 0; j < gray.length; i += 4, j++) gray[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0;
-    const r = decodePhoto(gray, w, h);
+    const r = decodePicture(g2.getImageData(0, 0, w, h).data, w, h);
     if (!r || DHV.hex(r.data) !== DHV.hex(payload)) continue;
     const files = [{ name: doc.name, bytes: doc.bytes }, { name: "digihan-registration.json", bytes: enc.encode(JSON.stringify(key.reg)) },
                    { name: "digihan-center.png", bytes: key.png }, ...(proof ? [{ name: "seal.ots", bytes: proof }] : []),
                    ...(stampEvent ? [{ name: "digihan-stamp.json", bytes: enc.encode(JSON.stringify(stampEvent)) }] : [])];
-    return { bytes: jpeg ? jpegWith(out, payload, files) : withInside(out, payload, files), ext: jpeg ? "jpg" : "png", type };
+    return { bytes: jpeg ? jpegWith(out, payload, files) : withInside(out, payload, files), ext: jpeg ? "jpg" : "png", type, note: "" };
+  }
+  // v20: a transparent seal that did not read on this picture: a frosted disc behind it (white, partly
+  // see-through), then the white disc
+  if (clear && !frost) {
+    const r = await buildOverlay(doc, payload, proof, stampEvent, { ...opts, frost: FROST });
+    return /did not read without its white disc/.test(r.note) ? r : { ...r, note: " On this picture the seal did not read fully transparent (the picture behind it is busy or red there), so it has a frosted disc behind it." + r.note };
+  }
+  if (clear) {
+    const r = await buildOverlay(doc, payload, proof, stampEvent, { ...opts, clear: false });
+    return { ...r, note: " On this picture the seal did not read without its white disc (the picture behind it is too busy or too red there), so the stamped picture has the white disc." + r.note };
   }
   // v19: the seal and the website together did not fit: the stamped picture is made with the seal only
   if (site) {
-    const r = await buildOverlay(doc, payload, proof, stampEvent, false);
-    return { ...r, note: " The website did not fit under the seal in this picture, so the stamped picture has the seal only; the PDF shows the website." };
+    const r = await buildOverlay(doc, payload, proof, stampEvent, { ...opts, site: false });
+    return { ...r, note: " The website did not fit under the seal in this picture, so the stamped picture has the seal only; the PDF shows the website." + r.note };
   }
   // the seal did not fit, or did not read back at any size that fits: the picture is too small. The smallest
   // readable seal on its white disc, plus the margins (v19: was worked out from an older disc size, 1.07)
