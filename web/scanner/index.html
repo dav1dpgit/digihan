@@ -120,7 +120,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v25 · release <span id="relCode">0.6.2</span> · format v0.5</div>
+    <div class="v">scanner v26 · release <span id="relCode">0.6.3</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -198,7 +198,7 @@ function say(t) { statusEl.textContent = t; }
 // v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
 // for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
 // The reader before release 0.6.2 has no DECODER_RELEASE.
-const RELEASE = "0.6.2";
+const RELEASE = "0.6.3";
 if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
   $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
@@ -576,6 +576,7 @@ $("docIn").addEventListener("change", async ev => {
   const pick = { name: f.name, docs: [{ name: f.name, sha: await DHV.sha256(bytes) }] };   // v23: checked by itself
   if (/^%PDF/.test(new TextDecoder("latin1").decode(bytes.slice(0, 5)))) await useInside(c, await pdfAttachments(bytes), f.name, pick.docs);
   else if (isPng(bytes)) await useInside(c, pngInside(bytes), f.name, pick.docs);         // v17: a stamped picture
+  else if (isJpeg(bytes)) await useInside(c, jpegInside(bytes), f.name, pick.docs);       // v26: a stamped JPEG picture
   c.picks = c.picks.filter(x => !(x.name === pick.name && DHV.hex(x.docs[0].sha) === DHV.hex(pick.docs[0].sha)));   // the same file again: listed once
   c.picks.push(pick);
   runCheck();
@@ -704,6 +705,34 @@ function pngInside(b) {
   }
   return out;
 }
+// v26: a stamped JPEG picture carries the same files in APP10 segments: "DigiHan", a 0 byte, a kind byte
+// (2: a part of a file: its number, the part's number and the number of parts, then the part); a file's
+// parts joined in order are 1 byte version (1), the name, a 0 byte, the file's bytes (see the stamping page)
+const isJpeg = b => b && b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+function jpegInside(b) {
+  const parts = new Map(), out = [], ID = [68, 105, 103, 105, 72, 97, 110, 0]; let i = 2;
+  try {
+    while (i + 4 <= b.length && b[i] === 0xff) {
+      const m = b[i + 1];
+      if (m === 0xff) { i++; continue; }
+      if (m === 0x01 || (m >= 0xd0 && m <= 0xd8)) { i += 2; continue; }
+      const len = ((b[i + 2] << 8) | b[i + 3]) + 2;
+      if (m === 0xda || len < 4 || i + len > b.length) break;                 // the picture data, or a damaged file
+      if (m === 0xea && len >= 18 && ID.every((v, k) => b[i + 4 + k] === v) && b[i + 12] === 2) {
+        const d = b.subarray(i + 13, i + len), n = d[0], q = (d[1] << 8) | d[2], total = (d[3] << 8) | d[4];
+        if (!parts.has(n)) parts.set(n, { total, got: [] });
+        const f = parts.get(n); if (f.total === total && q < total) f.got[q] = d.subarray(5);
+      }
+      i += len;
+    }
+  } catch (e) {}
+  for (const [, f] of [...parts].sort((x, y) => x[0] - y[0])) {
+    if (f.got.filter(Boolean).length !== f.total) continue;
+    const rec = new Uint8Array(f.got.reduce((t, p) => t + p.length, 0)); let o = 0; for (const p of f.got) { rec.set(p, o); o += p.length; }
+    const z = rec.indexOf(0, 1); if (rec[0] === 1 && z > 0) out.push(rec.slice(z + 1));
+  }
+  return out;
+}
 // v11: a signer's registration record (sign_pdf.py attaches it to the sealed PDF). Used for this check only,
 // and only when its own signature is valid and its key matches the seal's key id. Not saved on the phone.
 async function addKeyFrom(c, bytes, source) {
@@ -763,7 +792,8 @@ $("fileIn").addEventListener("change", async ev => {
   try {
     const b = new Uint8Array(await f.arrayBuffer());
     if (/^%PDF/.test(new TextDecoder("latin1").decode(b.slice(0, 5)))) { ev.target.value = ""; return checkStampedPdf(f, b); }   // v19
-    if (isPng(b)) { const l = pngInside(b); if (l.length) inside = { list: l, from: f.name }; }
+    const l = isPng(b) ? pngInside(b) : isJpeg(b) ? jpegInside(b) : [];          // v26: PNG or JPEG
+    if (l.length) inside = { list: l, from: f.name };
   } catch (e) {}
   const img = new Image();
   img.onload = () => {

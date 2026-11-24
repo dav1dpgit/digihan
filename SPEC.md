@@ -228,9 +228,20 @@ needs inside its own file, before `IEND`:
   file's exact bytes. The files are the original picture, and MAY include `digihan-registration.json`,
   `digihan-center.png` and `seal.ots`, with the same meaning as the PDF attachments above.
 
+**A stamped picture (JPEG).** For a JPEG file, the copy is a JPEG and carries the same things in APP10
+segments (marker `FF EA`), placed after the picture's own leading APP segments. Each segment's data starts
+with `DigiHan` and a 0 byte, then one kind byte:
+
+* Kind 1, text: the key, a 0 byte, the value (`DigiHanPayload`, `DigiHanFormat`, as for PNG).
+* Kind 2, a part of a file: the file's number (1 byte), the part's number and the number of parts (2 bytes
+  each, big-endian), then the part. A file's parts joined in order hold what a PNG's `dhFl` chunk holds.
+
+The copy is drawn upright: if the original carries an EXIF orientation, the copy is turned by it and
+carries none. The original inside is unchanged.
+
 A verifier reads the seal from the picture's pixels, then checks it against the original found inside.
-Programs that rewrite pictures (most messaging and social apps) drop these chunks; the original is then
-needed separately.
+Programs that rewrite pictures (most messaging and social apps) drop these chunks and segments; the
+original is then needed separately.
 
 Later tiers (canonical content, printed canonical string) are not yet defined.
 
@@ -240,7 +251,7 @@ Later tiers (canonical content, printed canonical string) are not yet defined.
 Nostr event built from the same parts, so Nostr signer apps can stamp. The ring, the payload layout, the
 flags and the time proofs are unchanged; version 1 seals are unchanged. Clarified 2026-11-24: the seal is
 the outermost ring, and a ring drawn in the center artwork is artwork (section 8, step 1); the format is
-unchanged.
+unchanged. Added 2026-11-24: the stamped JPEG picture (section 9); the ring and payload are unchanged.
 
 **v0.4 (from v0.3).** Flag bit 0 defined: anchored seals, "made no earlier than block A" (section 11.1).
 OpenTimestamps proofs over the payload, "existed no later than block B" (section 11.2). Block data from a

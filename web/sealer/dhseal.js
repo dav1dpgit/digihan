@@ -6,7 +6,7 @@
 "use strict";
 
 const DHS = (() => {
-  const RELEASE = "0.6.2";        // the page compares this with its own release: an older copy of this file shows up
+  const RELEASE = "0.6.3";        // the page compares this with its own release: an older copy of this file shows up
   const { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, fingerprint } = DHV;
   const { P, N, G, mod, mul, affine, toInt, toBytes32 } = DHV.curve;
   const enc = new TextEncoder();

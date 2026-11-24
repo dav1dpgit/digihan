@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%23b2382c'/%3E%3Cg transform='translate(50 50) scale(0.92) translate(-50 -50)' fill='none' stroke='%23f3f4f1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='11' y='11' width='78' height='78' rx='7' stroke-width='7'/%3E%3Cg stroke-width='9'%3E%3Cpath d='M25,23 V77'/%3E%3Cpath d='M25,23 H45 C60,23 66,36 66,50 C66,64 60,77 45,77 H25'/%3E%3Cpath d='M39,13.5 V86.5 M75,13.5 V86.5 M39,50 H75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
 <style>
-/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device. v17 (release 0.6.2): the page names its code's release */
+/* sealing page v1 (format v0.4) -- the front page's paper and ink; one column; three numbered steps. v16 (format v0.5): Nostr signers, a second device. v17 (release 0.6.2): the page names its code's release. v18 (release 0.6.3): JPEG photos upright in the PDF; a stamped JPEG picture */
 :root {
   --paper: #f3f4f1; --card: #fbfbf9; --vermillion: #b2382c; --sumi: #23201d; --sumi-soft: #6b6660;
   --rule: rgba(35, 32, 29, .12); --ok: #2f7d4f; --warn: #9a6a12; --bad: #b2382c;
@@ -276,7 +276,7 @@ html { scrollbar-gutter: stable; }
   <p>Any file: a PDF, a picture, a spreadsheet. You get back a stamped PDF: the seal on its first page, then your document to read (a PDF's own pages, or the text or picture of a text file or picture), with your original file attached unchanged. Other kinds of file, such as spreadsheets, are attached only.</p>
   <div class="row"><button id="pickDoc">Choose a document…</button><span class="note" id="docName"></span></div>
   <div id="pngOpt" class="hide">
-    <label class="check"><input type="checkbox" id="optOverlay"><span>Also make a stamped picture: a copy with the seal in a corner<small>The stamped picture carries your original picture, unchanged, inside its file, so the scanner can check the stamped picture on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
+    <label class="check"><input type="checkbox" id="optOverlay" checked><span>Also make a stamped picture: a copy with the seal in a corner<small>The stamped picture carries your original picture, unchanged, inside its file, so the scanner can check the stamped picture on its own. Many apps remove that inside part when a picture is sent on; the original is then needed to check it.</small></span></label>
     <label class="field" id="cornerField">Corner <select id="overlayCorner"><option value="br">Bottom right</option><option value="bl">Bottom left</option><option value="tr">Top right</option><option value="tl">Top left</option></select></label>
   </div>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
@@ -339,19 +339,19 @@ html { scrollbar-gutter: stable; }
 <!-- 3. finishing the time proof -->
 <section class="card" id="finishCard">
   <h2><span class="n">3</span>Finish the time proof</h2>
-  <p>A few hours after stamping, pick the stamped PDF (or the stamped picture). The page fetches the Bitcoin part of the proof and gives you the finished PDF.</p>
+  <p>A few hours after stamping, pick the stamped PDF (or the stamped picture). The page fetches the Bitcoin part of the proof and gives you the finished PDF or picture.</p>
   <div class="row"><button id="pickFinish">Choose a stamped PDF or picture…</button></div>
   <div class="msg hide" id="finishMsg"></div>
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
 </section>
 
-<footer>stamping page v17 · release <span id="relCode">0.6.2</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v18 · release <span id="relCode">0.6.3</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
 <input type="file" id="keyIn" accept=".json,application/json">
 <input type="file" id="docIn">
-<input type="file" id="finishIn" accept="application/pdf,.pdf,image/png,.png">
+<input type="file" id="finishIn" accept="application/pdf,.pdf,image/png,.png,image/jpeg,.jpg,.jpeg">
 
 <script>
 (() => {
@@ -379,7 +379,7 @@ const ART_PX = 600, DPMM = 24, MM = 72 / 25.4, SEAL_MM = 45;
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.6.2";
+const RELEASE = "0.6.3";
 if (DHS.RELEASE !== RELEASE) {
   $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE || "an older release") + ")";
   show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") +
@@ -969,7 +969,7 @@ $("docIn").addEventListener("change", async ev => {
   catch (e) { $("docName").textContent = "Could not read " + f.name; $("doSeal").disabled = false; return; }
   doc = d; $("doSeal").disabled = false;
   $("docName").textContent = f.name + " · " + num(doc.bytes.length) + " bytes";
-  $("pngOpt").classList.toggle("hide", !isPng(doc.bytes));
+  $("pngOpt").classList.toggle("hide", !(isPng(doc.bytes) || isJpeg(doc.bytes)));   // v18: PNG or JPEG
 });
 function stepNow(li) { if (!li) return; li.classList.add("now"); if (!li.querySelector(".dots")) li.appendChild(DOTS()); }
 function steps(list) {      // v8: a checkmark for each step done, moving dots on the step in progress
@@ -1029,7 +1029,7 @@ async function buildPdf(o) {
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.stampEvent) await out.attach(enc.encode(JSON.stringify(o.stampEvent)), "digihan-stamp.json", { mimeType: "application/json", description: "The signed Nostr stamp event (payload version 2)", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v17 (format v0.5)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v18 (format v0.5)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
@@ -1152,11 +1152,11 @@ async function finishSeal(payload, stampEvent) {
     $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
     $("overlayRow").classList.add("hide"); $("overlayImg").classList.add("hide");
     let overlayNote = "";
-    if (isPng(doc.bytes) && $("optOverlay").checked) {
+    if ((isPng(doc.bytes) || isJpeg(doc.bytes)) && $("optOverlay").checked) {        // v18: a JPEG photo too, kept as JPEG
       try {
         const pic = await buildOverlay(doc, payload, proof, stampEvent);
-        const u = save(pic, base + "_stamped.png", "image/png");
-        $("overlayDl").href = u; $("overlayDl").download = base + "_stamped.png"; $("overlayRow").classList.remove("hide");
+        const u = save(pic.bytes, base + "_stamped." + pic.ext, pic.type);
+        $("overlayDl").href = u; $("overlayDl").download = base + "_stamped." + pic.ext; $("overlayRow").classList.remove("hide");
         $("overlayImg").src = u; $("overlayImg").classList.remove("hide");
       } catch (e) { overlayNote = " " + e.message; }
     }
@@ -1185,17 +1185,18 @@ const PAGE_IMG = { type: "image/jpeg", quality: 0.8, scale: 1.6 };   // pictures
 async function readablePages(out, d, W, H) {
   if (IMG_EXT.test(d.name) || /^image\//.test(d.type)) {
     try {
-      let img;
+      let img, o = 1;
       if (isPng(d.bytes)) img = await out.embedPng(d.bytes);
-      else if (d.bytes[0] === 0xff && d.bytes[1] === 0xd8) img = await out.embedJpg(d.bytes);
+      else if (isJpeg(d.bytes)) { img = await out.embedJpg(d.bytes); o = jpegOrientation(d.bytes).o; }   // 0.6.3: turned upright
       else {
         const bmp = await createImageBitmap(new Blob([d.bytes], { type: d.type || "image/*" })), c = document.createElement("canvas");
         c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
         img = await out.embedPng(new Uint8Array(await (await new Promise(r => c.toBlob(r, "image/png"))).arrayBuffer()));
       }
-      const p = out.addPage([W, H]), m = 36, k = Math.min((W - 2 * m) / img.width, (H - 2 * m - 24) / img.height);
-      const w = img.width * k, h = img.height * k;
-      p.drawImage(img, { x: (W - w) / 2, y: (H - h) / 2 + 12, width: w, height: h });
+      const iw = o > 4 ? img.height : img.width, ih = o > 4 ? img.width : img.height;      // as shown: 5 to 8 turn a quarter
+      const p = out.addPage([W, H]), m = 36, k = Math.min((W - 2 * m) / iw, (H - 2 * m - 24) / ih);
+      const w = iw * k, h = ih * k;
+      drawUpright(p, img, o, (W - w) / 2, (H - h) / 2 + 12, w, h);
       const foot = await footPng(d.name + " · shown for reading; the attached file is what was signed", W);
       p.drawImage(await out.embedPng(foot), { x: 0, y: 0, width: W, height: 30 });
       return { what: "picture", pages: 1 };
@@ -1354,35 +1355,162 @@ function withInside(pngBytes, payload, files) {           // the picture's own c
                 ...files.map(f => fileChunk(f.name, f.bytes))];
   return pngBuild([...cs.slice(0, end), ...ours, ...cs.slice(end)]);
 }
+// ---------------- release 0.6.3: JPEG pictures ----------------
+// A phone camera saves a photo as its sensor faced, with an EXIF Orientation tag (1 to 8) saying how to turn
+// it for showing; an upright iPhone photo is usually 6, a quarter turn clockwise. A PDF shows a JPEG's
+// pixels as stored and never reads that tag, and browsers differ in whether they apply it when decoding.
+// So the page reads the tag itself: in a PDF the JPEG's own bytes are drawn turned (not re-saved), and for
+// a stamped picture the tag is set to 1 in a copy before decoding, and the turn is applied here.
+const isJpeg = b => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+function jpegSegments(b) {                                // the segments before the picture data: [{m, at, len}]
+  if (!isJpeg(b)) throw new Error("Not a JPEG file.");
+  const out = []; let i = 2;
+  while (i + 4 <= b.length) {
+    if (b[i] !== 0xff) throw new Error("This JPEG file is damaged.");
+    const m = b[i + 1];
+    if (m === 0xff) { i++; continue; }                     // a fill byte
+    if (m === 0x01 || (m >= 0xd0 && m <= 0xd8)) { i += 2; continue; }   // markers without a length
+    const len = ((b[i + 2] << 8) | b[i + 3]) + 2;
+    if (len < 4 || i + len > b.length) throw new Error("This JPEG file is damaged.");
+    out.push({ m, at: i, len });
+    if (m === 0xda) break;                                  // start of scan: the picture data follows
+    i += len;
+  }
+  return out;
+}
+function jpegOrientation(b) {                              // {o: 1..8, at: the value's byte offset (-1: no tag), le}
+  try {
+    for (const s of jpegSegments(b)) {
+      const p = s.at + 4, end = s.at + s.len;
+      if (s.m !== 0xe1 || String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]) !== "Exif" || b[p + 4] || b[p + 5]) continue;
+      const t = p + 6, le = b[t] === 0x49 && b[t + 1] === 0x49;          // "II": little-endian; "MM": big-endian
+      if (!le && !(b[t] === 0x4d && b[t + 1] === 0x4d)) break;
+      const u16 = k => le ? b[k] | (b[k + 1] << 8) : (b[k] << 8) | b[k + 1];
+      const u32 = k => (le ? (b[k] | (b[k + 1] << 8) | (b[k + 2] << 16) | (b[k + 3] << 24)) : ((b[k] << 24) | (b[k + 1] << 16) | (b[k + 2] << 8) | b[k + 3])) >>> 0;
+      const ifd = t + u32(t + 4); if (ifd + 2 > end) break;
+      for (let e = 0, n = u16(ifd); e < n; e++) {
+        const q = ifd + 2 + 12 * e; if (q + 12 > end) break;
+        if (u16(q) === 0x0112) { const o = u16(q + 8); return { o: o >= 1 && o <= 8 ? o : 1, at: q + 8, le }; }
+      }
+      break;
+    }
+  } catch (e) {}
+  return { o: 1, at: -1, le: false };
+}
+// the image fills a unit square; this matrix puts it upright in the box (x, y, w, h) of a PDF page (y up)
+const PDF_TURN = (o, x, y, w, h) => [null, [w, 0, 0, h, x, y], [-w, 0, 0, h, x + w, y], [-w, 0, 0, -h, x + w, y + h], [w, 0, 0, -h, x, y + h],
+  [0, -h, -w, 0, x + w, y + h], [0, -h, w, 0, x, y + h], [0, h, w, 0, x, y], [0, h, -w, 0, x + w, y]][o];
+function drawUpright(page, img, o, x, y, w, h) {
+  if (o === 1) return page.drawImage(img, { x, y, width: w, height: h });
+  const L = PDFLib, name = page.node.newXObject("Image", img.ref);
+  page.pushOperators(L.pushGraphicsState(), L.concatTransformationMatrix(...PDF_TURN(o, x, y, w, h)), L.drawObject(name), L.popGraphicsState());
+}
+// the same turns on a canvas (y down), for a stored picture w x h
+const CANVAS_TURN = (o, w, h) => [null, [1, 0, 0, 1, 0, 0], [-1, 0, 0, 1, w, 0], [-1, 0, 0, -1, w, h], [1, 0, 0, -1, 0, h],
+  [0, 1, 1, 0, 0, 0], [0, 1, -1, 0, h, 0], [0, -1, -1, 0, h, w], [0, -1, 1, 0, 0, w]][o];
+// a phone's canvas holds about 16.7 million pixels (iPhone); a bigger picture's stamped copy is drawn smaller
+// (the original inside it is unchanged)
+const MAX_PICTURE_PX = 16000000;
+async function uprightCanvas(bytes) {
+  let o = 1, src = bytes, type = "image/png";
+  if (isJpeg(bytes)) {
+    type = "image/jpeg"; const r = jpegOrientation(bytes); o = r.o;
+    if (o !== 1 && r.at >= 0) { src = bytes.slice(); src[r.at] = r.le ? 1 : 0; src[r.at + 1] = r.le ? 0 : 1; }   // the tag set to 1
+  }
+  const bmp = await createImageBitmap(new Blob([src], { type }));
+  const k = Math.min(1, Math.sqrt(MAX_PICTURE_PX / (bmp.width * bmp.height))), w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);
+  const cv = document.createElement("canvas"); cv.width = o > 4 ? h : w; cv.height = o > 4 ? w : h;
+  const g = cv.getContext("2d"); g.setTransform(...CANVAS_TURN(o, w, h)); g.drawImage(bmp, 0, 0, w, h);
+  if (bmp.close) bmp.close();
+  return cv;
+}
+// A stamped JPEG picture carries what a PNG carries in its chunks (above) in APP10 segments, each starting
+// "DigiHan" and a 0 byte, then a kind byte: 1, text ("key", a 0 byte, the value); 2, a part of a file: the
+// file's number (1 byte), the part's number and the number of parts (2 bytes each), then the part. A
+// file's parts joined in order hold what a PNG's dhFl chunk holds: 1 byte version (1), the name in UTF-8,
+// a 0 byte, the file's exact bytes. They go after the picture's own leading APP segments.
+const DH_ID = enc.encode("DigiHan\0"), APP10 = 0xea, PART_MAX = 65533 - DH_ID.length - 1 - 5;
+const isOurSeg = (b, s) => s.m === APP10 && s.len >= 4 + DH_ID.length + 1 && DH_ID.every((v, i) => b[s.at + 4 + i] === v);
+function jpegSeg(kind, head, body) {
+  const len = 2 + DH_ID.length + 1 + head.length + body.length, s = new Uint8Array(2 + len);
+  s[0] = 0xff; s[1] = APP10; s[2] = len >> 8; s[3] = len & 255; s.set(DH_ID, 4); s[4 + DH_ID.length] = kind;
+  s.set(head, 5 + DH_ID.length); s.set(body, 5 + DH_ID.length + head.length);
+  return s;
+}
+function jpegFileSegs(n, name, bytes) {
+  const nm = enc.encode(name), rec = new Uint8Array(2 + nm.length + bytes.length); rec[0] = 1; rec.set(nm, 1); rec.set(bytes, 2 + nm.length);
+  const total = Math.ceil(rec.length / PART_MAX), out = [];
+  for (let q = 0; q < total; q++) out.push(jpegSeg(2, Uint8Array.of(n, q >> 8, q & 255, total >> 8, total & 255), rec.subarray(q * PART_MAX, (q + 1) * PART_MAX)));
+  return out;
+}
+function jpegInside(b) {                                  // {files: [{name, bytes}], text: {key: value}}
+  const files = [], text = {}, parts = new Map();
+  for (const s of jpegSegments(b)) {
+    if (!isOurSeg(b, s)) continue;
+    const k = s.at + 4 + DH_ID.length, d = b.subarray(k + 1, s.at + s.len);
+    if (b[k] === 1) { const z = d.indexOf(0); if (z > 0) text[new TextDecoder("latin1").decode(d.subarray(0, z))] = new TextDecoder("latin1").decode(d.subarray(z + 1)); }
+    else if (b[k] === 2 && d.length >= 5) {
+      const n = d[0], q = (d[1] << 8) | d[2], total = (d[3] << 8) | d[4];
+      if (!parts.has(n)) parts.set(n, { total, got: [] });
+      const f = parts.get(n); if (f.total === total && q < total) f.got[q] = d.subarray(5);
+    }
+  }
+  for (const [, f] of [...parts].sort((x, y) => x[0] - y[0])) {
+    if (f.got.filter(Boolean).length !== f.total) continue;                       // a part is missing: the file is left out
+    const rec = new Uint8Array(f.got.reduce((t, p) => t + p.length, 0)); let o = 0; for (const p of f.got) { rec.set(p, o); o += p.length; }
+    const z = rec.indexOf(0, 1); if (rec[0] === 1 && z > 0) files.push({ name: new TextDecoder().decode(rec.subarray(1, z)), bytes: rec.slice(z + 1) });
+  }
+  return { files, text };
+}
+function jpegWith(b, payload, files) {                    // the picture's own segments, ours after its leading APP segments
+  const segs = jpegSegments(b), sos = segs[segs.length - 1];
+  if (!sos || sos.m !== 0xda) throw new Error("This JPEG file is damaged.");
+  const kept = segs.slice(0, -1).filter(s => !isOurSeg(b, s));
+  let lead = 0; while (lead < kept.length && kept[lead].m >= 0xe0 && kept[lead].m <= 0xef) lead++;
+  const text = (k, v) => jpegSeg(1, new Uint8Array(0), enc.encode(k + "\0" + v));
+  const ours = [text("DigiHanPayload", DHV.hex(payload)), text("DigiHanFormat", "DigiHan format v0.5, picture with the seal in a corner (JPEG), doc tier 1 (byte-exact)"),
+                ...files.flatMap((f, n) => jpegFileSegs(n, f.name, f.bytes))];
+  const seg = s => b.subarray(s.at, s.at + s.len);
+  const parts = [b.subarray(0, 2), ...kept.slice(0, lead).map(seg), ...ours, ...kept.slice(lead).map(seg), b.subarray(sos.at)];
+  const out = new Uint8Array(parts.reduce((t, p) => t + p.length, 0)); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+const pictureInside = b => isJpeg(b) ? jpegInside(b) : pngInside(b);
+
 const OVERLAY_PLATE = 1.2;                                 // v11: the white disc, 1.2 x the seal: 1.07 left too little clear space and a busy photo next to it stopped the seal being found
 const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
+const JPEG_QUALITY = 0.92;                                 // 0.6.3: a stamped JPEG picture; the seal is read back after this compression
+// a stamped picture in the original's own format (PNG or JPEG, release 0.6.3): {bytes, ext, type}
 async function buildOverlay(doc, payload, proof, stampEvent) {
-  const bmp = await createImageBitmap(new Blob([doc.bytes], { type: "image/png" }));
-  const W = bmp.width, H = bmp.height, short = Math.min(W, H), shrink = Math.min(1, SCAN_MAXDIM / Math.max(W, H));
+  const jpeg = isJpeg(doc.bytes), type = jpeg ? "image/jpeg" : "image/png";
+  const pic = await uprightCanvas(doc.bytes);
+  const W = pic.width, H = pic.height, short = Math.min(W, H), shrink = Math.min(1, SCAN_MAXDIM / Math.max(W, H));
   const margin = Math.max(8, Math.round(short * 0.03)), corner = $("overlayCorner").value;
   let S = Math.max(Math.round(short * 0.28), Math.ceil(MIN_READ_PX / shrink));
   for (let attempt = 0; attempt < 3; attempt++, S = Math.round(S * 1.25)) {
     const plate = Math.round(S * OVERLAY_PLATE);
     if (plate + 2 * margin > short) break;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-    const ctx = cv.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+    const ctx = cv.getContext("2d"); ctx.drawImage(pic, 0, 0);
     const cx = corner[1] === "r" ? W - margin - plate / 2 : margin + plate / 2, cy = corner[0] === "b" ? H - margin - plate / 2 : margin + plate / 2;
     ctx.beginPath(); ctx.arc(cx, cy, plate / 2, 0, 2 * Math.PI); ctx.fillStyle = "#fff"; ctx.fill();
     const dpmm = (S - 8) / 45, sz = DHS.sealSize(dpmm), sc = document.createElement("canvas"); sc.width = sc.height = sz;
     DHS.drawSeal(sc.getContext("2d"), payload, key.art, dpmm);
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, sz / 2, 0, 2 * Math.PI); ctx.clip(); ctx.drawImage(sc, Math.round(cx - sz / 2), Math.round(cy - sz / 2)); ctx.restore();
-    // read it back from the whole picture, shrunk as the scanner's photo button shrinks it
+    const out = new Uint8Array(await (await new Promise(res => cv.toBlob(res, type, JPEG_QUALITY))).arrayBuffer());
+    // read it back from the saved picture itself (after JPEG compression), shrunk as the scanner's photo button shrinks it
+    const back = await createImageBitmap(new Blob([out], { type }));
     const w = Math.max(64, Math.round(W * shrink)), h = Math.max(64, Math.round(H * shrink)), wk = document.createElement("canvas"); wk.width = w; wk.height = h;
-    const g2 = wk.getContext("2d", { willReadFrequently: true }); g2.fillStyle = "#fff"; g2.fillRect(0, 0, w, h); g2.drawImage(cv, 0, 0, w, h);
+    const g2 = wk.getContext("2d", { willReadFrequently: true }); g2.fillStyle = "#fff"; g2.fillRect(0, 0, w, h); g2.drawImage(back, 0, 0, w, h);
+    if (back.close) back.close();
     const d = g2.getImageData(0, 0, w, h).data, gray = new Uint8Array(w * h);
     for (let i = 0, j = 0; j < gray.length; i += 4, j++) gray[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0;
     const r = decodePhoto(gray, w, h);
     if (!r || DHV.hex(r.data) !== DHV.hex(payload)) continue;
-    const png = new Uint8Array(await (await new Promise(res => cv.toBlob(res, "image/png"))).arrayBuffer());
     const files = [{ name: doc.name, bytes: doc.bytes }, { name: "digihan-registration.json", bytes: enc.encode(JSON.stringify(key.reg)) },
                    { name: "digihan-center.png", bytes: key.png }, ...(proof ? [{ name: "seal.ots", bytes: proof }] : []),
                    ...(stampEvent ? [{ name: "digihan-stamp.json", bytes: enc.encode(JSON.stringify(stampEvent)) }] : [])];
-    return withInside(png, payload, files);
+    return { bytes: jpeg ? jpegWith(out, payload, files) : withInside(out, payload, files), ext: jpeg ? "jpg" : "png", type };
   }
   // the seal did not fit, or did not read back at any size that fits: the picture is too small
   const need = Math.ceil((Math.round(S * 1.07) + 2 * margin) / 50) * 50;
@@ -1428,17 +1556,18 @@ async function proofFor(payload, anchored, oldBytes, msg) {
   }
   return { proof, started, line, already: !!oldBytes && proof === oldBytes };
 }
-async function finishPicture(f, b, msg) {
-  const { files, text } = pngInside(b);
+async function finishPicture(f, b, msg) {                  // a stamped picture, PNG or JPEG (v18)
+  const jpeg = isJpeg(b), ext = jpeg ? ".jpg" : ".png", { files, text } = pictureInside(b);
   if (!text.DigiHanPayload) throw new Error("This picture has no DigiHan seal data.");
   const payload = DHV.unhex(text.DigiHanPayload), parsed = DHV.parse(payload), anchored = (parsed.flags & 1) ? parsed.ts : null;
   const old = files.find(x => DHO.isProof(x.bytes));
   const r = await proofFor(payload, anchored, old && old.bytes, msg); if (!r) return;
   if (r.already) return show(msg, "ok", "This stamped picture's time proof is already finished. " + r.line);
-  const out = withInside(b, payload, [...files.filter(x => x !== old), { name: "seal.ots", bytes: r.proof }]);
-  const base = f.name.replace(/\.png$/i, "").replace(/_(stamped|finished|timestamped)$/, "");
-  const name = base + (r.started ? "_stamped.png" : "_finished.png");
-  $("finishDl").href = save(out, name, "image/png"); $("finishDl").download = name;
+  const keep = [...files.filter(x => x !== old), { name: "seal.ots", bytes: r.proof }];
+  const out = jpeg ? jpegWith(b, payload, keep) : withInside(b, payload, keep);
+  const base = f.name.replace(/\.(png|jpe?g)$/i, "").replace(/_(stamped|finished|timestamped)$/, "");
+  const name = base + (r.started ? "_stamped" : "_finished") + ext;
+  $("finishDl").href = save(out, name, jpeg ? "image/jpeg" : "image/png"); $("finishDl").download = name;
   $("finishDl").textContent = r.started ? "Download the stamped picture with the proof started" : "Download the finished stamped picture";
   $("finishDlRow").classList.remove("hide");
   show(msg, "ok", r.started ? "The timestamp proof is started. Come back in a few hours and pick the new stamped picture here to finish it." : "Finished. " + r.line);
@@ -1451,7 +1580,7 @@ $("finishIn").addEventListener("change", async ev => {
   try {
     const { PDFDocument, PDFName } = PDFLib;
     const raw = new Uint8Array(await f.arrayBuffer());
-    if (isPng(raw)) return await finishPicture(f, raw, msg);          // v6: a picture with the seal in a corner
+    if (isPng(raw) || isJpeg(raw)) return await finishPicture(f, raw, msg);   // v6: a picture with the seal in a corner (v18: PNG or JPEG)
     const pdf = await PDFDocument.load(raw, { updateMetadata: false });
     const info = pdf.getInfoDict(), pl = info.lookup(PDFName.of("DigiHanPayload"));
     if (!pl) throw new Error("This PDF has no DigiHan seal data.");

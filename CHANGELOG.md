@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.6.3 (2026-11-24): photos upright; a stamped JPEG picture
+
+* Fixed: a phone photo showed turned a quarter in the stamped PDF. A phone saves a photo as its sensor
+  faced, with an EXIF Orientation tag saying how to turn it for showing (an upright iPhone photo is usually
+  6). The stamping page put the JPEG's bytes into the PDF as stored, and PDF viewers do not read that tag.
+  The page now reads the tag and draws the JPEG's own bytes turned upright (not re-saved), for all eight
+  orientations. Tested with 16 pictures (each orientation, landscape and portrait), checked pixel by pixel.
+* Stamping page v18: a JPEG photo also gets a stamped picture, as a JPEG: the photo upright, the seal in
+  the chosen corner, and the original photo, the seal data, the key record, the artwork and the time proof
+  inside the file, in APP10 segments (SPEC.md, section 9). The seal is read back after the JPEG compression
+  before the picture is offered. A picture over 16 million pixels gets a smaller stamped copy (a phone's
+  canvas limit); the original inside is unchanged. "Also make a stamped picture" now starts ticked for PNG
+  and JPEG files, and the corner choice shows for both. Step 3 finishes the time proof of a stamped JPEG
+  picture. Scanner v26 reads the files inside a stamped JPEG picture. A PNG still gives a PNG picture.
+* Offline copy v5.
+
 ## v0.6.2 (2026-11-24): a seal inside a seal; base64 without arguments
 
 * Fixed: a seal whose artwork is a picture of another seal, ring and all, was read as that inner seal.

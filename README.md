@@ -36,7 +36,7 @@ Nostr stamp event, which any Nostr signer app can sign.
 | Phone scanner: reads the ring (camera or photo, including screenshots) **and checks the signature** | Document tiers beyond exact bytes |
 | Keys are Nostr keys (npub); the stamping page sends each seal's registration to Nostr relays, and the phone finds the key there from the seal's key id | |
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
-| Stamping page: make a seal and stamp any file in a browser (a PNG can also get a copy with the seal in a corner), bookended; finish the proof later | |
+| Stamping page: make a seal and stamp any file in a browser (a PNG or JPEG picture also gets a copy with the seal in a corner), bookended; finish the proof later | |
 | Keys kept elsewhere: a Nostr signer (browser extension or app browser, NIP-07; bunker link or nostrconnect, NIP-46), a second device by QR code, or `sign_hash.py` | |
 
 ## Check a seal on a phone
