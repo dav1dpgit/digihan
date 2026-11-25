@@ -33,10 +33,11 @@ Nostr stamp event, which any Nostr signer app can sign.
 |---|---|
 | Draw and read seals, round or square (Python) | Nostr NIP for the seal registration: [draft](nip/NIP-DIGIHAN.md) |
 | Stamp a PDF; check a stamped PDF (Python) | Carrying a time proof for a seal outside a PDF or a site |
-| Phone scanner: reads the ring (camera or photo, including screenshots) **and checks the signature** | Document tiers beyond exact bytes |
+| Phone scanner: reads the ring (camera or photo, including screenshots and seals with a transparent background) **and checks the signature**; a seal drawn inside another seal's artwork is never taken for the seal | Document tiers beyond exact bytes |
 | Keys are Nostr keys (npub); the stamping page sends each seal's registration to Nostr relays, and the phone finds the key there from the seal's key id | |
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
-| Stamping page: make a seal and stamp any file in a browser (a PNG or JPEG picture also gets a copy with the seal in a corner), bookended; finish the proof later | |
+| Stamping page: make a seal and stamp any file in a browser, bookended; finish the proof later. A PNG or JPEG picture also gets a stamped copy with the seal in a corner (turned up to 15° either way, on a white disc or with a transparent background, the website under it if you choose) | |
+| Up to 21 seals on one device; key files encrypted with Argon2id; the pages work offline once opened | |
 | Keys kept elsewhere: a Nostr signer (browser extension or app browser, NIP-07; bunker link or nostrconnect, NIP-46), a second device by QR code, or `sign_hash.py` | |
 | Optional, off by default: a public record of a stamp on Nostr, and a public copy of the stamped file on Blossom servers; the scanner finds them from a seal alone, or from the original | |
 
@@ -47,7 +48,8 @@ Nostr stamp event, which any Nostr signer app can sign.
    list, then Nostr relays (it sends only the 8-byte key id).
 3. It needs the document, because the signature covers the document. For the sample seals the documents
    are published. For anything else, tap **Check against a document…** and pick the file. It is hashed on
-   the phone and not uploaded. A stamped PDF works too: the scanner finds the original attached inside it.
+   the phone and not uploaded. A stamped PDF or stamped picture works too: the scanner finds the original
+   carried inside it.
    If the signer made the stamp public, the scanner finds its public record on Nostr and downloads the public
    copy of the stamped file from a Blossom server, so the seal alone (on paper, say) is enough. A file with no
    seal in it can be looked up by its SHA-256 with **Look up a public record for this file**.
@@ -62,8 +64,9 @@ Nostr stamp event, which any Nostr signer app can sign.
 unless you tick the two publishing boxes in step 2.
 
 1. **Your seal.** Type up to four characters for the center, or pick an image, and choose a password. The
-   page makes your key, signs a registration record for your artwork, and keeps the key file on the
-   device, encrypted with the password. Save the key file to stamp on another device.
+   page makes your key, signs a registration record for your artwork, sends that record to Nostr relays,
+   and keeps the key file on the device, encrypted with the password (Argon2id). Save the key file to stamp
+   on another device. One device keeps up to 21 seals; pick the one to use.
    **Or keep your key elsewhere.** The private key never touches the page:
    * **A Nostr signer.** Connect a browser extension or the browser inside a Nostr app (NIP-07), paste a
      `bunker://` link from a signer app, or let the app open the page's `nostrconnect://` link or QR code
@@ -78,7 +81,11 @@ unless you tick the two publishing boxes in step 2.
 2. **Your document.** Any file. The page anchors the seal to a recent Bitcoin block (two block explorers
    must agree), signs, draws the seal and reads it back, starts the OpenTimestamps proof, and gives you a
    PDF: a cover page with the seal, then the document's own pages if it is a PDF, with the file attached
-   unchanged, the registration record, the artwork and the pending proof.
+   unchanged, the registration record, the artwork and the pending proof. For a PNG or JPEG picture you
+   also get a stamped picture: the picture with the seal in a corner you choose, turned up to 15° either way,
+   on a white disc or with a transparent background (the page reads it back first, and falls back to a
+   frosted or white disc where the picture behind the seal is too busy). It carries the original inside it.
+   Ticking "Add the website below the seal" puts https://digihan.org under the seal.
    **Optional, off for each document:** "Publish a public record of this stamped file on Nostr" (this key
    stamped a file with this hash, and when), and under it "Also put a public copy of the stamped file on
    Blossom" (the stamped PDF and stamped picture, uploaded to blossom.primal.net, blossom.band and your own
@@ -131,8 +138,9 @@ python/              codec, signing, keys, PDF tools, time proofs (anchor.py, ot
                      sign_hash.py (signs the stamping page's codes with a key kept offline), tests
 web/scanner/         the phone scanner: index.html, digihan.js (reads rings), verify.js (checks signatures),
                      ots.js (time proofs: checks, starts and finishes them)
-web/sealer/          the stamping page: index.html, dhseal.js (draws rings, signs, key files), vendor/pdf-lib
-tests/               camera-stress and screenshot rigs for the phone decoder
+web/sealer/          the stamping page: index.html, dhseal.js (draws rings, signs, key files), nostrsign.js
+                     (Nostr signers), publish.js (public records and Blossom copies), vendor/
+tests/               camera-stress, screenshot and seal-inside-a-seal rigs for the phone decoder
 ```
 
 ## Tests
@@ -143,13 +151,18 @@ cd python && python -m pytest tests -m online   # the example proof against two 
 node web/scanner/verify.test.js         # the phone's signature check against the BIP340 vectors
 node web/scanner/ots.test.js            # the OpenTimestamps code: reading, writing, stamping, finishing
 node web/sealer/dhseal.test.js          # the stamping page's rings (vs Python), signing (BIP340 vectors), key files
+node web/sealer/nostrsign.test.js       # NIP-44 encryption and the checks on what a Nostr signer returns
+node web/sealer/publish.test.js         # public records, Blossom uploads, the photo-location check
 cd tests && python make_frames.py && node decode_frames.js          # 220 camera-damaged frames
 cd tests && python make_screens.py && node decode_frames.js photo screens   # 60 phone screenshots
+cd tests && python make_nested.py && node decode_frames.js photo nested     # 150 seals inside seals
 ```
 
-The phone decoder reads 214 of 220 camera-damaged frames (rotation, scale, 10-30 degree tilt, blur,
-noise, JPEG, ink spread, paper), 217 through the photo path, and all 60 screenshots (a seal off center,
-small, or above a dark browser toolbar). GitHub runs these tests on every push.
+The phone decoder reads 217 of 220 camera-damaged frames (rotation, scale, 10-30 degree tilt, blur,
+noise, JPEG, ink spread, paper), 219 through the photo path, all 60 screenshots (a seal off center,
+small, or above a dark browser toolbar), and all 150 seals inside seals, always as the outer seal. GitHub
+runs the Python tests, the phone tests, the screenshots and the seals inside seals on every push, and
+publishes each release from CHANGELOG.md.
 
 ## Security
 

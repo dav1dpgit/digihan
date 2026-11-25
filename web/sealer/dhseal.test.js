@@ -83,7 +83,7 @@ const h2b = h => Uint8Array.from(Buffer.from(h, "hex")), b2h = b => Buffer.from(
   }
   const src = require("fs").readFileSync(__dirname + "/dhseal.js", "utf8").replace(/\/\/.*$/gm, "");
   assert.ok(!/fromCharCode\s*\(\s*\.\.\.|fromCharCode\.apply/.test(src), "dhseal.js hands bytes to fromCharCode as arguments"); n++;
-  assert.strictEqual(DHS.RELEASE, "0.7.0"); n++;
+  assert.strictEqual(DHS.RELEASE, "0.7.1"); n++;
   // 6. payload version 2 (format v0.5): the stamp event. The fixed vector is checked by python/tests too.
   const V = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "python", "tests", "stamp_event_vector.json")));
   const vsk2 = h2b(V.secret_key), vpub = DHS.pubFromSecret(vsk2), vdoc = await DHV.sha256(new TextEncoder().encode(V.document_text));

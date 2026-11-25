@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.7.1 (2026-11-25): step 1 stays in view when a seal is made
+
+* Stamping page v22: after "Make my seal" (and when a seal is opened, picked, erased, connected through a
+  signer, or "Make another seal" or "Back to your seals" is tapped), step 1 "Your seal" shows from its top,
+  12 px below the top of the screen, if its top would otherwise be above the screen; if its top is on
+  screen, nothing moves. Step 1 swaps its whole content when a seal is made. Seen in Chrome: in some runs
+  the browser's scroll anchoring, having picked an element inside the form that was then hidden, moved the
+  page to its very top; in others the page stayed the same distance down, which then showed the bottom of
+  the new seal's details. What Safari did was not seen here (no Safari engine in the test machine). Step 1
+  is now left out of scroll anchoring (overflow-anchor: none), and the page sets the position itself.
+* README brought up to date: the stamped picture's options, up to 21 seals a device, Argon2id key files,
+  offline use, the new code files and tests, and the decoder's current results (217/220 camera frames,
+  219/220 through the photo path, 60/60 screenshots, 150/150 seals inside seals).
+* Offline copy v9.
+
 ## v0.7.0 (2026-11-25): public records on Nostr and public copies on Blossom (optional)
 
 * Stamping page v21, step 2: two tick boxes, off by default and off again for each new document.

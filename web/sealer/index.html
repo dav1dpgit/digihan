@@ -100,7 +100,10 @@ label.field small { display: block; margin-top: 4px; color: var(--sumi-soft); }
 .msg.ok { color: var(--ok); background: rgba(47,125,79,.08); }
 .msg.warn { color: var(--warn); background: rgba(154,106,18,.08); }
 .msg.bad { color: var(--bad); background: rgba(178,56,44,.08); }
-#relMsg { margin: 0 0 14px; }                         /* v17: an older copy of the code, named */
+#relMsg { margin: 0 0 14px; }
+/* v22: step 1 swaps its whole content when a seal is made; Chrome's scroll anchoring then jumped the page to its top
+   (the anchor it had picked inside the form was hidden). Step 1 is left out of anchoring; showStep1() places it. */
+#keyCard { overflow-anchor: none; }                         /* v17: an older copy of the code, named */
 /* v11: the seals kept on this device (up to 21) */
 #sealsBox { margin: 6px 0 16px; }
 .seals-h { font-size: 13.5px; margin-bottom: 8px; } .seals-h span { color: var(--sumi-soft); margin-left: 8px; }
@@ -371,7 +374,7 @@ html { scrollbar-gutter: stable; }
   </div>
 </section>
 
-<footer>stamping page v21 · release <span id="relCode">0.7.0</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v22 · release <span id="relCode">0.7.1</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -407,7 +410,7 @@ const SITE_URL = "https://digihan.org";     // v19: shown under the seal when "A
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.7.0";
+const RELEASE = "0.7.1";
 if (DHS.RELEASE !== RELEASE || typeof DHP === "undefined" || DHP.RELEASE !== RELEASE) {   // v21: publish.js too
   $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE !== RELEASE ? DHS.RELEASE || "an older release" : typeof DHP === "undefined" ? "publish.js missing" : "publish.js " + DHP.RELEASE) + ")";
   show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE !== RELEASE ? (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") : typeof DHP === "undefined" ? "without publish.js" : "publish.js of release " + DHP.RELEASE) +
@@ -572,6 +575,17 @@ async function useKey(kf) {
   const rec = await Seals.get(kf.pubkey); key.nostr = (rec && rec.nostr) || null;
   nostrState();
   await deviceState();
+  showStep1();
+}
+// v22: when step 1 changes between making a seal and showing one (a seal made, opened, picked or erased; "Make
+// another seal"; "Back to your seals"), its content is replaced, so the place on screen no longer exists. If
+// step 1's top is then above the screen, the page shows step 1 from its top, 12 px below the screen's top; if
+// its top is on screen, nothing moves.
+function showStep1() {
+  const top = $("keyCard").getBoundingClientRect().top;
+  if (top >= 0) return;
+  const y = Math.max(0, Math.round(window.scrollY + top - 12));
+  try { window.scrollTo({ top: y, behavior: "instant" }); } catch (e) { window.scrollTo(0, y); }
 }
 $("makeKey").addEventListener("click", async () => {
   const p1 = $("pw1").value, p2 = $("pw2").value;
@@ -637,9 +651,11 @@ $("forgetKey").addEventListener("click", async () => {
 // v11: make another seal, or go back to the seals kept here
 $("newSeal").addEventListener("click", () => {
   hide($("keyMsg")); $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide"); $("backRow").classList.remove("hide"); refreshArtPreview();
+  showStep1();
 });
 $("backToSeals").addEventListener("click", () => {
   hide($("keyMsg")); $("noKey").classList.add("hide"); if (key) $("haveKey").classList.remove("hide");
+  showStep1();
 });
 // ---------------- v13: the seal's public record on Nostr ----------------
 // The record is the registration this seal already has (a Nostr event, kind 30078, signed by its key when the
@@ -1139,7 +1155,7 @@ async function buildPdf(o) {
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.stampEvent) await out.attach(enc.encode(JSON.stringify(o.stampEvent)), "digihan-stamp.json", { mimeType: "application/json", description: "The signed Nostr stamp event (payload version 2)", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v21 (format v0.5)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v22 (format v0.5)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
