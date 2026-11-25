@@ -2,7 +2,8 @@
 
 Status: **frozen**. Payload versions 1 and 2. v0.5 adds payload version 2, the **stamp event** (section
 6.2): the same ring, with the signature made over a Nostr event, so any Nostr signer app can make it.
-Every v0.4 seal is a valid v0.5 seal. v0.4 added time proofs (section 11) to v0.3. This document is placed in the public domain (CC0 1.0);
+Every v0.4 seal is a valid v0.5 seal. v0.4 added time proofs (section 11) to v0.3. Section 13 (2026-11-25) adds optional
+public records and public copies; it changes nothing in the ring. This document is placed in the public domain (CC0 1.0);
 anyone may implement it without asking. The reference code in this repository is Apache-2.0.
 
 A DigiHan seal is a round (or square) printed or on-screen mark. Its outer ring of dots carries a
@@ -250,6 +251,11 @@ with `DigiHan` and a 0 byte, then one kind byte:
 The copy is drawn upright: if the original carries an EXIF orientation, the copy is turned by it and
 carries none. The original inside is unchanged.
 
+**Location in a photo.** A JPEG or PNG original may carry the place it was taken (EXIF GPS, or XMP). The seal
+signs the original's exact bytes, so the location cannot be removed without breaking the seal: the stamped
+PDF and the stamped picture carry it, and so does any public copy (section 13). A stamping client SHOULD
+say so before stamping such a file.
+
 A verifier reads the seal from the picture's pixels, then checks it against the original found inside.
 Programs that rewrite pictures (most messaging and social apps) drop these chunks and segments; the
 original is then needed separately.
@@ -262,7 +268,9 @@ Later tiers (canonical content, printed canonical string) are not yet defined.
 Nostr event built from the same parts, so Nostr signer apps can stamp. The ring, the payload layout, the
 flags and the time proofs are unchanged; version 1 seals are unchanged. Clarified 2026-11-24: the seal is
 the outermost ring, and a ring drawn in the center artwork is artwork (section 8, step 1); the format is
-unchanged. Added 2026-11-24: the stamped JPEG picture (section 9); the ring and payload are unchanged.
+unchanged. Added 2026-11-24: the stamped JPEG picture (section 9); the ring and payload are unchanged. Added 2026-11-25: public records and public
+copies (section 13, optional) and the note on location in a photo (section 9); the ring, payload and
+signatures are unchanged.
 
 **v0.4 (from v0.3).** Flag bit 0 defined: anchored seals, "made no earlier than block A" (section 11.1).
 OpenTimestamps proofs over the payload, "existed no later than block B" (section 11.2). Block data from a
@@ -328,3 +336,70 @@ See [docs/TIME-PROOF.md](docs/TIME-PROOF.md).
 * The center registration as a Nostr NIP: draft in [nip/NIP-DIGIHAN.md](nip/NIP-DIGIHAN.md). It adds an
   `f` tag (the key id) so a verifier holding only a scanned seal can find the key on relays.
 * A way to carry a time proof for a seal that is neither in a PDF nor on a site (for example a Nostr event).
+
+## 13. Public records and public copies (optional)
+
+Everything above works with nothing published. A signer MAY publish a stamp, in two parts:
+
+* a **public record** on Nostr relays: this key stamped a file with this SHA-256 hash, and the ring's payload;
+* **public copies** of the stamped PDF or stamped picture on Blossom servers (BUD-01, BUD-02), named in the
+  record. A stamped file carries the original, so a public copy makes the original public too.
+
+Neither changes the ring, the payload or the signature. A record proves only that its key published it; a
+reader still checks the seal (section 8) against the original.
+
+### 13.1 The public record
+
+An addressable Nostr event (NIP-01), signed by the seal's key:
+
+```
+kind       30078
+created_at the time it was published (not the stamp's time)
+tags       ["d", "digihan-record:" + hex(SHA-256(payload))]
+           ["x", hex(doc_hash)]                          the original's SHA-256, as signed (section 6)
+           ["payload", hex(payload)]                      the ring's 78 bytes
+           ["copy", hex(SHA-256(file)), mime, dec(size), server, ...]   one per public copy, OPTIONAL
+           ["alt", "DigiHan stamp record: a seal on a document, made public"]
+content    "DigiHan stamp. Document SHA-256: " + hex(doc_hash) + "."
+```
+
+* `d` is unique to the seal, so a newer record for the same seal replaces the older one on relays (kind 30078
+  is addressable by kind, key and `d`).
+* `copy` lists a stamped file's SHA-256 (its Blossom address), its type and size, then the base URLs of the
+  servers that stored its exact bytes. The copy listed first is the one a reader SHOULD fetch first.
+* The record carries no `f` tag, so a lookup of the key's registration by key id (section 7) never has to
+  page through a signer's records.
+* The sending client uses the same relays as the registration (section 7).
+
+### 13.2 Public copies
+
+* The client asks each server first (`HEAD /upload`, BUD-06), then uploads (`PUT /upload`, BUD-02) with an
+  authorization event (kind 24242, BUD-11) signed by the seal's key: `["t", "upload"]`, an `expiration` a few
+  minutes ahead, and one `x` tag per file. A server that refuses, or whose answer names a different SHA-256,
+  is left out of the `copy` tag.
+* A stamped file that is being made public carries `DigiHanPublish` = `blossom`: in a PDF's document
+  information, in a PNG's `tEXt` chunk, or in a JPEG's DigiHan text segment (section 9). It is written before
+  the file's SHA-256 is taken, so it is part of the public copy.
+* When the time proof of such a file is finished (section 11.2), the finished file is a new file with a new
+  SHA-256. The client uploads it the same way and publishes the record again with the finished copy listed
+  first. The earlier copy stays where it was stored: a Blossom address cannot be withdrawn from every server.
+* If a relay answers that the key has no Blossom server list (kind 10063, BUD-03), the client publishes one
+  naming the servers that stored a copy. If the key has one, it is used and left as it is: the list is
+  replaceable, and publishing a new one would replace a list the signer made elsewhere. If no relay answers,
+  no list is published.
+
+### 13.3 Finding a record
+
+* **From a scanned seal.** Once the key is found (section 7), ask the relays for
+  `{"kinds": [30078], "authors": ["<pubkey>"]}` and pick the record whose `d` matches; the relays learn the
+  key, as they do for the registration. If the key is not known, or the answer may have been cut short by a
+  relay's limit, `{"kinds": [30078], "#d": ["digihan-record:<hex>"]}` finds it directly; the relays then learn
+  which seal is being checked.
+* **From an original.** `{"kinds": [30078], "#x": ["<hex SHA-256 of the file>"]}`; the relays learn the file's hash.
+* A reader MUST check that the record's signature is valid, that its `d` is `digihan-record:` and the SHA-256 of
+  its `payload`, that the payload's key id is the record key's (`SHA-256(pubkey)[0:8]`), and, from a scanned
+  seal, that the payload is the one read from the ring.
+* A downloaded copy MUST have the SHA-256 named in its `copy` tag. It is then checked like any stamped file:
+  its seal data must be the ring's payload, and the seal is checked against the original inside it.
+* With no copy to download, a record still lets a reader check the signature against the record's `x` hash.
+  That shows the key signed a file with that hash; it does not show which file the reader holds.

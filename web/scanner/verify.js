@@ -1,4 +1,4 @@
-// DigiHan signature check for the phone scanner (format v0.5, payload versions 1 and 2).
+// DigiHan signature check for the phone scanner (format v0.5, payload versions 1 and 2; public records, release 0.7.0).
 // Self-contained: BIP340 Schnorr verification over secp256k1 with BigInt, SHA-256 via
 // WebCrypto, bech32 (npub), Nostr event checks (NIP-01). Verification only: no secret keys here.
 // Runs in browsers and in Node 20+ (globalThis.crypto.subtle).
@@ -90,6 +90,29 @@ const DHV = (() => {
   const isStampEvent = ev => /^digihan-stamp:/.test(tag(ev, "d") || "");
   async function fingerprint(pub) { return hex((await sha256(pub)).slice(0, 8)); }
 
+  // ---- the public record (SPEC.md section 13, release 0.7.0): optional, published by the signer ----
+  // Same kind again (30078); never taken as a key record either.
+  const RECORD = "digihan-record:";
+  const recordD = async payload => RECORD + hex(await sha256(payload));
+  const isRecord = ev => (tag(ev, "d") || "").startsWith(RECORD);
+  // A record's parts after its own checks (13.3), or null: {ev, pub, payload, x, copies: [{sha, type, size, servers}]}.
+  // It proves only that its key published it; the seal is still checked against the original.
+  async function readRecord(ev) {
+    try {
+      if (!ev || ev.kind !== 30078 || !isRecord(ev) || typeof ev.pubkey !== "string" || !(await eventValid(ev))) return null;
+      const ph = tag(ev, "payload"), x = tag(ev, "x");
+      if (!/^[0-9a-f]{156}$/.test(ph || "") || !/^[0-9a-f]{64}$/.test(x || "")) return null;
+      const payload = unhex(ph);
+      if (tag(ev, "d") !== await recordD(payload)) return null;
+      if (await fingerprint(unhex(ev.pubkey)) !== hex(payload.slice(1, 9))) return null;
+      const copies = ev.tags.filter(t => t[0] === "copy" && /^[0-9a-f]{64}$/.test(t[1] || "") && t.length >= 5)
+        .map(t => ({ sha: t[1], type: String(t[2] || ""), size: +t[3] || 0,
+                     servers: t.slice(4).filter(u => /^https:\/\/[^\s/?#]+(\/[^\s?#]*)?$/.test(u)).map(u => u.replace(/\/+$/, "")) }))
+        .filter(c => c.servers.length);
+      return { ev, pub: unhex(ev.pubkey), payload, x: unhex(x), copies };
+    } catch (e) { return null; }
+  }
+
   // ---- the seal ----
   function parse(p) {
     let ts = 0; for (let i = 9; i < 14; i++) ts = ts * 256 + p[i];
@@ -134,11 +157,11 @@ const DHV = (() => {
       : schnorrVerify(await signedMessage(docHash, f.tsBytes, fpB, ch ? unhex(ch) : null, blk && blk.hash), pub, f.sig);
     if (f.flags & 4) {
       for (const reg of registrations || []) {
-        if (reg.pubkey !== hex(pub) || isStampEvent(reg) || !(await eventValid(reg))) continue;
+        if (reg.pubkey !== hex(pub) || isStampEvent(reg) || isRecord(reg) || !(await eventValid(reg))) continue;
         const ch = tag(reg, "center_hash"); if (!ch) continue;
         if (await sigOk(ch)) return { ok: true, reg, anchored, version: f.version };
       }
-      return { ok: false, reason: (registrations || []).some(r => r.pubkey === hex(pub) && !isStampEvent(r)) ? "The signature does not match this document." : "No valid artwork registration for this key." };
+      return { ok: false, reason: (registrations || []).some(r => r.pubkey === hex(pub) && !isStampEvent(r) && !isRecord(r)) ? "The signature does not match this document." : "No valid artwork registration for this key." };
     }
     return (await sigOk(null)) ? { ok: true, reg: null, anchored, version: f.version } : { ok: false, reason: "The signature does not match this document." };
   }
@@ -146,6 +169,6 @@ const DHV = (() => {
   // curve: the arithmetic the sealing page's signer uses (dhseal.js); verification itself needs none of it exposed
   const curve = { P, N, G: [GX, GY, 1n], mod, mul, affine, liftX, toInt, toBytes32 };
   return { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, npubDecode, eventId, eventValid, tag, isStampEvent, fingerprint, parse,
-           signedMessage, stampEvent, checkSeal, curve };
+           signedMessage, stampEvent, checkSeal, curve, RECORD, recordD, isRecord, readRecord };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHV;

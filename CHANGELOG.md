@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.7.0 (2026-11-25): public records on Nostr and public copies on Blossom (optional)
+
+* Stamping page v21, step 2: two tick boxes, off by default and off again for each new document.
+  "Publish a public record of this stamped file on Nostr" (anyone can see that this key stamped a file with
+  this hash, and when) and, under it, "Also put a public copy of the stamped file on Blossom" (anyone can
+  download it or connect all publicly-announced copies made by this key). Ticking the second ticks the
+  first. With Blossom ticked the rest happens on its own: the stamped PDF and the stamped picture are
+  uploaded (each server is asked first, then sent the file with an upload permission signed by the seal's
+  key; a server whose answer names another SHA-256 does not count), the record is signed and sent to the
+  three relays, and the key's Blossom server list (kind 10063) is published the first time, never over a
+  list the key already has (and not at all if no relay answers). The page shows one link per copy (tap to
+  copy), the servers that refused and why, and, if none took a file, "Not uploaded: no server accepted the
+  file." The downloads show before the publishing starts, and the stamp never depends on it. Servers: your own (optional, remembered on the device), then blossom.primal.net
+  and blossom.band (the second takes PDFs only on a paid plan).
+* Signing: with the page's key, the one password at stamping signs everything (the key is wiped once the
+  record is signed). A Nostr signer is asked for the upload, the record and, once, the server list; signer
+  connections now ask for those permissions (kinds 24242 and 10063). A seal that signs by code cannot
+  publish from the page, and the page says so.
+* Step 3: a stamped file that was made public says so inside itself (DigiHanPublish), so when its time
+  proof is finished the page puts the finished file on Blossom too and publishes the record again with the
+  finished copy first (the earlier copies stay listed after it). It asks for the password, or the signer.
+* Location: a JPEG or PNG original that carries the place it was taken (EXIF GPS or XMP) gets a pause
+  before stamping: "This photo carries the place it was taken. The stamped file keeps it, and so will any
+  public copy." Stamp anyway, or Cancel. Nothing is removed: the seal signs the original's exact bytes.
+* Scanner v28: from a seal alone (on paper, or a seal picture), when no document is at hand, the scanner
+  asks the relays for the key's public records (by the key, as it already does for the registration;
+  by the seal's record name only when the key is unknown or the answer may have been cut short), downloads the first public copy it can, checks
+  its SHA-256 and that its seal data is the ring's, then checks the seal against the original inside it.
+  With no copy to be had, a record lets it check the signature against the record's hash, and it says that
+  this does not show which file you hold. A file with no seal in it can be looked up with "Look up a public
+  record for this file" (it sends the file's SHA-256). "Open the public copy" opens it.
+* SPEC.md section 13 (optional, the ring unchanged): the record (kind 30078, `d` = digihan-record: and the
+  payload's SHA-256, `x`, `payload`, `copy`; no `f` tag, so a signer's records never crowd out the
+  registration lookup), the uploads, the publish note, the lookups and the reader's checks. Section 9: the
+  note on location in a photo. NIP draft: the record.
+* Tests: web/sealer/publish.test.js (53 checks: the record and its refusals, the upload permission, a
+  stand-in Blossom server, the whole publishing with stand-in relays, the location check on hand-made EXIF,
+  XMP and PNG bytes). Page tests with stand-in servers and relays: the page's key, a Nostr signer, a code
+  key, a refused upload, step 3, and the scanner from a seal alone and from the original.
+* Offline copy v8 (keeps publish.js).
+
 ## v0.6.5 (2026-11-24): the seal's angle and a transparent background in stamped pictures
 
 * Stamping page v20, stamped picture options: **Seal angle**, a slider from -15° to +15° (+ is clockwise;

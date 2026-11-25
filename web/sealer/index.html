@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DigiHan Stamping</title>
-<meta name="description" content="Stamp a document with your DigiHan seal: your key stays on this device, the document is hashed here and never uploaded, and the seal is bookended between two Bitcoin blocks.">
+<meta name="description" content="Stamp a document with your DigiHan seal: your key stays on this device, the document is hashed here and uploaded only if you choose to make it public, and the seal is bookended between two Bitcoin blocks.">
 <meta name="theme-color" content="#f3f4f1">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -83,6 +83,12 @@ button:disabled { opacity: .5; cursor: default; }
 .check { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; font-size: 14px; }
 .check input { margin-top: 3px; accent-color: var(--vermillion); width: 18px; height: 18px; flex: none; }
 .check small { display: block; color: var(--sumi-soft); }
+.sub-check { margin-left: 28px; }                                  /* v21: the Blossom box sits under the record box */
+label.field small { display: block; margin-top: 4px; color: var(--sumi-soft); }
+.pub .msg b { font-weight: 600; }
+.pub .msg small { display: block; margin-top: 4px; opacity: .85; }
+.pub .code { margin: 6px 0 2px; word-break: break-all; }
+.pub .msg a { font-weight: 600; }
 .seal-row { display: flex; gap: 16px; align-items: center; margin: 10px 0; }
 .seal-row canvas, .seal-row img { width: 132px; height: 132px; flex: none; }
 .kv { font-size: 13px; color: var(--sumi-soft); min-width: 0; }
@@ -175,7 +181,7 @@ html { scrollbar-gutter: stable; }
 
 <h1>Stamp a document</h1>
 <div class="msg bad hide" id="relMsg"></div>
-<p class="lead">Your key is made and kept on this device, or stays elsewhere: in a Nostr signer app, offline, or on another device. The document is read here and never uploaded. The seal records the time between two Bitcoin blocks.</p>
+<p class="lead">Your key is made and kept on this device, or stays elsewhere: in a Nostr signer app, offline, or on another device. The document is read here, and uploaded only if you tick the boxes that make it public. The seal records the time between two Bitcoin blocks.</p>
 
 <!-- 1. the key -->
 <section class="card" id="keyCard">
@@ -286,9 +292,16 @@ html { scrollbar-gutter: stable; }
   <label class="check"><input type="checkbox" id="optSite"><span>Add the website below the seal<small>https://digihan.org in small type under the seal, in the PDF and in the stamped picture, so whoever sees the seal knows where to check it.</small></span></label>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
   <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was stamped no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
+  <label class="check"><input type="checkbox" id="optRecord"><span>Publish a public record of this stamped file on Nostr<small>Anyone can see that this key stamped a file with this hash, and when.</small></span></label>
+  <div class="sub-check">
+    <label class="check"><input type="checkbox" id="optBlossom"><span>Also put a public copy of the stamped file on Blossom<small>Anyone can download it or connect all publicly-announced copies made by this key. If you started the time proof, step 3 puts the finished file there too.</small></span></label>
+    <label class="field hide" id="ownField">Your own Blossom server (optional)<input type="url" id="blossomOwn" placeholder="https://…" autocomplete="off" spellcheck="false" autocapitalize="off"><small>Tried first. The page also tries blossom.primal.net and blossom.band.</small></label>
+  </div>
   <div class="msg warn hide" id="netNote"></div>
   <label class="field" id="pwSealField">Key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
   <div class="row"><button class="primary" id="doSeal">Stamp</button></div>
+  <div class="msg warn hide" id="gpsBox">This photo carries the place it was taken. The stamped file keeps it, and so will any public copy.
+    <div class="row"><button id="gpsGo">Stamp anyway</button><button id="gpsCancel">Cancel</button></div></div>
   <ol class="steps hide" id="sealSteps"></ol>
   <div id="sealSignBox" class="hide">
     <div id="sigWait" class="hide">
@@ -317,6 +330,7 @@ html { scrollbar-gutter: stable; }
     <div class="row"><a class="download" id="sealDl" download>Download the stamped PDF</a></div>
     <div class="row hide" id="overlayRow"><a class="download" id="overlayDl" download>Download the stamped picture</a></div>
     <img id="overlayImg" class="overlay-prev hide" alt="the stamped picture">
+    <div class="pub hide" id="pubResult"></div>
     <p class="note">To check it: open the scanner, scan the seal, then tap “Check against a document…” and pick this PDF.</p>
   </div>
 </section>
@@ -348,9 +362,16 @@ html { scrollbar-gutter: stable; }
   <div class="row"><button id="pickFinish">Choose a stamped PDF or picture…</button></div>
   <div class="msg hide" id="finishMsg"></div>
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
+  <div class="sub hide" id="finishPub">
+    <p class="note" id="finishPubText"></p>
+    <label class="field hide" id="finishPwField">Key password <input type="password" id="finishPw" autocomplete="current-password"></label>
+    <div class="row hide" id="finishPubRow"><button class="primary" id="finishPubGo">Publish the finished file</button></div>
+    <div class="msg hide" id="finishPubMsg"></div>
+    <div class="pub hide" id="finishPubResult"></div>
+  </div>
 </section>
 
-<footer>stamping page v20 · release <span id="relCode">0.6.5</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v21 · release <span id="relCode">0.7.0</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -374,6 +395,7 @@ html { scrollbar-gutter: stable; }
 <script src="vendor/argon2.umd.min.js"></script>
 <script src="dhseal.js"></script>
 <script src="nostrsign.js"></script>
+<script src="publish.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>if ("serviceWorker" in navigator && window.isSecureContext) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
 <script>
@@ -385,10 +407,10 @@ const SITE_URL = "https://digihan.org";     // v19: shown under the seal when "A
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.6.5";
-if (DHS.RELEASE !== RELEASE) {
-  $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE || "an older release") + ")";
-  show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") +
+const RELEASE = "0.7.0";
+if (DHS.RELEASE !== RELEASE || typeof DHP === "undefined" || DHP.RELEASE !== RELEASE) {   // v21: publish.js too
+  $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE !== RELEASE ? DHS.RELEASE || "an older release" : typeof DHP === "undefined" ? "publish.js missing" : "publish.js " + DHP.RELEASE) + ")";
+  show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE !== RELEASE ? (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") : typeof DHP === "undefined" ? "without publish.js" : "publish.js of release " + DHP.RELEASE) +
     "; the page is release " + RELEASE + "). Close this tab and open digihan.org/seal again.");
 }
 const EXPLORERS = ["https://mempool.space/api", "https://blockstream.info/api"];
@@ -971,6 +993,7 @@ $("docIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
   // v8: the previous document is dropped at once, so a quick tap on Stamp can never sign it by mistake
   doc = null; $("docName").textContent = "Reading " + f.name + "…"; $("doSeal").disabled = true;
+  resetPublish(); hide($("gpsBox"));                       // v21: the public record and the public copy start off for each document
   let d;
   try { d = { name: f.name, type: f.type || "application/octet-stream", bytes: new Uint8Array(await f.arrayBuffer()) }; }
   catch (e) { $("docName").textContent = "Could not read " + f.name; $("doSeal").disabled = false; return; }
@@ -979,6 +1002,74 @@ $("docIn").addEventListener("change", async ev => {
   $("pngOpt").classList.toggle("hide", !(isPng(doc.bytes) || isJpeg(doc.bytes)));   // v18: PNG or JPEG
 });
 const wantPicture = (d = doc) => !!d && (isPng(d.bytes) || isJpeg(d.bytes)) && $("optOverlay").checked;   // v20
+
+// ---------------- v21: making the stamp public (SPEC.md section 13): off by default, never remembered ----------------
+// The record box alone: a public record on the relays (the original's hash, the ring's payload). With the
+// Blossom box (it ticks the record box too): the stamped PDF and the stamped picture are uploaded, the record
+// names them, and the key's Blossom server list is published the first time. Your own server, if you give
+// one, is remembered on this device.
+const OWN_KEY = "digihan.blossom.own";
+try { $("blossomOwn").value = localStorage.getItem(OWN_KEY) || ""; } catch (e) {}
+$("blossomOwn").addEventListener("change", () => { try { localStorage.setItem(OWN_KEY, $("blossomOwn").value.trim()); } catch (e) {} });
+function pubBoxes() { $("ownField").classList.toggle("hide", !$("optBlossom").checked); }
+$("optBlossom").addEventListener("change", () => { if ($("optBlossom").checked) $("optRecord").checked = true; pubBoxes(); });
+$("optRecord").addEventListener("change", () => { if (!$("optRecord").checked) $("optBlossom").checked = false; pubBoxes(); });
+function resetPublish() { $("optRecord").checked = false; $("optBlossom").checked = false; pubBoxes(); }
+// signs an event the publishing needs: with the key unlocked for this stamp, or by asking the signer
+function eventSigner(sk, signer) {
+  return async t => {
+    const id = await DHV.eventId(t);
+    const sig = sk ? await DHS.schnorrSign(id, sk, crypto.getRandomValues(new Uint8Array(32))) : await signer.sign(t, key.kf.pubkey);
+    return { ...t, id: DHV.hex(id), sig: DHV.hex(sig) };
+  };
+}
+// o = {payload, docHash, files, blossom, keep, sk, signer, msgEl, onRecord}
+async function publishNow(o) {
+  const approve = o.signer ? " Approve it in " + DHN.describe(key.signer) + "…" : "";
+  const say = t => { if (o.msgEl) show(o.msgEl, "", t); };
+  return DHP.publish({
+    pubHex: key.kf.pubkey, payload: o.payload, docHash: o.docHash, relays: RELAYS, record: true, blossom: o.blossom, files: o.files,
+    own: o.blossom ? $("blossomOwn").value : null, keep: o.keep || [], after: o.after || 0, sign: eventSigner(o.sk, o.signer), send: ev => sendToRelays(ev),
+    progress: (step, what) => {
+      if (step === "list") say("Looking for your Blossom server list…");
+      else if (step === "auth") say(o.signer ? "Your signer is asked to approve the upload." + approve : "Signing the upload…");
+      else if (step === "upload") say("Uploading " + what + " to Blossom…");
+      else if (step === "record") { if (o.onRecord) o.onRecord(); say(o.signer ? "Your signer is asked to approve the public record." + approve : "Publishing the public record…"); }
+      else if (step === "serverlist") say(o.signer ? "Your signer is asked to approve your Blossom server list (this happens once)." + approve : "Publishing your Blossom server list…");
+    },
+  });
+}
+// what was published: each public copy (its links, or the line that it was not uploaded), the record, the server list
+function renderPublished(el, res) {
+  el.innerHTML = ""; el.classList.remove("hide");
+  const line = (kind, head, text) => {
+    const d = document.createElement("div"); d.className = "msg " + kind;
+    if (head) { const b = document.createElement("b"); b.textContent = head + " "; d.appendChild(b); }
+    d.appendChild(document.createTextNode(text)); el.appendChild(d); return d;
+  };
+  if (res.error) line("bad", "Not published.", res.error);
+  for (const c of res.copies || []) {
+    // one link: the same file has the same address on every server that stored it
+    const d = c.servers.length ? line("ok", "Public copy of " + c.label + ".", "On " + c.servers.map(DHP.host).join(", ") + ". Tap the link to copy it.")
+                               : line("warn", "Public copy of " + c.label + ".", "Not uploaded: no server accepted the file.");
+    if (c.urls.length) {
+      const k = document.createElement("div"); k.className = "code mono copy"; k.textContent = c.urls[0]; k.title = "tap to copy"; d.appendChild(k);
+      const a = document.createElement("a"); a.href = c.urls[0]; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Open " + c.label; d.appendChild(a);
+    }
+    if (c.refused.length) { const m = document.createElement("small"); m.textContent = (c.servers.length ? "Not stored by " : "") + c.refused.map(r => DHP.host(r.server) + ": " + r.why).join(" · ") + "."; d.appendChild(m); }
+  }
+  const r = res.record;
+  if (r) line(r.saved.length ? "ok" : "warn", "Public record.", r.saved.length
+    ? "Saved by " + r.saved.length + " of " + RELAYS.length + " relays (" + r.saved.map(relayName).join(", ") + ")." + (r.failed.length ? " Not saved by " + whyList(r.failed) + "." : "")
+    : "Not saved: no relay saved it (" + whyList(r.failed) + ").");
+  if (res.list === "published") line("ok", "Blossom server list.", "Published for your key, naming " + (res.copies || []).flatMap(c => c.servers).filter((v, i, a) => a.indexOf(v) === i).map(DHP.host).join(", ") + ".");
+  if (res.listError) line("warn", "Blossom server list.", "Not published: " + res.listError);
+  if (res.list === "unknown" && (res.copies || []).some(c => c.servers.length))
+    line("warn", "Blossom server list.", "Not published: no relay answered, so the page could not tell whether your key already has one.");
+}
+// v21: a photo that carries the place it was taken: a pause before stamping (the seal signs those bytes)
+$("gpsGo").addEventListener("click", () => { if (doc) doc.gpsOk = true; hide($("gpsBox")); $("doSeal").click(); });
+$("gpsCancel").addEventListener("click", () => hide($("gpsBox")));
 function stepNow(li) { if (!li) return; li.classList.add("now"); if (!li.querySelector(".dots")) li.appendChild(DOTS()); }
 function steps(list) {      // v8: a checkmark for each step done, moving dots on the step in progress
   const ol = $("sealSteps"); ol.innerHTML = "";
@@ -1048,26 +1139,34 @@ async function buildPdf(o) {
   await out.attach(key.png, "digihan-center.png", { mimeType: "image/png", description: "The seal's registered center artwork", creationDate: now, modificationDate: now });
   if (o.stampEvent) await out.attach(enc.encode(JSON.stringify(o.stampEvent)), "digihan-stamp.json", { mimeType: "application/json", description: "The signed Nostr stamp event (payload version 2)", creationDate: now, modificationDate: now });
   if (o.proof) await out.attach(o.proof, "seal.ots", { mimeType: "application/octet-stream", description: "OpenTimestamps proof for the seal", creationDate: now, modificationDate: now });
-  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v20 (format v0.5)");
+  out.setTitle("DigiHan seal: " + o.doc.name); out.setProducer("DigiHan stamping page v21 (format v0.5)");
   const info = out.getInfoDict(), set = (k, v) => info.set(PDFName.of(k), v);
   set("DigiHanPayload", PDFString.of(DHV.hex(o.payload))); set("DigiHanSealedFile", PDFHexString.fromText(o.doc.name));
   set("DigiHanRegistration", PDFString.of("digihan-registration.json")); set("DigiHanSealPage", PDFString.of("1"));
   set("DigiHanSealBox", PDFString.of(`${xmm.toFixed(2)},${ymm.toFixed(2)},${SEAL_MM.toFixed(1)},${clear}`));
   set("DigiHanFormat", PDFString.of("DigiHan format v0.5, cover sheet, doc tier 1 (byte-exact)"));
+  if (o.publish) set("DigiHanPublish", PDFString.of("blossom"));   // v21: this file is being made public (SPEC.md 13.2)
   return out.save({ useObjectStreams: false });
 }
 // sealing: prepare the message, sign it (here, or elsewhere for a key kept offline), then draw, stamp and build
 let pending = null;     // {msg, docHash, ts, anchor, wantStamp, done, k}
 let rekeyed = false;    // v4: the key file was re-encrypted with Argon2id during this seal
 $("doSeal").addEventListener("click", async () => {
-  hide($("sealMsg")); $("sealResult").classList.add("hide"); $("sealSignBox").classList.add("hide"); pending = null;
+  hide($("sealMsg")); hide($("gpsBox")); $("sealResult").classList.add("hide"); $("sealSignBox").classList.add("hide"); pending = null;
   if (!key) return show($("sealMsg"), "bad", "Make your seal or open your key file first (step 1).");
   if (!doc) return show($("sealMsg"), "bad", "Choose a document first.");
   const wantAnchor = $("optAnchor").checked, wantStamp = $("optStamp").checked;
+  const pubOpt = { record: $("optRecord").checked, blossom: $("optBlossom").checked };      // v21
+  if (pubOpt.record && key.offline && !key.signer)
+    return show($("sealMsg"), "bad", "A public record is signed by this seal's key, and this seal signs by code, one code at a time. To stamp, untick the public record; to publish, connect a Nostr signer in step 1.");
+  if (pubOpt.blossom && $("blossomOwn").value.trim() && !DHP.server($("blossomOwn").value))
+    return show($("sealMsg"), "bad", "Your own Blossom server is not a web address starting with https://. Correct it or clear it.");
+  if ((isJpeg(doc.bytes) || isPng(doc.bytes)) && !doc.gpsOk && DHP.hasLocation(doc.bytes)) { $("gpsBox").classList.remove("hide"); return; }   // v21
   const done = steps([key.offline ? "Reading the document" : "Opening your key", ...(key.offline ? [] : ["Reading the document"]),
     ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), key.signer ? "Waiting for your signer" : key.offline ? "Waiting for your signature" : "Signing",
     "Drawing the seal and reading it back", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF",
-    ...(wantPicture() ? ["Making the stamped picture and reading it back"] : [])]);         // v20: a step of its own (it can take a while)
+    ...(wantPicture() ? ["Making the stamped picture and reading it back"] : []),          // v20: a step of its own (it can take a while)
+    ...(pubOpt.blossom ? ["Putting the public copy on Blossom"] : []), ...(pubOpt.record ? ["Publishing the public record"] : [])]);   // v21
   $("doSeal").disabled = true;
   let k = 0, sk = null;
   try {
@@ -1089,16 +1188,18 @@ $("doSeal").addEventListener("click", async () => {
     const ts = Math.floor(Date.now() / 1000);
     const version = key.signer ? 2 : 1;                      // v16: a Nostr signer signs a stamp event (format v0.5)
     const msg = await DHS.sealMessage(key.pub, docHash, ts, await DHV.sha256(key.png), anchor, version);
-    pending = { msg, docHash, ts, anchor, wantStamp, done, k, doc: theDoc };
+    pending = { msg, docHash, ts, anchor, wantStamp, done, k, doc: theDoc, pubOpt };
     if (key.offline) {
       if (version === 2) { askSigner(); return; }        // continues when the signer answers
       showCode(); return;                                  // continues in "Finish stamping"
     }
     const sig = await DHS.schnorrSign(msg.m, sk, crypto.getRandomValues(new Uint8Array(32)));
-    sk.fill(0); sk = null;
+    if (pubOpt.record) pending.sk = sk; else sk.fill(0);    // v21: kept until the record is signed, then wiped
+    sk = null;
     await finishSeal(await DHS.assemble(key.pub, msg, sig));
   } catch (e) {
     if (sk) sk.fill(0);
+    if (pending && pending.sk) { pending.sk.fill(0); pending.sk = null; }
     if (e.noAnswer && bitcoinOff("The Bitcoin block sites did not answer, so there seems to be no internet connection.")) {
       hide($("sealSteps")); show($("sealMsg"), "warn", "Nothing was stamped yet. Tap Stamp again to stamp without the Bitcoin proofs.");
     } else { stopSteps(); show($("sealMsg"), "bad", e.message); }
@@ -1140,6 +1241,7 @@ async function askSigner() {
     if (pending !== p) return;
     const payload = await DHS.assemble(key.pub, p.msg, sig);
     $("sealSignBox").classList.add("hide");
+    p.signer = stampSigner;                                  // v21: the same signer is asked for the public record
     await finishSeal(payload, DHS.signedStamp(p.msg, sig));
   } catch (e) {
     if (pending !== p) return;
@@ -1155,7 +1257,8 @@ $("sigOther").addEventListener("click", async () => {     // the same stamp, sig
   showCode();
 });
 async function finishSeal(payload, stampEvent) {
-  const { docHash, ts, anchor, wantStamp, done, doc } = pending; let k = pending.k;
+  const p = pending, { docHash, ts, anchor, wantStamp, done, doc } = p, pubOpt = p.pubOpt || {}; let k = p.k;
+  let ownSigner = null;
   try {
     done(k++);                                             // signed
     const sealPng = await drawAndCheck(payload); done(k++);
@@ -1167,16 +1270,17 @@ async function finishSeal(payload, stampEvent) {
     const fp = await DHV.fingerprint(key.pub), npub = DHV.npubEncode(key.pub);
     const isPdf = /^%PDF/.test(new TextDecoder("latin1").decode(doc.bytes.slice(0, 5)));
     const site = $("optSite").checked;                       // v19
-    const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub, stampEvent, site }); done(k++);
+    const pdf = await buildPdf({ doc, isPdf, docHash, payload, ts, anchor, proof, sealPng, fp, npub, stampEvent, site, publish: pubOpt.blossom }); done(k++);
     const base = doc.name.replace(/\.[^.]+$/, "") || "document";
     $("sealDl").href = save(pdf, base + "_stamped.pdf", "application/pdf"); $("sealDl").download = base + "_stamped.pdf";
     $("sealImg").src = URL.createObjectURL(new Blob([sealPng], { type: "image/png" }));
-    $("overlayRow").classList.add("hide"); $("overlayImg").classList.add("hide");
-    let overlayNote = "";
+    $("overlayRow").classList.add("hide"); $("overlayImg").classList.add("hide"); $("pubResult").classList.add("hide");
+    let overlayNote = "", picFile = null;
     if (wantPicture(doc)) {                                                          // v18: a JPEG photo too, kept as JPEG
       try {
-        const pic = await buildOverlay(doc, payload, proof, stampEvent, { site, angle: +$("overlayAngle").value, clear: $("optClear").checked });   // v20
+        const pic = await buildOverlay(doc, payload, proof, stampEvent, { site, angle: +$("overlayAngle").value, clear: $("optClear").checked, publish: pubOpt.blossom });   // v20, v21
         const u = save(pic.bytes, base + "_stamped." + pic.ext, pic.type);
+        picFile = { name: base + "_stamped." + pic.ext, bytes: pic.bytes, type: pic.type, label: "the stamped picture" };
         $("overlayDl").href = u; $("overlayDl").download = base + "_stamped." + pic.ext; $("overlayRow").classList.remove("hide");
         $("overlayImg").src = u; $("overlayImg").classList.remove("hide");
         if (pic.note) overlayNote = pic.note;                                           // v19: shown as a warning
@@ -1189,11 +1293,33 @@ async function finishSeal(payload, stampEvent) {
       const d = document.createElement("div"); d.innerHTML = "<b></b> <span></span>"; d.firstChild.textContent = b; d.lastChild.textContent = t; $("sealInfo").appendChild(d);
     }
     $("sealResult").classList.remove("hide");
-    show($("sealMsg"), stampNote || overlayNote ? "warn" : "ok", "Stamped." + stampNote + overlayNote
+    // v21: the public record, and the public copies on Blossom, if asked. The stamp is done whatever happens here,
+    // and its downloads are shown first.
+    let pubNote = "";
+    if (pubOpt.record) {
+      let res;
+      try {
+        let signer = p.signer || null;
+        if (!p.sk && !signer) signer = ownSigner = DHN.signerFor(key.signer, null, url => authLink($("sealMsg"), url));
+        const files = pubOpt.blossom ? [{ name: base + "_stamped.pdf", bytes: pdf, type: "application/pdf", label: "the stamped PDF" }, ...(picFile ? [picFile] : [])] : [];
+        res = await publishNow({ payload, docHash, files, blossom: pubOpt.blossom, sk: p.sk, signer, msgEl: $("sealMsg"),
+                                 onRecord: () => { if (pubOpt.blossom) done(k++); } });
+        if (pubOpt.blossom && !res.copies.some(c => c.servers.length)) pubNote = " No public copy was uploaded (see below).";
+        if (!res.record.saved.length) pubNote += " The public record was not saved by any relay (see below).";
+      } catch (e) { res = { error: e.message }; pubNote = " It was not published: " + e.message; }
+      if (res.error) stopSteps(); else done(k++);
+      renderPublished($("pubResult"), res);
+    }
+    show($("sealMsg"), stampNote || overlayNote || pubNote ? "warn" : "ok", "Stamped." + stampNote + overlayNote + pubNote
       + (rekeyed ? " Your key file was also re-encrypted with a stronger method: save it again in step 1." : ""));
     rekeyed = false;
   } catch (e) { stopSteps(); show($("sealMsg"), "bad", e.message); }
-  pending = null; $("doSeal").disabled = false;
+  finally {
+    if (p.sk) { p.sk.fill(0); p.sk = null; }                // v21: the key is wiped once the record is signed
+    if (ownSigner) ownSigner.close();
+  }
+  if (pending === p) pending = null;
+  $("doSeal").disabled = false;
 }
 
 // ---------------- v12: readable pages for a text file or a picture ----------------
@@ -1371,11 +1497,12 @@ function pngInside(b) {                                   // {files: [{name, byt
   }
   return { files, text };
 }
-function withInside(pngBytes, payload, files) {           // the picture's own chunks, then ours, then IEND
+// texts: more [key, value] pairs (v21: DigiHanPublish, a file being made public)
+function withInside(pngBytes, payload, files, texts = []) {           // the picture's own chunks, then ours, then IEND
   const cs = pngChunks(pngBytes).filter(c => c.type !== "dhFl" && !(c.type === "tEXt" && /^DigiHan/.test(new TextDecoder("latin1").decode(c.data.slice(0, 14)))));
   const end = cs.findIndex(c => c.type === "IEND");
   const ours = [textChunk("DigiHanPayload", DHV.hex(payload)), textChunk("DigiHanFormat", "DigiHan format v0.5, picture with the seal in a corner, doc tier 1 (byte-exact)"),
-                ...files.map(f => fileChunk(f.name, f.bytes))];
+                ...texts.map(([k, v]) => textChunk(k, v)), ...files.map(f => fileChunk(f.name, f.bytes))];
   return pngBuild([...cs.slice(0, end), ...ours, ...cs.slice(end)]);
 }
 // ---------------- release 0.6.3: JPEG pictures ----------------
@@ -1485,14 +1612,14 @@ function jpegInside(b) {                                  // {files: [{name, byt
   }
   return { files, text };
 }
-function jpegWith(b, payload, files) {                    // the picture's own segments, ours after its leading APP segments
+function jpegWith(b, payload, files, texts = []) {        // the picture's own segments, ours after its leading APP segments
   const segs = jpegSegments(b), sos = segs[segs.length - 1];
   if (!sos || sos.m !== 0xda) throw new Error("This JPEG file is damaged.");
   const kept = segs.slice(0, -1).filter(s => !isOurSeg(b, s));
   let lead = 0; while (lead < kept.length && kept[lead].m >= 0xe0 && kept[lead].m <= 0xef) lead++;
   const text = (k, v) => jpegSeg(1, new Uint8Array(0), enc.encode(k + "\0" + v));
   const ours = [text("DigiHanPayload", DHV.hex(payload)), text("DigiHanFormat", "DigiHan format v0.5, picture with the seal in a corner (JPEG), doc tier 1 (byte-exact)"),
-                ...files.flatMap((f, n) => jpegFileSegs(n, f.name, f.bytes))];
+                ...texts.map(([k, v]) => text(k, v)), ...files.flatMap((f, n) => jpegFileSegs(n, f.name, f.bytes))];
   const seg = s => b.subarray(s.at, s.at + s.len);
   const parts = [b.subarray(0, 2), ...kept.slice(0, lead).map(seg), ...ours, ...kept.slice(lead).map(seg), b.subarray(sos.at)];
   const out = new Uint8Array(parts.reduce((t, p) => t + p.length, 0)); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
@@ -1504,7 +1631,7 @@ const OVERLAY_PLATE = 1.2;                                 // v11: the white dis
 const SCAN_MAXDIM = 1400, MIN_READ_PX = 300;              // the scanner shrinks a picture to 1400 px; the seal must stay readable after that
 const JPEG_QUALITY = 0.92;                                 // 0.6.3: a stamped JPEG picture; the seal is read back after this compression
 // a stamped picture in the original's own format (PNG or JPEG, release 0.6.3): {bytes, ext, type}
-// v20: opts = {site, angle, clear}: the website under the seal; the seal turned by angle degrees (-15 to +15,
+// v20: opts = {site, angle, clear, publish (v21)}: the website under the seal; the seal turned by angle degrees (-15 to +15,
 // + is clockwise); clear: no white disc and no paper behind the seal (a transparent background). The page
 // reads the seal back as the scanner would (in grey, then by the ink's colour) before offering the picture;
 // what does not read is given up in this order, with a note: the transparent background, then the website.
@@ -1550,7 +1677,8 @@ async function buildOverlay(doc, payload, proof, stampEvent, opts) {
     const files = [{ name: doc.name, bytes: doc.bytes }, { name: "digihan-registration.json", bytes: enc.encode(JSON.stringify(key.reg)) },
                    { name: "digihan-center.png", bytes: key.png }, ...(proof ? [{ name: "seal.ots", bytes: proof }] : []),
                    ...(stampEvent ? [{ name: "digihan-stamp.json", bytes: enc.encode(JSON.stringify(stampEvent)) }] : [])];
-    return { bytes: jpeg ? jpegWith(out, payload, files) : withInside(out, payload, files), ext: jpeg ? "jpg" : "png", type, note: "" };
+    const texts = opts.publish ? [["DigiHanPublish", "blossom"]] : [];                // v21: this file is being made public
+    return { bytes: jpeg ? jpegWith(out, payload, files, texts) : withInside(out, payload, files, texts), ext: jpeg ? "jpg" : "png", type, note: "" };
   }
   // v20: a transparent seal that did not read on this picture: a frosted disc behind it (white, partly
   // see-through), then the white disc
@@ -1620,18 +1748,59 @@ async function finishPicture(f, b, msg) {                  // a stamped picture,
   const r = await proofFor(payload, anchored, old && old.bytes, msg); if (!r) return;
   if (r.already) return show(msg, "ok", "This stamped picture's time proof is already finished. " + r.line);
   const keep = [...files.filter(x => x !== old), { name: "seal.ots", bytes: r.proof }];
-  const out = jpeg ? jpegWith(b, payload, keep) : withInside(b, payload, keep);
+  const texts = text.DigiHanPublish ? [["DigiHanPublish", text.DigiHanPublish]] : [];      // v21: still a file being made public
+  const out = jpeg ? jpegWith(b, payload, keep, texts) : withInside(b, payload, keep, texts);
   const base = f.name.replace(/\.(png|jpe?g)$/i, "").replace(/_(stamped|finished|timestamped)$/, "");
   const name = base + (r.started ? "_stamped" : "_finished") + ext;
   $("finishDl").href = save(out, name, jpeg ? "image/jpeg" : "image/png"); $("finishDl").download = name;
   $("finishDl").textContent = r.started ? "Download the stamped picture with the proof started" : "Download the finished stamped picture";
   $("finishDlRow").classList.remove("hide");
   show(msg, "ok", r.started ? "The timestamp proof is started. Come back in a few hours and pick the new stamped picture here to finish it." : "Finished. " + r.line);
+  if (!r.started && text.DigiHanPublish === "blossom") {                                    // v21
+    const orig = files.find(x => !/^digihan-/.test(x.name) && x.name !== "seal.ots" && !DHO.isProof(x.bytes));
+    await offerPublish({ payload, file: { name, bytes: out, type: jpeg ? "image/jpeg" : "image/png", label: "the finished stamped picture" },
+                         docHash: orig ? await DHV.sha256(orig.bytes) : null });
+  }
 }
+
+// ---------------- v21: step 3 for a file that was made public: the finished file goes on Blossom too ----------------
+// The stamped file says so itself (DigiHanPublish), so no relay is needed to know. The record is published
+// again with the finished copy listed first; the copies it named before stay in it.
+let finishPending = null;
+async function offerPublish(o) {
+  finishPending = null; $("finishPub").classList.remove("hide"); hide($("finishPubMsg"));
+  $("finishPubResult").classList.add("hide"); $("finishPubRow").classList.add("hide"); $("finishPwField").classList.add("hide");
+  const fp = DHV.hex(o.payload.slice(1, 9)), mine = !!key && (await DHV.fingerprint(key.pub)) === fp;
+  const lead = "This file was put on Blossom when it was stamped. ";
+  if (!mine) return $("finishPubText").textContent = lead + "To put the finished file there too, pick the seal it was stamped with in step 1 (key id "
+    + fp.replace(/(.{4})(?=.)/g, "$1 ") + "), then pick the file here again.";
+  if (key.offline && !key.signer) return $("finishPubText").textContent = lead + "This seal signs by code, one code at a time, so the finished file cannot be published from this page.";
+  $("finishPubText").textContent = lead + "The finished file carries the time proof, so it goes there too, and the public record is updated to name it. "
+    + (key.offline ? "Your signer app is asked to approve the upload and the record." : "Your key password is needed to sign the upload and the record.");
+  $("finishPwField").classList.toggle("hide", !!key.offline); $("finishPubRow").classList.remove("hide"); $("finishPubGo").disabled = false;
+  finishPending = o;
+}
+$("finishPubGo").addEventListener("click", async () => {
+  const o = finishPending; if (!o || !key) return;
+  const m = $("finishPubMsg"); let sk = null, signer = null;
+  $("finishPubGo").disabled = true;
+  try {
+    if (!key.offline) { show(m, "", "Opening your key…"); sk = await DHS.unlockKey(key.kf, $("finishPw").value); $("finishPw").value = ""; }
+    else signer = DHN.signerFor(key.signer, null, url => authLink(m, url));
+    show(m, "", "Looking for this stamp's public record…");
+    const old = await DHP.existingRecord(RELAYS, key.kf.pubkey, o.payload);
+    const docHash = o.docHash || (old && old.x);
+    if (!docHash) throw new Error("The original inside this file could not be found, and no public record names it.");
+    const res = await publishNow({ payload: o.payload, docHash, files: [o.file], blossom: true, keep: old ? old.copies : [], after: old ? old.at : 0, sk, signer, msgEl: m });
+    hide(m); renderPublished($("finishPubResult"), res);
+    $("finishPubRow").classList.add("hide"); $("finishPwField").classList.add("hide"); finishPending = null;
+  } catch (e) { show(m, "bad", e.message); $("finishPubGo").disabled = false; }
+  finally { if (sk) sk.fill(0); if (signer) signer.close(); }
+});
 $("pickFinish").addEventListener("click", () => $("finishIn").click());
 $("finishIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
-  const msg = $("finishMsg"); $("finishDlRow").classList.add("hide");
+  const msg = $("finishMsg"); $("finishDlRow").classList.add("hide"); $("finishPub").classList.add("hide"); finishPending = null;
   show(msg, "", "Reading " + f.name + "…");
   try {
     const { PDFDocument, PDFName } = PDFLib;
@@ -1656,6 +1825,11 @@ $("finishIn").addEventListener("change", async ev => {
     $("finishDl").textContent = started ? "Download the PDF with the proof started" : "Download the finished PDF";
     $("finishDlRow").classList.remove("hide");
     show(msg, "ok", started ? "The timestamp proof is started. Come back in a few hours and pick the new PDF here to finish it." : "Finished. " + line);
+    const mark = info.lookup(PDFName.of("DigiHanPublish"));                                 // v21: a PDF being made public
+    if (!started && mark && typeof mark.decodeText === "function" && mark.decodeText() === "blossom") {
+      const sf = info.lookup(PDFName.of("DigiHanSealedFile")), orig = sf ? list.find(a => a.name === sf.decodeText()) : null;
+      await offerPublish({ payload, file: { name, bytes, type: "application/pdf", label: "the finished PDF" }, docHash: orig ? await DHV.sha256(orig.bytes) : null });
+    }
   } catch (e) { show(msg, "bad", e.message); }
 });
 

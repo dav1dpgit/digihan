@@ -38,6 +38,7 @@ Nostr stamp event, which any Nostr signer app can sign.
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
 | Stamping page: make a seal and stamp any file in a browser (a PNG or JPEG picture also gets a copy with the seal in a corner), bookended; finish the proof later | |
 | Keys kept elsewhere: a Nostr signer (browser extension or app browser, NIP-07; bunker link or nostrconnect, NIP-46), a second device by QR code, or `sign_hash.py` | |
+| Optional, off by default: a public record of a stamp on Nostr, and a public copy of the stamped file on Blossom servers; the scanner finds them from a seal alone, or from the original | |
 
 ## Check a seal on a phone
 
@@ -47,6 +48,9 @@ Nostr stamp event, which any Nostr signer app can sign.
 3. It needs the document, because the signature covers the document. For the sample seals the documents
    are published. For anything else, tap **Check against a document…** and pick the file. It is hashed on
    the phone and not uploaded. A stamped PDF works too: the scanner finds the original attached inside it.
+   If the signer made the stamp public, the scanner finds its public record on Nostr and downloads the public
+   copy of the stamped file from a Blossom server, so the seal alone (on paper, say) is enough. A file with no
+   seal in it can be looked up by its SHA-256 with **Look up a public record for this file**.
 4. The answer is **Signature valid**, **Signature does NOT match**, or what is still missing. The
    *time proof* line shows the proven window, if the seal has one. A stamped PDF carries the signer's
    registration record and its time proof inside, so picking it is all the phone needs; a separate
@@ -54,7 +58,8 @@ Nostr stamp event, which any Nostr signer app can sign.
 
 ## Stamp a document in a browser
 
-[digihan.org/seal](https://digihan.org/seal) (`web/sealer/`) does everything on the device: nothing is uploaded.
+[digihan.org/seal](https://digihan.org/seal) (`web/sealer/`) does everything on the device: nothing is uploaded
+unless you tick the two publishing boxes in step 2.
 
 1. **Your seal.** Type up to four characters for the center, or pick an image, and choose a password. The
    page makes your key, signs a registration record for your artwork, and keeps the key file on the
@@ -74,8 +79,15 @@ Nostr stamp event, which any Nostr signer app can sign.
    must agree), signs, draws the seal and reads it back, starts the OpenTimestamps proof, and gives you a
    PDF: a cover page with the seal, then the document's own pages if it is a PDF, with the file attached
    unchanged, the registration record, the artwork and the pending proof.
+   **Optional, off for each document:** "Publish a public record of this stamped file on Nostr" (this key
+   stamped a file with this hash, and when), and under it "Also put a public copy of the stamped file on
+   Blossom" (the stamped PDF and stamped picture, uploaded to blossom.primal.net, blossom.band and your own
+   server if you give one; the record names where they went). A stamped file carries the original, so a
+   public copy makes the original public. A photo that carries the place it was taken gets a warning first.
 3. **Finish the time proof.** A few hours later, pick that PDF again. The page fetches the Bitcoin part of
-   the proof and gives you the finished PDF: "Sometime between and including Block A and Block B".
+   the proof and gives you the finished PDF: "Sometime between and including Block A and Block B". If the
+   file was put on Blossom, the page puts the finished file there too and publishes the record again with it
+   first (it asks for the password, or the signer, to sign them).
 
 The scanner and `verify_pdf.py` check these PDFs with nothing else needed. `sign_pdf.py --key` also takes
 a key file saved from the page.

@@ -97,6 +97,19 @@ checks the signature over its id.
 
 A client looking for registrations MUST ignore events whose `d` tag starts with `digihan-stamp:`.
 
+## Public stamp record (optional)
+
+A signer MAY make a stamp public with a third kind-`30078` event, the **public record**, defined in
+[SPEC.md](../SPEC.md), section 13. Its `d` tag is `digihan-record:<SHA-256 of the 78-byte payload>`, and it
+carries `x` (the original's SHA-256), `payload` (the ring's 78 bytes in hex), `copy` tags for copies of the
+stamped file on Blossom servers (the file's SHA-256, its type, its size, then the servers), and `alt`. It has
+no `f` tag, so the registration lookup below never pages through a signer's records. A reader finds it from a
+scanned seal with `{"kinds": [30078], "authors": ["<pubkey>"]}`, or by its `d` tag, and from an original with
+`{"kinds": [30078], "#x": ["<SHA-256>"]}`. The signer's Blossom server list (kind 10063, BUD-03) is published
+only if the key has none.
+
+A client looking for registrations MUST ignore events whose `d` tag starts with `digihan-record:`.
+
 ## Finding the key for a scanned seal
 
 1. Read the ring and take the key id (payload bytes 1-8, as 16 hex characters).
@@ -124,7 +137,8 @@ same query finds it.
   by checking the seal's signature.
 * **Deleting a record.** A deletion request (NIP-09) for a registration would stop old seals from
   verifying where relays honor it. Signers SHOULD NOT delete a record while seals made under it are in use.
-* **Privacy.** A query by key id tells relays which seal is being checked.
+* **Privacy.** A query by key id tells relays which signer's seal is being checked; a query for a public
+  record by its `d` tag tells them which seal, and by `x`, which file.
 
 ## Open questions
 

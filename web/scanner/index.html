@@ -48,6 +48,7 @@ body { font:15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; color:var(-
   color:#fff; font:600 14px/1 inherit; border-radius:11px; padding:14px;
   cursor:pointer; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 }
+a.scan-btn { display:block; box-sizing:border-box; text-align:center; text-decoration:none; }   /* v28: the public copy */
 .scan-ctlrow { display:flex; gap:10px; align-items:center; }
 .scan-ctlrow .scan-btn { width:auto; flex:1; }
 .photo-btn {
@@ -120,11 +121,12 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v27 · release <span id="relCode">0.6.5</span> · format v0.5</div>
+    <div class="v">scanner v28 · release <span id="relCode">0.7.0</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
     <div class="scan-status" id="status"></div>
+    <button class="scan-btn hide" id="lookupBtn">Look up a public record for this file</button>
     <div class="scan-ctlrow">
       <button class="photo-btn" id="photoBtn" aria-label="Read a seal from a photo, a stamped PDF or a stamped picture">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -164,6 +166,7 @@ input[type=file] { display:none; }
       <div class="k">frames</div><div class="v" id="r_frames"></div>
       <div class="k">read from</div><div class="v" id="r_src"></div>
     </div>
+    <a class="scan-btn hide" id="copyBtn" target="_blank" rel="noopener">Open the public copy</a>
     <button class="scan-btn" id="docBtn">Check against a document…</button>
     <button class="scan-btn" id="keyBtn">Add a signer's key…</button>
     <div class="keybox hide" id="keyBox">
@@ -198,7 +201,7 @@ function say(t) { statusEl.textContent = t; }
 // v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
 // for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
 // The reader before release 0.6.2 has no DECODER_RELEASE.
-const RELEASE = "0.6.5";
+const RELEASE = "0.7.0";
 if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
   $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
@@ -239,6 +242,8 @@ async function showResult(r, inside, src) {
   $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
   $("r_proof").textContent = "—";
   if (inside) await useInside(current, inside.list, inside.from);   // v17: a stamped picture carries its files
+  if (src && src.docs) current.docs.push(...src.docs);              // v28: a file looked up by its hash (its public record)
+  if (src && src.record) { current.record = src.record; current.recordTried = true; showCopyLink(current, src.record); }
   if (src && src.mismatch) {                                        // v19: the drawn seal and the file's seal data differ
     verdict("bad", "The drawn seal and the file's seal data differ", src.mismatch);
     return;
@@ -405,7 +410,9 @@ async function registry() {
   catch (e) { registryCache = {}; }
   return registryCache;
 }
+// v28: any filter (a key id alone means the key's registration: kind 30078 with that "f" tag)
 function queryRelays(fp, ms) {
+  const filter = typeof fp === "string" ? { kinds: [30078], "#f": [fp], limit: 20 } : fp;
   return new Promise(resolve => {
     const found = new Map(), socks = []; let left = RELAYS.length, over = false;
     const finish = () => { if (over) return; over = true; socks.forEach(w => { try { w.close(); } catch (e) {} }); resolve([...found.values()]); };
@@ -416,7 +423,7 @@ function queryRelays(fp, ms) {
       try { ws = new WebSocket(url); } catch (e) { end(); continue; }
       socks.push(ws);
       const sub = "dh" + Math.random().toString(36).slice(2, 9);
-      ws.onopen = () => ws.send(JSON.stringify(["REQ", sub, { kinds: [30078], "#f": [fp], limit: 20 }]));
+      ws.onopen = () => ws.send(JSON.stringify(["REQ", sub, filter]));
       ws.onmessage = m => {
         try { const d = JSON.parse(m.data);
           if (d[0] === "EVENT" && d[1] === sub && d[2]) found.set(d[2].id, { ev: d[2], relay: url });
@@ -442,7 +449,7 @@ async function findKeys(fp, extra) {
     const evs = await queryRelays(fp);
     const byKey = new Map();
     for (const { ev, relay } of evs) {
-      if (ev.kind !== 30078 || DHV.tag(ev, "f") !== fp || DHV.isStampEvent(ev) || !(await DHV.eventValid(ev))) continue;
+      if (ev.kind !== 30078 || DHV.tag(ev, "f") !== fp || DHV.isStampEvent(ev) || DHV.isRecord(ev) || !(await DHV.eventValid(ev))) continue;
       const pub = DHV.unhex(ev.pubkey); if (await DHV.fingerprint(pub) !== fp) continue;
       if (!byKey.has(ev.pubkey)) byKey.set(ev.pubkey, { pub, regs: [], docs: [], source: "Nostr (" + relay.replace("wss://", "") + ")", image: null });
       const k = byKey.get(ev.pubkey); k.regs.push(ev); if (!k.image && DHV.tag(ev, "image")) k.image = DHV.tag(ev, "image");
@@ -497,6 +504,11 @@ async function runCheck() {
   if (c.keys === null) { const ks = await findKeys(c.fp, c.extraKeys); if (c.keys === null) c.keys = ks; }
   for (const k of c.extraKeys) if (!c.keys.some(x => DHV.hex(x.pub) === DHV.hex(k.pub))) c.keys.unshift(k);
   if (c !== current) return;
+  if (!c.keys.length && !c.docs.length && !c.picks.length && !c.recordTried) {   // v28: no key here: the seal's public record, by its d tag
+    c.recordTried = true;
+    if (await fromRecord(c)) { if (c === current) { c.keys = null; runCheck(); } return; }
+    if (c !== current) return;
+  }
   if (!c.keys.length) {
     if (c.docs.length || c.picks.length) {   // v21: a file was loaded, but it does not carry the signer's key (an original, for example)
       $("r_doc").textContent = (c.picks.length ? c.picks.map(x => x.name) : c.docs.map(d => d.name)).join(", ");   // v22: show at once that the file was loaded
@@ -530,6 +542,24 @@ async function runCheck() {
   }
   const docs = [...c.docs];
   for (const k of c.keys) for (const d of k.docs || []) docs.push({ name: d.name, sha: DHV.unhex(d.sha256), url: d.url });
+  if (!docs.length && !c.recordTried) {                 // v28: the seal's public record, and its public copy, if there is one
+    c.recordTried = true;
+    if (await fromRecord(c)) { if (c === current) runCheck(); return; }
+    if (c !== current) return;
+  }
+  if (!docs.length && c.record) {                       // a record, but no copy could be had: its hash is checked
+    for (const k of c.keys) {
+      const r = await DHV.checkSeal(c.payload, k.pub, c.record.x, k.regs, blockHashAt);
+      if (c !== current) return;
+      if (!r.ok) continue;
+      $("r_signer").textContent = short(DHV.npubEncode(k.pub)) + " · " + k.source;
+      $("r_doc").textContent = "a file with SHA-256 " + DHV.hex(c.record.x).slice(0, 16) + "… (from its public record)";
+      verdict("next", "Seal read · public record found", "This key signed a file with SHA-256 " + DHV.hex(c.record.x).slice(0, 16) + "… and published a record of it"
+        + (c.record.copies.length ? "; its public copy could not be downloaded just now." : ".") + " That does not show which file you hold.");
+      nextStep("Load the file to check that it is the one that was stamped. It is checked on this phone; your file is not uploaded.", "Load the document…");
+      return;
+    }
+  }
   if (!docs.length) {
     verdict("next", "Seal read · signer's key found", "The signature covers the document, so the document is needed to check it.");
     nextStep("Load the original file, or the stamped PDF or picture that carries it. It is checked on this phone; your file is not uploaded.",
@@ -671,7 +701,7 @@ async function checkStampedPdf2(f, b) {
     if (!meta || DHV.hex(r.data) === DHV.hex(meta)) { drawn = r; break; }
     if (!drawn) drawn = r;
   }
-  if (!meta && !drawn) { say("no DigiHan seal found in that PDF"); return; }
+  if (!meta && !drawn) { say("no DigiHan seal found in that PDF"); offerLookup(f.name, b); return; }
   frames = 1;
   const inside = { list: await pdfAttachments(b), from: f.name };
   if (meta && drawn && DHV.hex(drawn.data) !== DHV.hex(meta))
@@ -740,7 +770,7 @@ async function addKeyFrom(c, bytes, source) {
   if (bytes[0] !== 0x7b) return false;                                   // not JSON
   let ev; try { ev = JSON.parse(new TextDecoder().decode(bytes)); } catch (e) { return false; }
   if (!ev || ev.kind !== 30078 || typeof ev.pubkey !== "string" || !(await DHV.eventValid(ev))) return false;
-  if (DHV.isStampEvent(ev)) return true;                                 // v24: the stamp event itself (digihan-stamp.json): not a key record
+  if (DHV.isStampEvent(ev) || DHV.isRecord(ev)) return true;             // v24: the stamp event itself (digihan-stamp.json): not a key record
   const pub = DHV.unhex(ev.pubkey);
   if (await DHV.fingerprint(pub) !== c.fp) return true;                  // a record, but for another key: ignored
   const k = { pub, regs: [ev], docs: [], source };
@@ -751,6 +781,107 @@ async function addKeyFrom(c, bytes, source) {
   }
   return true;
 }
+// ---------------- v28: public records and public copies (SPEC.md section 13) ----------------
+// A signer may publish a record of a stamp, and copies of the stamped file on Blossom servers. From a scanned
+// seal: the key's records are asked for by its key (the relays learn only the key, as for its registration);
+// the record is asked for by its d tag only when the key is unknown, or the relays' answer may have been cut
+// short by their limit (the relays then learn which seal). A record proves only that
+// its key published it: a downloaded copy must have the SHA-256 the record names, and its seal is checked
+// against the original inside it, as for any stamped file.
+const host = u => u.replace(/^(https|wss):\/\//, "");
+const MAX_COPY = 64 * 1024 * 1024;
+async function fetchBlob(srv, sha) {
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 45000);
+  try {
+    const r = await fetch(srv + "/" + sha, { signal: ac.signal }); if (!r.ok) return null;
+    const b = new Uint8Array(await r.arrayBuffer());
+    return b.length <= MAX_COPY && DHV.hex(await DHV.sha256(b)) === sha ? b : null;
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
+// the payload a stamped picture carries in its file (PNG tEXt, JPEG DigiHan text segment), hex, or null
+function picturePayload(b) {
+  const L = (s, e) => { let t = ""; for (let i = s; i < e; i++) t += String.fromCharCode(b[i]); return t; };
+  const KEY = "DigiHanPayload\0";
+  try {
+    if (isPng(b)) {
+      for (let i = 8; i + 12 <= b.length;) {
+        const len = ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0, type = L(i + 4, i + 8);
+        if (type === "tEXt" && L(i + 8, i + 8 + KEY.length) === KEY) return L(i + 8 + KEY.length, i + 8 + len).toLowerCase();
+        if (type === "IEND") break; i += 12 + len;
+      }
+    } else if (isJpeg(b)) {
+      for (let i = 2; i + 4 <= b.length && b[i] === 0xff;) {
+        const m = b[i + 1]; if (m === 0xff) { i++; continue; } if (m === 0x01 || (m >= 0xd0 && m <= 0xd8)) { i += 2; continue; }
+        const len = ((b[i + 2] << 8) | b[i + 3]) + 2; if (m === 0xda || len < 4 || i + len > b.length) break;
+        if (m === 0xea && L(i + 4, i + 12) === "DigiHan\0" && b[i + 12] === 1 && L(i + 13, i + 13 + KEY.length) === KEY) return L(i + 13 + KEY.length, i + len).toLowerCase();
+        i += len;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+function showCopyLink(c, rec) {
+  const cp = rec && rec.copies[0]; if (!cp) return;
+  const ext = { "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg" }[cp.type] || "";
+  const a = $("copyBtn"); a.href = cp.servers[0] + "/" + cp.sha + ext; a.removeAttribute("download");
+  a.textContent = "Open the public copy (" + host(cp.servers[0]) + ")"; a.classList.remove("hide");
+}
+// a downloaded copy: its seal data must be the ring's; then its files are used as for any stamped file
+async function useCopy(c, b, srv, cp) {
+  const pdf = /^%PDF/.test(new TextDecoder("latin1").decode(b.slice(0, 5)));
+  const seal = pdf ? pdfSealData(b) : (isPng(b) || isJpeg(b)) && picturePayload(b) ? DHV.unhex(picturePayload(b)) : null;
+  if (!seal || DHV.hex(seal) !== DHV.hex(c.payload)) return false;
+  const list = pdf ? await pdfAttachments(b) : isPng(b) ? pngInside(b) : jpegInside(b);
+  const before = c.docs.length;
+  await useInside(c, list, "the public copy on " + host(srv));
+  if (c.docs.length === before) return false;
+  const a = $("copyBtn"); a.href = URL.createObjectURL(new Blob([b], { type: cp.type || (pdf ? "application/pdf" : "application/octet-stream") }));
+  a.textContent = "Open the public copy (" + host(srv) + ")"; a.classList.remove("hide");
+  return true;
+}
+async function fromRecord(c) {
+  verdict("work", "Seal read · looking for a public record", "Asking Nostr relays whether this stamp was made public.");
+  const want = await DHV.recordD(c.payload), ph = DHV.hex(c.payload);
+  const pick = async evs => {
+    for (const { ev, relay } of evs) {
+      if (DHV.tag(ev, "d") !== want) continue;
+      const r = await DHV.readRecord(ev); if (r && DHV.hex(r.payload) === ph) return { ...r, relay };
+    }
+    return null;
+  };
+  // by the key first; by the record's own name only when the key is unknown, or its answer may have been cut short
+  const authors = (c.keys || []).map(k => DHV.hex(k.pub)), LIMIT = 500;
+  let rec = null, full = !authors.length;
+  if (authors.length) { const evs = await queryRelays({ kinds: [30078], authors, limit: LIMIT }); rec = await pick(evs); full = evs.length >= LIMIT; }
+  if (!rec && full && c === current) rec = await pick(await queryRelays({ kinds: [30078], "#d": [want], limit: 10 }));
+  if (c !== current || !rec) return false;
+  c.record = rec;
+  for (const cp of rec.copies) for (const srv of cp.servers) {
+    verdict("work", "Seal read · public record found", "Downloading the public copy from " + host(srv) + ".");
+    const b = await fetchBlob(srv, cp.sha);
+    if (c !== current) return false;
+    if (b && await useCopy(c, b, srv, cp)) return true;
+  }
+  showCopyLink(c, rec);
+  return false;
+}
+// v28: a file with no seal in it (an original, say): its public record, looked up by its SHA-256 when asked
+let lookupFile = null;
+function offerLookup(name, bytes) { lookupFile = { name, bytes }; $("lookupBtn").classList.remove("hide"); }
+$("lookupBtn").addEventListener("click", async () => {
+  const lf = lookupFile; if (!lf) return;
+  $("lookupBtn").classList.add("hide"); say("asking Nostr relays for a public record of " + lf.name + "…");
+  const sha = await DHV.sha256(lf.bytes), h = DHV.hex(sha);
+  let rec = null;
+  for (const { ev, relay } of await queryRelays({ kinds: [30078], "#x": [h], limit: 50 })) {
+    const r = await DHV.readRecord(ev); if (r && DHV.hex(r.x) === h) { rec = { ...r, relay }; break; }
+  }
+  if (lookupFile !== lf) return;
+  if (!rec) { say("no public record of " + lf.name + " was found on " + RELAYS.map(host).join(", ")); return; }
+  frames = 1;
+  showResult({ data: rec.payload, geom: null, corrected: null }, null,
+    { from: "the public record of " + lf.name + " on Nostr (" + host(rec.relay) + ")", docs: [{ name: lf.name, sha }], record: rec });
+});
 $("keyBtn").addEventListener("click", () => $("keyBox").classList.toggle("hide"));
 $("keySave").addEventListener("click", async () => {
   const t = $("keyIn").value.trim(); let entry = null;
@@ -775,6 +906,7 @@ $("stopBtn").addEventListener("click", () => {                 // Close: back to
 function resetScan() {
   current = null; frames = 0; sheet.classList.remove("up"); say("");
   $("keyBox").classList.add("hide"); $("r_next").classList.add("hide"); $("r_artbox").classList.add("hide");
+  $("copyBtn").classList.add("hide"); $("lookupBtn").classList.add("hide"); lookupFile = null;   // v28
   for (const id of ["r_verdict", "r_why", "r_digest", "r_signer", "r_doc", "r_ts", "r_proof", "r_fp", "r_geom", "r_ver", "r_sig", "r_corr", "r_frames"]) $(id).textContent = "";
 }
 $("againBtn").addEventListener("click", () => { resetScan(); startCamera(); });
@@ -788,10 +920,10 @@ $("photoBtn").addEventListener("click", () => { picking = Date.now(); $("fileIn"
 $("fileIn").addEventListener("change", async ev => {
   const f = ev.target.files && ev.target.files[0];
   if (!f) return;
-  say("reading photo…");
-  let inside = null;                             // v17: a stamped picture: its original and files come along
+  say("reading photo…"); $("lookupBtn").classList.add("hide"); lookupFile = null;
+  let inside = null, raw = null;                 // v17: a stamped picture: its original and files come along
   try {
-    const b = new Uint8Array(await f.arrayBuffer());
+    const b = raw = new Uint8Array(await f.arrayBuffer());
     if (/^%PDF/.test(new TextDecoder("latin1").decode(b.slice(0, 5)))) { ev.target.value = ""; return checkStampedPdf(f, b); }   // v19
     const l = isPng(b) ? pngInside(b) : isJpeg(b) ? jpegInside(b) : [];          // v26: PNG or JPEG
     if (l.length) inside = { list: l, from: f.name };
@@ -805,7 +937,7 @@ $("fileIn").addEventListener("change", async ev => {
     // colour, for a seal with a transparent background
     const r = decodePhoto(g, w, h) || decodeInk(inkGray(d, w, h), w, h);
     if (r) showResult(r, inside);
-    else say("no seal decoded in that photo — try closer or flatter");
+    else { say("no seal decoded in that photo — try closer or flatter"); if (raw) offerLookup(f.name, raw); }
     ev.target.value = "";
   };
   img.onerror = () => say("could not read that image");

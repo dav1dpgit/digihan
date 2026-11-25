@@ -129,7 +129,7 @@ const DHN = (() => {
 
   // ---- NIP-46 ----
   const SIGNER_RELAYS = ["wss://relay.nsec.app", "wss://relay.damus.io", "wss://nos.lol"];   // for nostrconnect://
-  const PERMS = "get_public_key,sign_event:30078";
+  const PERMS = "get_public_key,sign_event:30078,sign_event:24242,sign_event:10063";   // release 0.7.0: also the upload and the server list (SPEC.md 13)
   function parseBunker(text) {
     const m = /^bunker:\/\/([0-9a-fA-F]{64})(?:\?(.*))?$/.exec((text || "").trim());
     if (!m) return null;
