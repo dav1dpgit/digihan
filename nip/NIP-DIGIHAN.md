@@ -128,17 +128,22 @@ same query finds it.
 
 ## Security considerations
 
-* **What a record proves.** The key holder registered this artwork. It says nothing about who the key
-  holder is. Binding a key to a person (for example, a notary's attestation) is out of scope and may be
-  a separate NIP.
+* **What a record proves.** The holder of the private key registered this artwork for its public key. It says
+  nothing about who that is: anyone can register a copy of the same artwork for a public key of their own, and a
+  stamped file carries whatever registration its maker put in it. Clients MUST NOT name a signer from a
+  registration. They MAY name one from a public key the user saved under a name, or from a NIP-05 name in the public
+  key's profile (kind 0) that its domain confirms; a name the domain does not confirm MUST NOT be shown as the
+  signer (SPEC.md, section 14). Binding a public key to a person by other means (for example, a notary's
+  attestation) is out of scope and may be a separate NIP.
 * **Withheld records.** A relay may not return a record. Clients SHOULD ask several relays and SHOULD
   let the user add a key or record by hand.
-* **Key id collisions.** 8 bytes is enough to index, not to identify. Clients MUST confirm the full key
-  by checking the seal's signature.
+* **Key id collisions.** 8 bytes is enough to index, not to identify. Clients MUST confirm the full public key
+  by checking the seal's signature, and SHOULD show the full public key wherever the signer is not known.
 * **Deleting a record.** A deletion request (NIP-09) for a registration would stop old seals from
   verifying where relays honor it. Signers SHOULD NOT delete a record while seals made under it are in use.
 * **Privacy.** A query by key id tells relays which signer's seal is being checked; a query for a public
-  record by its `d` tag tells them which seal, and by `x`, which file.
+  record by its `d` tag tells them which seal, and by `x`, which file. Confirming a name asks the relays for the
+  public key's profile and tells the name's domain that someone is checking that name.
 
 ## Open questions
 

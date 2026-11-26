@@ -3,7 +3,8 @@
 Status: **frozen**. Payload versions 1 and 2. v0.5 adds payload version 2, the **stamp event** (section
 6.2): the same ring, with the signature made over a Nostr event, so any Nostr signer app can make it.
 Every v0.4 seal is a valid v0.5 seal. v0.4 added time proofs (section 11) to v0.3. Section 13 (2026-11-25) adds optional
-public records and public copies; it changes nothing in the ring. This document is placed in the public domain (CC0 1.0);
+public records and public copies; section 14 (2026-11-26) says how a reader shows who signed, with an optional name
+confirmed by the signer's own domain. Neither changes anything in the ring. This document is placed in the public domain (CC0 1.0);
 anyone may implement it without asking. The reference code in this repository is Apache-2.0.
 
 A DigiHan seal is a round (or square) printed or on-screen mark. Its outer ring of dots carries a
@@ -17,11 +18,13 @@ Keywords MUST, SHOULD and MAY are used as in RFC 2119.
 
 A seal that verifies proves three things:
 
-1. the holder of the key with the stated fingerprint signed it;
+1. the holder of the private key of the public key with the stated fingerprint signed it;
 2. the document's bytes are exactly the bytes that were signed (one changed byte fails);
 3. the time in the seal cannot be changed afterward.
 
-It does **not** prove who holds the key. On its own the time
+It does **not** prove who holds the private key. A public key found inside a stamped file, on relays or in a
+public record was put there by whoever made the seal: anyone can make a seal with the same artwork and a key pair of
+their own. Section 14 says what a reader may show as the signer. On its own the time
 is the signer's statement. Two time proofs (section 11) prove a window instead: an **anchored** seal was
 made no earlier than a given Bitcoin block, and an **OpenTimestamps proof** shows it existed no later
 than a given block.
@@ -196,8 +199,10 @@ stored or published.
 7. Build `m` (section 6.1 for version 1; for version 2, the stamp event's id, section 6.2, which needs
    block A's header time for an anchored seal) and check the BIP340 signature with the public key.
 8. If an OpenTimestamps proof for this seal is available, check it (section 11.2).
-9. If valid, show the reader: the key; the time (the signer's statement, or the proven window); and, if
-   committed, the registered artwork beside the scanned seal so a person can compare them.
+9. If valid, show the reader: the public key, and who signed only as section 14 allows; the time (the signer's
+   statement, or the proven window); and, if committed, the registered artwork beside the scanned seal so a person
+   can compare them. A matching artwork shows that the center was not swapped onto this ring; it does not show who
+   signed, since anyone can register a copy of any artwork.
 
 A verifier MUST present the document it checked (for a PDF, the attached original), never a different
 rendering of it. This defeats files that look different in different viewers.
@@ -270,7 +275,9 @@ flags and the time proofs are unchanged; version 1 seals are unchanged. Clarifie
 the outermost ring, and a ring drawn in the center artwork is artwork (section 8, step 1); the format is
 unchanged. Added 2026-11-24: the stamped JPEG picture (section 9); the ring and payload are unchanged. Added 2026-11-25: public records and public
 copies (section 13, optional) and the note on location in a photo (section 9); the ring, payload and
-signatures are unchanged.
+signatures are unchanged. Added 2026-11-26: who signed (section 14): a reader names a signer only from a public
+key the user saved, a list the reader trusts, or a NIP-05 name its domain confirms; a public key that came with
+the seal is shown as unknown (also section 1 and section 8, step 9). The format is unchanged.
 
 **v0.4 (from v0.3).** Flag bit 0 defined: anchored seals, "made no earlier than block A" (section 11.1).
 OpenTimestamps proofs over the payload, "existed no later than block B" (section 11.2). Block data from a
@@ -403,3 +410,38 @@ content    "DigiHan stamp. Document SHA-256: " + hex(doc_hash) + "."
   its seal data must be the ring's payload, and the seal is checked against the original inside it.
 * With no copy to download, a record still lets a reader check the signature against the record's `x` hash.
   That shows the key signed a file with that hash; it does not show which file the reader holds.
+
+## 14. Who signed (reader rule; optional name)
+
+A valid signature (section 8) shows only that the private key of a given public key signed the document. Where
+that public key came from decides what a reader may say about the signer.
+
+### 14.1 What a reader shows
+
+* A reader MUST NOT present a public key as known, or name a signer, because the public key came with the seal:
+  from a registration carried inside the stamped file (section 9), a registration file, a relay (section 7) or a
+  public record (section 13). Whoever made the seal put it there.
+* A reader MAY present the signer as known only when the public key is one of:
+  1. a public key the reader's user saved, under a name the user gave it;
+  2. a public key on a list the reader itself trusts (the reference scanner: the sample seals listed on digihan.org);
+  3. a public key whose name is confirmed by its domain (14.2).
+* Otherwise a reader SHOULD say that the signature is valid and that the signer is unknown, show the full public key
+  (`npub`) so it can be checked with the signer, and offer to save it under a name.
+
+### 14.2 The signer's name (optional)
+
+* The name is a NIP-05 identifier (`name@domain`; `_@domain` is shown as `domain`) in the public key's Nostr
+  profile: the newest valid kind 0 event of that public key, field `nip05` of its content.
+* The name counts only when `https://<domain>/.well-known/nostr.json?name=<name>` answers with JSON whose
+  `names.<name>` is the public key (hex, compared in lower case). The reader MUST NOT follow a redirect (NIP-05). A
+  domain that cannot be asked (no answer, a redirect, or a browser not allowed to read it because the file is sent
+  without `Access-Control-Allow-Origin: *`) confirms nothing, and the signer stays unknown.
+* A name the domain answers against (it lists another public key under the name, does not list the name, or has no
+  file) is false: a reader MUST NOT show it as the signer, and SHOULD warn that the name is not confirmed.
+* The name is not in the ring, the payload or any registration. A signer can add or change it at any time, and it
+  applies to every seal made with the private key.
+* Asking for the profile sends the public key to the relays; asking the domain tells the domain that someone is
+  checking that name.
+* A client that publishes the profile for the signer SHOULD keep every other field of an existing profile (kind 0
+  is replaceable), and SHOULD publish nothing when no relay answered the request for the existing profile.
+

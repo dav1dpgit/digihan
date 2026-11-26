@@ -38,7 +38,7 @@ const h = DHV.hex, u = DHV.unhex;
   await assert.rejects(DHN.checkSigned(msg.event, await signWith({ ...msg.event, tags: [...msg.event.tags, ["client", "x"]] }, sk), h(pub)), /changed the record/); n++;
   await assert.rejects(DHN.checkSigned(msg.event, await signWith({ ...msg.event, created_at: msg.event.created_at + 1 }, sk), h(pub)), /changed the record/); n++;
   const other = DHS.newSecret();
-  await assert.rejects(DHN.checkSigned(msg.event, await signWith({ ...msg.event, pubkey: h(DHS.pubFromSecret(other)) }, other), h(pub)), /different key/); n++;
+  await assert.rejects(DHN.checkSigned(msg.event, await signWith({ ...msg.event, pubkey: h(DHS.pubFromSecret(other)) }, other), h(pub)), /different public key/); n++;
   await assert.rejects(DHN.checkSigned(msg.event, { ...good, sig: "00".repeat(64) }, h(pub)), /does not check/); n++;
   console.log(`nostrsign.test.js: ${n} checks passed`);
 })().catch(e => { console.error("FAIL", e); process.exit(1); });

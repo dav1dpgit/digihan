@@ -111,7 +111,7 @@ const DHN = (() => {
   async function checkSigned(asked, got, pubHex) {
     if (typeof got === "string") { try { got = JSON.parse(got); } catch (e) { throw new Error("Your signer's answer is not an event."); } }
     if (!got || typeof got.sig !== "string") throw new Error("Your signer did not return a signature.");
-    if (got.pubkey !== pubHex) throw new Error("Your signer signed with a different key than this seal's key.");
+    if (got.pubkey !== pubHex) throw new Error("Your signer signed with the private key of a different public key than this seal's.");
     const same = got.created_at === asked.created_at && got.kind === asked.kind && got.content === asked.content
       && JSON.stringify(got.tags) === JSON.stringify(asked.tags);
     if (!same) throw new Error("Your signer changed the record before signing it (a tag, the time or the text), so the seal could not be checked. Nothing was stamped.");

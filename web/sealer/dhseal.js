@@ -6,7 +6,7 @@
 "use strict";
 
 const DHS = (() => {
-  const RELEASE = "0.7.1";        // the page compares this with its own release: an older copy of this file shows up
+  const RELEASE = "0.7.2";        // the page compares this with its own release: an older copy of this file shows up
   const { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, fingerprint } = DHV;
   const { P, N, G, mod, mul, affine, toInt, toBytes32 } = DHV.curve;
   const enc = new TextEncoder();
@@ -98,12 +98,12 @@ const DHS = (() => {
   const hasEvenY = Q => (Q[1] & 1n) === 0n;
   function pubFromSecret(sk) {
     const d = toInt(sk);
-    if (d < 1n || d >= N) throw new Error("secret key out of range");
+    if (d < 1n || d >= N) throw new Error("private key out of range");
     return toBytes32(affine(mul(G, d))[0]);
   }
   async function schnorrSign(msg, sk, aux) {
     const d0 = toInt(sk);
-    if (d0 < 1n || d0 >= N) throw new Error("secret key out of range");
+    if (d0 < 1n || d0 >= N) throw new Error("private key out of range");
     const Pt = affine(mul(G, d0)), d = hasEvenY(Pt) ? d0 : N - d0, px = toBytes32(Pt[0]);
     const t = toBytes32(d ^ toInt(await taggedHash("BIP0340/aux", aux)));
     const k0 = toInt(await taggedHash("BIP0340/nonce", cat(t, px, msg))) % N;
@@ -138,7 +138,7 @@ const DHS = (() => {
     return { m: await taggedHash("DigiHan/v1", cat(...parts)), fp, tsB, flags, version: 1 };
   }
   async function assemble(pub, msg, sig) {
-    if (sig.length !== 64 || !(await schnorrVerify(msg.m, pub, sig))) throw new Error("That signature does not match this code and key.");
+    if (sig.length !== 64 || !(await schnorrVerify(msg.m, pub, sig))) throw new Error("That signature does not match this code and this public key.");
     return cat(Uint8Array.of(((msg.version || 1) << 4) | msg.flags), msg.fp, msg.tsB, sig);
   }
   // the signed stamp event (version 2), for the stamped PDF's attachment
@@ -158,7 +158,7 @@ const DHS = (() => {
     return { ev, id };
   }
   async function finishRegistration(draft, sig) {
-    if (sig.length !== 64 || !(await schnorrVerify(draft.id, unhex(draft.ev.pubkey), sig))) throw new Error("That signature does not match this code and key.");
+    if (sig.length !== 64 || !(await schnorrVerify(draft.id, unhex(draft.ev.pubkey), sig))) throw new Error("That signature does not match this code and this public key.");
     return { ...draft.ev, sig: hex(sig) };
   }
   async function registration(sk, pub, centerPng, createdAt) {
@@ -218,7 +218,7 @@ const DHS = (() => {
   }
   async function unlockKey(kf, password) {
     if (kf.format !== "digihan-keyfile-v1" || !["argon2id", "pbkdf2-sha256"].includes(kf.kdf) || kf.cipher !== "aes-256-gcm")
-      throw new Error("This key file was made by the Python tools; this page reads key files it made itself.");
+      throw new Error("This private key file was made by the Python tools; this page reads private key files it made itself.");
     const k = kf.kdf === "argon2id"
       ? await argonKey(password, unhex(kf.salt), { memory_cost: +kf.memory_cost, time_cost: +kf.time_cost, parallelism: +kf.parallelism })
       : await aesKey(password, unhex(kf.salt), kf.iterations);
@@ -227,7 +227,7 @@ const DHS = (() => {
         k, unhex(kf.ciphertext)));
       if (hex(pubFromSecret(sk)) !== kf.pubkey) throw new Error("x");
       return sk;
-    } catch (e) { throw new Error("Wrong password for this key file."); }
+    } catch (e) { throw new Error("Wrong password for this private key file."); }
   }
 
   // an older key file, to be re-encrypted with the current method after a successful unlock

@@ -3,12 +3,13 @@
 //     SHA-256 hash, the ring's payload, and where the public copies are;
 //   public copies: the stamped PDF or stamped picture on Blossom servers (BUD-01, BUD-02, BUD-06, BUD-11);
 //   the key's Blossom server list (kind 10063, BUD-03), published only if the key has none.
-// Also hasLocation(): whether a JPEG or PNG carries the place it was taken (a warning before stamping).
+// Also hasLocation(): whether a JPEG or PNG carries the place it was taken (a warning before stamping); and
+// (release 0.7.2) the public key's Nostr profile with the signer's name (NIP-05), which scanners confirm.
 // Needs verify.js (DHV) and dhseal.js (DHS). Runs in browsers and in Node 20+ (tests).
 "use strict";
 
 const DHP = (() => {
-  const RELEASE = "0.7.1";        // the page compares this with its own release, as for dhseal.js
+  const RELEASE = "0.7.2";        // the page compares this with its own release, as for dhseal.js
   const { hex, sha256 } = DHV;
   const enc = new TextEncoder();
   const DEFAULT_SERVERS = ["https://blossom.primal.net", "https://blossom.band"];
@@ -86,6 +87,26 @@ const DHP = (() => {
     const { ev } = await newest(relays, { kinds: [30078], authors: [pubHex], "#d": [d], limit: 5 }, pubHex);
     const r = ev ? await DHV.readRecord(ev) : null;
     return r && hex(r.payload) === hex(payload) ? { ...r, at: ev.created_at } : null;
+  }
+
+  // ---- the signer's name (release 0.7.2): the public key's Nostr profile (kind 0) with a NIP-05 name ----
+  // {ev: the newest profile or null, known: whether any relay answered}
+  async function profile(relays, pubHex) {
+    const { ev, answered } = await newest(relays, { kinds: [0], authors: [pubHex], limit: 5 }, pubHex);
+    return { ev, known: answered > 0 };
+  }
+  // The profile with its NIP-05 name set to name ("dp@example.com"). Everything else in an existing profile is
+  // kept (a profile is replaceable: what is left out is lost). An existing profile that cannot be read is left
+  // alone: this throws.
+  function profileTemplate(pubHex, old, name, at) {
+    let c = {};
+    if (old) {
+      let j = null; try { j = JSON.parse(old.content); } catch (e) {}
+      if (!j || typeof j !== "object" || Array.isArray(j)) throw new Error("This public key's Nostr profile could not be read, so it was left as it is.");
+      c = j;
+    }
+    return { pubkey: pubHex, created_at: Math.max(at || now(), old ? old.created_at + 1 : 0), kind: 0,
+             tags: old && Array.isArray(old.tags) ? old.tags : [], content: JSON.stringify({ ...c, nip05: name }) };
   }
 
   // ---- Blossom ----
@@ -214,6 +235,6 @@ const DHP = (() => {
   }
 
   return { RELEASE, DEFAULT_SERVERS, server, host, recordTemplate, authTemplate, listTemplate, authHeader, b64url, query, serverList, existingRecord,
-           uploadOne, publish, hasLocation };
+           uploadOne, publish, hasLocation, profile, profileTemplate };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHP;

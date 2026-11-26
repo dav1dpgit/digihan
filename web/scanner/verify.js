@@ -113,6 +113,52 @@ const DHV = (() => {
     } catch (e) { return null; }
   }
 
+  // ---- the signer's name (release 0.7.2): optional, outside the seal ----
+  // A public key's Nostr profile (kind 0) may give a name like "dp@example.com" (NIP-05). The name counts only
+  // when that domain itself lists this public key under it, at https://example.com/.well-known/nostr.json?name=dp.
+  // The ring and the signature never carry a name: a forger can write any name into the profile of his own public
+  // key, but cannot make the domain list his public key.
+  const NAME_RE = /^([a-z0-9._-]{1,64})@((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63})$/;
+  function parseName(s) {                          // -> {local, domain, text} or null; "_@example.com" shows as "example.com"
+    if (typeof s !== "string") return null;
+    const m = s.trim().toLowerCase().match(NAME_RE); if (!m) return null;
+    return { local: m[1], domain: m[2], text: m[1] === "_" ? m[2] : m[1] + "@" + m[2] };
+  }
+  // the newest valid profile event of this public key among events (ties: the lowest id, as NIP-01), or null
+  async function newestProfile(events, pubHex) {
+    let best = null;
+    for (const ev of events || []) {
+      if (!ev || ev.kind !== 0 || ev.pubkey !== pubHex || !(await eventValid(ev))) continue;
+      if (!best || ev.created_at > best.created_at || (ev.created_at === best.created_at && ev.id < best.id)) best = ev;
+    }
+    return best;
+  }
+  function profileName(ev) {                       // the profile's NIP-05 name, as written, or null
+    try { const j = JSON.parse(ev.content); return typeof j.nip05 === "string" && j.nip05.trim() ? j.nip05.trim() : null; } catch (e) { return null; }
+  }
+  // Asks the name's domain whether it lists pubHex under the name. fetchFn is fetch (or a stand-in for tests).
+  // -> {status, name, domain}: "confirmed" (listed, this public key); "other" (the name lists a different public key);
+  // "unlisted" (the domain answered and does not list the name); "unreachable" (no answer, a redirect, or the
+  // browser was not allowed to read it: nothing is shown either way); "invalid" (not a name@domain).
+  async function checkName(name, pubHex, fetchFn, ms) {
+    const n = parseName(name); if (!n) return { status: "invalid", name: String(name || "") };
+    const out = s => ({ status: s, name: n.text, domain: n.domain });
+    const ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const t = ac ? setTimeout(() => ac.abort(), ms || 6000) : 0;
+    try {
+      // NIP-05: the answer must come from the domain itself; a redirect is not followed
+      const r = await fetchFn("https://" + n.domain + "/.well-known/nostr.json?name=" + encodeURIComponent(n.local),
+        { redirect: "error", cache: "no-store", credentials: "omit", signal: ac ? ac.signal : undefined });
+      if (r.status === 404 || r.status === 410) return out("unlisted");
+      if (!r.ok) return out("unreachable");
+      let j = null; try { j = JSON.parse(await r.text()); } catch (e) { return out("unlisted"); }   // a page, not the file
+      const v = j && j.names && typeof j.names === "object" ? j.names[n.local] : undefined;
+      if (typeof v !== "string") return out("unlisted");
+      return out(v.toLowerCase() === pubHex ? "confirmed" : "other");
+    } catch (e) { return out("unreachable"); }
+    finally { if (t) clearTimeout(t); }
+  }
+
   // ---- the seal ----
   function parse(p) {
     let ts = 0; for (let i = 9; i < 14; i++) ts = ts * 256 + p[i];
@@ -142,7 +188,7 @@ const DHV = (() => {
   async function checkSeal(payload, pub, docHash, registrations, blockHashAt) {
     const f = parse(payload);
     if ((f.version !== 1 && f.version !== 2) || (f.flags & ~5 & 0xf)) return { ok: false, reason: "Unknown seal version or reserved flag." };
-    if (await fingerprint(pub) !== f.fp) return { ok: false, reason: "This key does not match the seal's key id." };
+    if (await fingerprint(pub) !== f.fp) return { ok: false, reason: "This public key does not match the seal's public key id." };
     const fpB = payload.slice(1, 9);
     let blk = null;
     if (f.flags & 1) {
@@ -161,7 +207,7 @@ const DHV = (() => {
         const ch = tag(reg, "center_hash"); if (!ch) continue;
         if (await sigOk(ch)) return { ok: true, reg, anchored, version: f.version };
       }
-      return { ok: false, reason: (registrations || []).some(r => r.pubkey === hex(pub) && !isStampEvent(r) && !isRecord(r)) ? "The signature does not match this document." : "No valid artwork registration for this key." };
+      return { ok: false, reason: (registrations || []).some(r => r.pubkey === hex(pub) && !isStampEvent(r) && !isRecord(r)) ? "The signature does not match this document." : "No valid artwork registration for this public key." };
     }
     return (await sigOk(null)) ? { ok: true, reg: null, anchored, version: f.version } : { ok: false, reason: "The signature does not match this document." };
   }
@@ -169,6 +215,6 @@ const DHV = (() => {
   // curve: the arithmetic the sealing page's signer uses (dhseal.js); verification itself needs none of it exposed
   const curve = { P, N, G: [GX, GY, 1n], mod, mul, affine, liftX, toInt, toBytes32 };
   return { hex, unhex, sha256, taggedHash, schnorrVerify, npubEncode, npubDecode, eventId, eventValid, tag, isStampEvent, fingerprint, parse,
-           signedMessage, stampEvent, checkSeal, curve, RECORD, recordD, isRecord, readRecord };
+           signedMessage, stampEvent, checkSeal, curve, RECORD, recordD, isRecord, readRecord, parseName, newestProfile, profileName, checkName };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DHV;

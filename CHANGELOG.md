@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.7.2 (2026-11-26): who signed
+
+* A valid signature shows only that the private key of a public key signed the document. Until now the scanner
+  showed the same green "Signature valid" for any public key that passed, wherever it came from: saved on the
+  phone, the sample list, Nostr relays, or the registration carried inside the stamped file itself. The last
+  two are written by whoever made the seal, so a seal made with someone else's artwork and a private key of the
+  maker's own (re-stamping the same file, or editing a stamped file's seal and registration together) showed the
+  same green, with only the npub in small type telling them apart. Seen in the scanner's code (showValid) and
+  reproduced in a test: two seals with the same artwork on the same photo, made with two key pairs.
+* Scanner v29. Green "Signature valid" now needs a public key the phone has a reason to know: one you saved
+  on the phone under a name, a digihan.org sample seal, or a name its own domain confirms (below). Under the
+  verdict a new "Signed by" line names the signer. Any other public key gives amber "Signature valid · signer
+  unknown", the full public key (to check with the signer, letter for letter), where it was found, and "Save
+  this public key on this phone" with a name. "Add a signer's public key…" also asks for a name. A saved
+  public key can be removed from the phone from the result.
+* The signer's name (NIP-05, optional). The scanner reads the public key's Nostr profile (kind 0) and, if it
+  gives a name such as dp@example.com, asks https://example.com/.well-known/nostr.json?name=dp whether it lists
+  this public key (no redirect followed). Listed: green, signed by dp@example.com. The domain lists another
+  public key, or not the name, or has no file: red "Name NOT confirmed" (anyone can write a name into the
+  profile of their own public key; only the domain can list a public key under it). The domain cannot be
+  asked: the signer stays unknown, and the scanner says so.
+* Stamping page v23, step 1: "Your name". For a private key kept on the device: type the name and the private
+  key password, and the page publishes the public key's Nostr profile with it, keeping anything else an
+  existing profile holds (nothing is published if no relay answers, since a new profile would replace one
+  nobody could see). It shows the file your website must serve, and "Check my name" asks your domain as a
+  scanner will. For a private key in a Nostr signer, the name is set in the Nostr app's profile.
+* The artwork and digest lines say what they show: a matching artwork shows the center was not swapped onto
+  the ring, not who signed (anyone can register a copy of any artwork); the digest names the seal.
+* Wording: every "key" a reader sees on the scanner, the stamping page, How it works (v21), the front page
+  captions and the README now says "public key" or "private key" (private key file, private key password,
+  public key id).
+* SPEC.md section 14 (who signed; the format is unchanged), section 1 and section 8 step 9; the NIP draft's
+  security notes. New tests: web/sealer/name.test.js (49 checks). Offline copy v10.
+
 ## v0.7.1 (2026-11-25): step 1 stays in view when a seal is made
 
 * Stamping page v22: after "Make my seal" (and when a seal is opened, picked, erased, connected through a

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DigiHan Stamping</title>
-<meta name="description" content="Stamp a document with your DigiHan seal: your key stays on this device, the document is hashed here and uploaded only if you choose to make it public, and the seal is bookended between two Bitcoin blocks.">
+<meta name="description" content="Stamp a document with your DigiHan seal: your private key stays on this device, the document is hashed here and uploaded only if you choose to make it public, and the seal is bookended between two Bitcoin blocks.">
 <meta name="theme-color" content="#f3f4f1">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -95,6 +95,7 @@ label.field small { display: block; margin-top: 4px; color: var(--sumi-soft); }
 .kv b { color: var(--sumi); font-weight: 600; }
 .mono { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
 .copy { cursor: copy; border-bottom: 1px dotted var(--sumi-soft); }
+.name-state:not(:empty) { margin: 8px 0 4px; }   /* v23 */
 .note { font-size: 13px; color: var(--sumi-soft); margin: 8px 0 0; }
 .msg { font-size: 14px; margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: rgba(35,32,29,.04); }
 .msg.ok { color: var(--ok); background: rgba(47,125,79,.08); }
@@ -184,7 +185,7 @@ html { scrollbar-gutter: stable; }
 
 <h1>Stamp a document</h1>
 <div class="msg bad hide" id="relMsg"></div>
-<p class="lead">Your key is made and kept on this device, or stays elsewhere: in a Nostr signer app, offline, or on another device. The document is read here, and uploaded only if you tick the boxes that make it public. The seal records the time between two Bitcoin blocks.</p>
+<p class="lead">Your private key is made and kept on this device, or stays elsewhere: in a Nostr signer app, offline, or on another device. The document is read here, and uploaded only if you tick the boxes that make it public. The seal records the time between two Bitcoin blocks.</p>
 
 <!-- 1. the key -->
 <section class="card" id="keyCard">
@@ -194,15 +195,15 @@ html { scrollbar-gutter: stable; }
     <div class="seals" id="sealsList"></div>
   </div>
   <div id="noKey">
-    <p>Your seal is a key and the artwork in its center. Make one here, use a key you keep elsewhere (in a Nostr signer app, offline, or on another device), or open a key file you saved before.</p>
+    <p>Your seal is a key pair and the artwork in its center: a private key that signs, which only you hold, and its public key, which anyone can use to check what the private key signed. Make them here, use a private key you keep elsewhere (in a Nostr signer app, offline, or on another device), or open a private key file you saved before.</p>
     <label class="field">Characters for the center (up to four)
       <input type="text" id="artText" maxlength="4" value="印" autocomplete="off"></label>
     <div class="row"><button id="artImageBtn">Use an image instead…</button><span class="note" id="artImageName"></span></div>
     <div class="seal-row"><canvas id="artPreview" width="368" height="368" aria-label="preview of your seal"></canvas>
       <div class="kv">This is how your seal will look. The dots in the ring change with every document.</div></div>
-    <div class="seg" role="group" aria-label="Where your key is kept">
-      <button type="button" id="modeHere" aria-pressed="true">Make a key here</button>
-      <button type="button" id="modeOffline" aria-pressed="false">Use a key I keep elsewhere</button></div>
+    <div class="seg" role="group" aria-label="Where your private key is kept">
+      <button type="button" id="modeHere" aria-pressed="true">Make my key pair here</button>
+      <button type="button" id="modeOffline" aria-pressed="false">Use a private key I keep elsewhere</button></div>
     <div class="modes">
     <div id="hereFields">
       <label class="field">Choose a password (10 or more characters)
@@ -210,23 +211,23 @@ html { scrollbar-gutter: stable; }
       <label class="field">The same password again
         <input type="password" id="pw2" autocomplete="new-password"></label>
       <div class="row"><button class="primary" id="makeKey">Make my seal</button>
-        <button class="link" id="openKeyBtn">Open a key file…</button></div>
+        <button class="link" id="openKeyBtn">Open a private key file…</button></div>
     </div>
     <div id="offlineFields" class="off">
       <p class="note">Your private key stays off this page: in a Nostr signer app or browser extension, offline on your own computer, or on another device. This page asks for a signature each time it needs one.</p>
       <div class="row"><button class="primary" id="nsOpen">Connect a Nostr signer…</button></div>
       <div id="nsHome1"></div>
-      <p class="note">Or type your public key and sign codes yourself: offline with the DigiHan Python tools, or on another device that holds your key.</p>
+      <p class="note">Or type your public key and sign codes yourself: offline with the DigiHan Python tools, or on another device that holds your private key.</p>
       <label class="field">Your public key (npub1… or 64 hex characters)
         <input type="text" id="offPub" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <div class="row"><button id="offPrep">Prepare my seal</button></div>
       <div id="offSignBox" class="hide">
-        <p class="note">Sign this code with your offline key. The code is the SHA-256 hash (32 bytes) of your seal's public record, which ties your artwork to your key. The record holds your public key, the time, your key id (the first 8 bytes of your public key's SHA-256 hash) and your artwork's SHA-256 hash. The code is also the record's Nostr id.</p>
+        <p class="note">Sign this code with your private key, kept offline. The code is the SHA-256 hash (32 bytes) of your seal's public record, which ties your artwork to your public key. The record holds your public key, the time, your public key id (the first 8 bytes of your public key's SHA-256 hash) and your artwork's SHA-256 hash. The code is also the record's Nostr id.</p>
         <div class="code mono copy" id="offCode" title="tap to copy"></div>
-        <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span> (it asks for your key's password). Any BIP340 signer works if it signs the 32 bytes exactly as given. A tool that hashes the code again, or uses Bitcoin's older signed-message method, gives a signature this page will not accept. Sign only codes this page shows you: a signature over a code counts as a signature over whatever made it.</p>
+        <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span> (YOUR_KEY is your private key file; it asks for its password). Any BIP340 signer works if it signs the 32 bytes exactly as given. A tool that hashes the code again, or uses Bitcoin's older signed-message method, gives a signature this page will not accept. Sign only codes this page shows you: a signature over a code counts as a signature over whatever made it.</p>
         <div class="row"><button id="offQrBtn">Sign on another device…</button></div>
         <div id="offQrBox" class="sub hide">
-          <p class="note">On the device that holds your key, open this page, pick that seal and tap “Sign for another device”. Scan this code with it, then scan its answer here.</p>
+          <p class="note">On the device that holds your private key, open this page, pick that seal and tap “Sign for another device”. Scan this code with it, then scan its answer here.</p>
           <div class="qr" id="offQr"></div>
           <div class="row"><button id="offScan">Scan the signature</button><button class="link" id="offPhoto">From a photo…</button></div>
         </div>
@@ -241,7 +242,7 @@ html { scrollbar-gutter: stable; }
   <div class="msg hide" id="keyMsg"></div>
   <div id="haveKey" class="hide">
     <div class="seal-row"><canvas id="keyPreview" width="368" height="368" aria-label="your seal"></canvas>
-      <div class="kv"><div><b>Key id</b> <span class="mono copy" id="keyId" title="tap to copy"></span></div>
+      <div class="kv"><div><b>Public key id</b> <span class="mono copy" id="keyId" title="tap to copy"></span></div>
         <div style="margin-top:6px"><b>Public key</b> <span class="mono copy" id="keyNpub" title="tap to copy"></span></div></div></div>
     <div class="device" id="deviceBox">
       <b>On this device</b>
@@ -255,19 +256,37 @@ html { scrollbar-gutter: stable; }
       <div id="nostrState"></div>
       <div class="row"><button id="nostrSend">Send to Nostr</button></div>
     </div>
-    <div class="row"><button id="saveKey">Save key file</button>
+    <div class="device" id="nameBox">
+      <b>Your name</b>
+      <p class="note">A scanner shows a name with your seals only when your own website confirms it. The name goes into this public key's Nostr profile (NIP-05, like you@yourdomain.com), and your website lists this public key under it in a small file. Without a confirmed name, scanners show your seals as signed by a public key they do not know.</p>
+      <div id="nameState" class="name-state"></div>
+      <div id="nameHere" class="hide">
+        <label class="field">Your name (name@yourdomain.com)
+          <input type="text" id="nameIn" placeholder="you@yourdomain.com" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+        <label class="field">Private key password <input type="password" id="namePw" autocomplete="current-password"></label>
+        <div class="row"><button id="nameSend">Publish my name</button></div>
+      </div>
+      <div id="nameFile" class="sub hide">
+        <p class="note" id="nameFileText"></p>
+        <div class="code mono copy" id="nameJson" title="tap to copy"></div>
+        <p class="note">Your website must send this file itself, with no redirect, and with the header <span class="mono">Access-Control-Allow-Origin: *</span>, so that scanners in a browser are allowed to read it.</p>
+      </div>
+      <div class="row"><button id="nameCheck">Check my name</button></div>
+      <div class="msg hide" id="nameMsg"></div>
+    </div>
+    <div class="row"><button id="saveKey">Save private key file</button>
       <button id="forgetKey">Erase from this device</button></div>
     <div class="row"><button id="newSeal">Make another seal</button>
-      <button class="link" id="openKeyBtn2">Open a key file…</button></div>
+      <button class="link" id="openKeyBtn2">Open a private key file…</button></div>
     <div class="row hide" id="remoteRow"><button id="remoteBtn">Sign for another device…</button></div>
     <div id="remoteBox" class="sub hide">
-      <p class="note">Another device stamping with this seal shows a QR code to sign. Scan it here, check what it is, and sign. Your key stays on this device.</p>
+      <p class="note">Another device stamping with this seal shows a QR code to sign. Scan it here, check what it is, and sign. Your private key stays on this device.</p>
       <div class="row"><button id="rbScan">Scan the code</button><button class="link" id="rbPhoto">From a photo…</button></div>
       <label class="field">Or paste the request (DIGIHAN-SIGN:…)
         <input type="text" id="rbText" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <div id="rbWhat" class="hide">
         <div class="what" id="rbList"></div>
-        <label class="field" id="rbPwField">Key password <input type="password" id="rbPw" autocomplete="current-password"></label>
+        <label class="field" id="rbPwField">Private key password <input type="password" id="rbPw" autocomplete="current-password"></label>
         <div class="row"><button class="primary" id="rbSign">Sign</button><button id="rbCancel">Cancel</button></div>
       </div>
       <div id="rbOut" class="hide">
@@ -277,7 +296,7 @@ html { scrollbar-gutter: stable; }
       </div>
       <div class="msg hide" id="rbMsg"></div>
     </div>
-    <p class="note" id="keyNote">Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password.</p>
+    <p class="note" id="keyNote">Save the private key file and keep the password. With both you can stamp on any device. This page keeps the private key file on this device, encrypted with your password.</p>
   </div>
 </section>
 
@@ -295,13 +314,13 @@ html { scrollbar-gutter: stable; }
   <label class="check"><input type="checkbox" id="optSite"><span>Add the website below the seal<small>https://digihan.org in small type under the seal, in the PDF and in the stamped picture, so whoever sees the seal knows where to check it.</small></span></label>
   <label class="check"><input type="checkbox" id="optAnchor" checked><span>Prove it was stamped no earlier than the latest Bitcoin block<small>The block's hash goes into the signature.</small></span></label>
   <label class="check"><input type="checkbox" id="optStamp" checked><span>Start the proof that it was stamped no later than a Bitcoin block<small>OpenTimestamps. It is finished in step 3, a few hours later.</small></span></label>
-  <label class="check"><input type="checkbox" id="optRecord"><span>Publish a public record of this stamped file on Nostr<small>Anyone can see that this key stamped a file with this hash, and when.</small></span></label>
+  <label class="check"><input type="checkbox" id="optRecord"><span>Publish a public record of this stamped file on Nostr<small>Anyone can see that this public key's private key stamped a file with this hash, and when.</small></span></label>
   <div class="sub-check">
-    <label class="check"><input type="checkbox" id="optBlossom"><span>Also put a public copy of the stamped file on Blossom<small>Anyone can download it or connect all publicly-announced copies made by this key. If you started the time proof, step 3 puts the finished file there too.</small></span></label>
+    <label class="check"><input type="checkbox" id="optBlossom"><span>Also put a public copy of the stamped file on Blossom<small>Anyone can download it or connect all publicly-announced copies made with this public key. If you started the time proof, step 3 puts the finished file there too.</small></span></label>
     <label class="field hide" id="ownField">Your own Blossom server (optional)<input type="url" id="blossomOwn" placeholder="https://…" autocomplete="off" spellcheck="false" autocapitalize="off"><small>Tried first. The page also tries blossom.primal.net and blossom.band.</small></label>
   </div>
   <div class="msg warn hide" id="netNote"></div>
-  <label class="field" id="pwSealField">Key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
+  <label class="field" id="pwSealField">Private key password <input type="password" id="pwSeal" autocomplete="current-password"></label>
   <div class="row"><button class="primary" id="doSeal">Stamp</button></div>
   <div class="msg warn hide" id="gpsBox">This photo carries the place it was taken. The stamped file keeps it, and so will any public copy.
     <div class="row"><button id="gpsGo">Stamp anyway</button><button id="gpsCancel">Cancel</button></div></div>
@@ -313,12 +332,12 @@ html { scrollbar-gutter: stable; }
       <div class="row"><button id="sigRetry" class="hide">Ask again</button><button id="sigOther">Sign another way instead</button><button id="sigCancel">Cancel</button></div>
     </div>
     <div id="codeMode">
-    <p class="note">Sign this code with your offline key, then paste the signature. The code is one SHA-256 hash (32 bytes) made from: this document's SHA-256 hash; the time, or the Bitcoin block number if you chose the block proof; your key id; your artwork's SHA-256 hash; and, with the block proof, the block's hash. The signature goes into the seal's ring.</p>
+    <p class="note">Sign this code with your private key, kept offline, then paste the signature. The code is one SHA-256 hash (32 bytes) made from: this document's SHA-256 hash; the time, or the Bitcoin block number if you chose the block proof; your public key id; your artwork's SHA-256 hash; and, with the block proof, the block's hash. The signature goes into the seal's ring.</p>
     <div class="code mono copy" id="sealCode" title="tap to copy"></div>
     <p class="note">With the DigiHan Python tools: <span class="mono">python sign_hash.py CODE --key YOUR_KEY</span>. Sign only codes this page shows you.</p>
     <div class="row"><button id="sealQrBtn">Sign on another device…</button></div>
     <div id="sealQrBox" class="sub hide">
-      <p class="note">On the device that holds your key, open this page, pick this seal and tap “Sign for another device”. Scan this code with it, then scan its answer here.</p>
+      <p class="note">On the device that holds your private key, open this page, pick this seal and tap “Sign for another device”. Scan this code with it, then scan its answer here.</p>
       <div class="qr" id="sealQr"></div>
       <div class="row"><button id="sealScan">Scan the signature</button><button class="link" id="sealPhoto">From a photo…</button></div>
     </div>
@@ -367,14 +386,14 @@ html { scrollbar-gutter: stable; }
   <div class="row hide" id="finishDlRow"><a class="download" id="finishDl" download>Download the finished PDF</a></div>
   <div class="sub hide" id="finishPub">
     <p class="note" id="finishPubText"></p>
-    <label class="field hide" id="finishPwField">Key password <input type="password" id="finishPw" autocomplete="current-password"></label>
+    <label class="field hide" id="finishPwField">Private key password <input type="password" id="finishPw" autocomplete="current-password"></label>
     <div class="row hide" id="finishPubRow"><button class="primary" id="finishPubGo">Publish the finished file</button></div>
     <div class="msg hide" id="finishPubMsg"></div>
     <div class="pub hide" id="finishPubResult"></div>
   </div>
 </section>
 
-<footer>stamping page v22 · release <span id="relCode">0.7.1</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v23 · release <span id="relCode">0.7.2</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -410,7 +429,7 @@ const SITE_URL = "https://digihan.org";     // v19: shown under the seal when "A
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.7.1";
+const RELEASE = "0.7.2";
 if (DHS.RELEASE !== RELEASE || typeof DHP === "undefined" || DHP.RELEASE !== RELEASE) {   // v21: publish.js too
   $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE !== RELEASE ? DHS.RELEASE || "an older release" : typeof DHP === "undefined" ? "publish.js missing" : "publish.js " + DHP.RELEASE) + ")";
   show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE !== RELEASE ? (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") : typeof DHP === "undefined" ? "without publish.js" : "publish.js of release " + DHP.RELEASE) +
@@ -503,10 +522,15 @@ const Seals = (() => {
       const old = await api.get(kf.pubkey), rec = { pubkey: kf.pubkey, kf, added: old ? old.added : Date.now() };
       if (old && old.nostr) rec.nostr = old.nostr;                    // v13: when the public record was sent
       if (old && old.signer) rec.signer = old.signer;                 // v16: the link to a Nostr signer
+      if (old && old.name) rec.name = old.name;                       // v23: the name published in its profile
       if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(kf.pubkey, rec);
     },
     async mark(pk, nostr) {                                            // v13: note that the public record was sent
       const rec = await api.get(pk); if (!rec) return; rec.nostr = nostr;
+      if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(pk, rec);
+    },
+    async setName(pk, name) {                                          // v23: {text, at, saved} once published
+      const rec = await api.get(pk); if (!rec) return; rec.name = name;
       if (db) await run("seals", "readwrite", s => s.put(rec)); else mem.seals.set(pk, rec);
     },
     async setSigner(pk, link) {                                        // v16: link to a Nostr signer, or null
@@ -528,7 +552,7 @@ async function renderSeals() {
     const b = document.createElement("button"), img = document.createElement("img"), t = document.createElement("span");
     const fp = await DHV.fingerprint(DHV.unhex(r.pubkey));
     b.type = "button"; b.className = "seal-item"; b.dataset.pk = r.pubkey; b.setAttribute("aria-pressed", String(r.pubkey === cur));
-    b.title = "Key id " + fp.replace(/(.{4})(?=.)/g, "$1 ") + (r.signer ? " (key in a Nostr signer)" : r.kf.format === "digihan-pubkey-v1" ? " (key kept elsewhere)" : "");
+    b.title = "Public key id " + fp.replace(/(.{4})(?=.)/g, "$1 ") + (r.signer ? " (private key in a Nostr signer)" : r.kf.format === "digihan-pubkey-v1" ? " (private key kept elsewhere)" : "");
     img.alt = ""; img.src = "data:image/png;base64," + r.kf.center_png; t.textContent = fp.slice(0, 4) + " " + fp.slice(4, 8);
     b.append(img, t); box.appendChild(b);
   }
@@ -557,14 +581,14 @@ async function sealsFull() { return (await Seals.all()).length >= MAX_SEALS; }
 async function checkKf(kf) {
   const png = DHS.unb64(kf.center_png), reg = kf.registration;
   if (!(await DHV.eventValid(reg)) || reg.pubkey !== kf.pubkey || DHV.tag(reg, "center_hash") !== DHV.hex(await DHV.sha256(png)))
-    throw new Error("This key file is damaged: its record does not match its key or artwork.");
+    throw new Error("This file is damaged: its record does not match its public key or artwork.");
 }
 async function useKey(kf) {
   await checkKf(kf);
   const pub = DHV.unhex(kf.pubkey), png = DHS.unb64(kf.center_png), reg = kf.registration;
   key = { kf, pub, png, reg, art: await pngImage(png), offline: kf.format === "digihan-pubkey-v1" };
   $("pwSealField").classList.toggle("hide", key.offline);
-  $("saveKey").textContent = key.offline ? "Save seal file" : "Save key file";
+  $("saveKey").textContent = key.offline ? "Save seal file" : "Save private key file";
   const rec0 = await Seals.get(kf.pubkey); key.signer = (key.offline && rec0 && rec0.signer) || null;   // v16
   keyNote();
   const fp = await DHV.fingerprint(pub);
@@ -573,7 +597,8 @@ async function useKey(kf) {
   preview($("keyPreview"), key.art);
   $("noKey").classList.add("hide"); $("haveKey").classList.remove("hide");
   const rec = await Seals.get(kf.pubkey); key.nostr = (rec && rec.nostr) || null;
-  nostrState();
+  key.name = (rec && rec.name) || null;
+  nostrState(); nameState();
   await deviceState();
   showStep1();
 }
@@ -592,7 +617,7 @@ $("makeKey").addEventListener("click", async () => {
   if (p1.length < 10) return show($("keyMsg"), "bad", "Use a password of at least 10 characters.");
   if (p1 !== p2) return show($("keyMsg"), "bad", "The two passwords are not the same.");
   if (await sealsFull()) return show($("keyMsg"), "bad", "This device already keeps " + MAX_SEALS + " seals, the most it keeps. Erase one first: pick it above, then “Erase from this device”.");
-  $("makeKey").disabled = true; show($("keyMsg"), "", "Making your key…");
+  $("makeKey").disabled = true; show($("keyMsg"), "", "Making your key pair…");
   try {
     const png = await makeArtPng(), sk = DHS.newSecret(), pub = DHS.pubFromSecret(sk);
     const reg = await DHS.registration(sk, pub, png);
@@ -601,7 +626,7 @@ $("makeKey").addEventListener("click", async () => {
     await addSeal(kf);
     sendSeal(key);                                                     // v13: the public record goes to Nostr
     $("pw1").value = $("pw2").value = ""; hide($("keyMsg"));
-    $("keyNote").textContent = "Your seal is made. Save the key file now and keep the password: with both you can stamp on any device, and without them this seal cannot be used again. This page also keeps the key file on this device, encrypted with your password.";
+    $("keyNote").textContent = "Your seal is made. Save the private key file now and keep the password: with both you can stamp on any device, and without them this seal cannot be used again. This page also keeps the private key file on this device, encrypted with your password.";
   } catch (e) { show($("keyMsg"), "bad", e.message); }
   $("makeKey").disabled = false;
 });
@@ -613,7 +638,7 @@ $("saveKey").addEventListener("click", async () => {
 // v8: what this device keeps, and erasing it (a second tap confirms)
 function keyNote() {
   $("keyNote").textContent = !key.offline
-    ? "Save the key file and keep the password. With both you can stamp on any device. This page keeps the key file on this device, encrypted with your password."
+    ? "Save the private key file and keep the password. With both you can stamp on any device. This page keeps the private key file on this device, encrypted with your password."
     : key.signer ? "Your private key stays in your Nostr signer. For each stamp this page asks the signer, which shows you what it signs. Save the seal file to use this seal on another device: it holds only public parts; connect the signer again there."
     : "Your private key stays elsewhere. For each stamp this page shows a code to sign with it, offline or on another device. Save the seal file to use this seal on another device: it holds only public parts.";
   $("signerRow").classList.toggle("hide", !key.offline);
@@ -626,9 +651,9 @@ async function deviceState() {
   const here = key && Seals.lasting() && !!(await Seals.get(key.kf.pubkey));
   const how = { "argon2id": "Argon2id", "pbkdf2-sha256": "PBKDF2, an older method; it changes to Argon2id the next time you stamp" }[key.kf.kdf];
   $("deviceState").textContent = !here ? (Seals.lasting() ? "Not kept on this device: it is open on this page only, and is gone when you close it."
-      : "Not kept: this browser gives the page no lasting storage (a private window, for example), so the seal is gone when you close the page. Save the key file.")
-    : key.offline ? "Kept: the public parts of your seal (key id, public key, artwork)" + (key.signer ? " and the link to " + DHN.describe(key.signer) : "") + ". Your private key is not on this device."
-    : "Kept: your key file, encrypted with your password (" + how + "). Your password is not kept.";
+      : "Not kept: this browser gives the page no lasting storage (a private window, for example), so the seal is gone when you close the page. Save the private key file.")
+    : key.offline ? "Kept: the public parts of your seal (public key id, public key, artwork)" + (key.signer ? " and the link to " + DHN.describe(key.signer) : "") + ". Your private key is not on this device."
+    : "Kept: your private key file, encrypted with your password (" + how + "). Your password is not kept.";
   $("forgetKey").classList.toggle("hide", !(key && (await Seals.get(key.kf.pubkey))));
 }
 let eraseArmed = 0;
@@ -646,7 +671,7 @@ $("forgetKey").addEventListener("click", async () => {
   if (next) { await Seals.setCurrent(next.pubkey); try { await useKey(next.kf); } catch (e) {} }
   else { await Seals.setCurrent(null); $("haveKey").classList.add("hide"); $("noKey").classList.remove("hide"); $("backRow").classList.add("hide"); refreshArtPreview(); }
   await renderSeals();
-  show($("keyMsg"), "ok", "That seal is erased from this device. A key file you saved still works with its password.");
+  show($("keyMsg"), "ok", "That seal is erased from this device. A private key file you saved still works with its password.");
 });
 // v11: make another seal, or go back to the seals kept here
 $("newSeal").addEventListener("click", () => {
@@ -682,7 +707,7 @@ function sendToRelays(ev, ms) {                                       // -> {sav
   }))).then(l => ({ saved: l.filter(x => x.ok).map(x => x.url), failed: l.filter(x => !x.ok) }));
 }
 const nostrSending = new Set();
-const NOSTR_WHAT = "It holds your public key, key id and your artwork's SHA-256 hash, so a scanner can find your key from a scanned seal without the stamped PDF. Nothing about your documents is sent.";
+const NOSTR_WHAT = "It holds your public key, public key id and your artwork's SHA-256 hash, so a scanner can find your public key from a scanned seal without the stamped PDF. Nothing about your documents is sent.";
 // "relay.damus.io, nos.lol: no answer; relay.primal.net: blocked: …" (relays with the same answer together)
 const whyList = failed => { const by = new Map(); for (const f of failed) by.set(f.why, [...(by.get(f.why) || []), relayName(f.url)]);
   return [...by].map(([why, names]) => names.join(", ") + ": " + why).join("; "); };
@@ -690,7 +715,7 @@ function nostrState(note) {
   if (!key) return;
   const el = $("nostrState"), btn = $("nostrSend"), n = key.nostr;
   if (!DHV.tag(key.reg, "f")) {                                       // made before records carried the key id
-    el.textContent = "This seal's public record has no key id in it, so a scanner could not find it on Nostr.";
+    el.textContent = "This seal's public record has no public key id in it, so a scanner could not find it on Nostr.";
     btn.classList.add("hide"); return;
   }
   btn.classList.remove("hide");
@@ -717,6 +742,77 @@ async function sendSeal(k) {
   if (key && key.kf.pubkey === pk) { key.nostr = k.nostr || key.nostr; nostrState(note); }
 }
 $("nostrSend").addEventListener("click", () => sendSeal(key));
+
+// ---------------- v23 (release 0.7.2): the signer's name ----------------
+// A scanner shows a name only when the name's own domain confirms it (NIP-05): the name is in the public key's
+// Nostr profile (kind 0, "nip05"), and https://domain/.well-known/nostr.json lists the public key under it. The
+// page publishes the profile only for a private key kept here, and keeps everything else an existing profile
+// holds. A private key in a Nostr signer has its profile in the signer's app: the name is set there. Nothing about
+// the name goes into a seal.
+function nameFile(n) {                                       // n from DHV.parseName
+  $("nameFileText").textContent = "Put this file on your website at https://" + n.domain + "/.well-known/nostr.json (if the file is there already, add the line for " + n.local + " to its names):";
+  const j = JSON.stringify({ names: { [n.local]: key.kf.pubkey } });
+  $("nameJson").textContent = j; $("nameJson").dataset.copy = j;
+  $("nameFile").classList.remove("hide");
+}
+function nameState() {
+  if (!key) return;
+  hide($("nameMsg")); $("nameFile").classList.add("hide");
+  const here = !key.offline;
+  $("nameHere").classList.toggle("hide", !here);
+  $("nameState").textContent = key.name ? "Published in this public key's Nostr profile: " + key.name.text + " (" + utc(key.name.at) + ", saved by " + key.name.saved.length + " of " + RELAYS.length + " relays)."
+    : here ? "" : key.signer ? "Your private key is in your Nostr signer, so the name is set in your Nostr app's profile (the NIP-05 field). Then put the file your app names on your website, and check it here."
+    : "Your private key is kept elsewhere: publish a Nostr profile with a NIP-05 name for this public key from an app that holds the private key, then check it here.";
+  $("nameIn").value = key.name ? key.name.text.includes("@") ? key.name.text : "_@" + key.name.text : "";
+  if (key.name) { const n = DHV.parseName($("nameIn").value); if (n) nameFile(n); }
+}
+$("nameIn").addEventListener("input", () => { const n = DHV.parseName($("nameIn").value); if (n) nameFile(n); else $("nameFile").classList.add("hide"); });
+$("nameSend").addEventListener("click", async () => {
+  if (!key || key.offline) return;
+  const m = $("nameMsg"), n = DHV.parseName($("nameIn").value);
+  if (!n) return show(m, "bad", "Type your name as name@yourdomain.com.");
+  const btn = $("nameSend"); btn.disabled = true; let sk = null;
+  try {
+    show(m, "", "Opening your private key…");
+    sk = await DHS.unlockKey(key.kf, $("namePw").value); $("namePw").value = "";
+    show(m, "", "Reading this public key's Nostr profile…");
+    const prof = await DHP.profile(RELAYS, key.kf.pubkey);
+    if (!prof.known) throw new Error("No relay answered, so this public key's Nostr profile could not be read. Nothing was published: a new profile would replace one nobody could see. Try again when online.");
+    const ev = await eventSigner(sk, null)(DHP.profileTemplate(key.kf.pubkey, prof.ev, n.local + "@" + n.domain, Math.floor(Date.now() / 1000)));
+    sk.fill(0); sk = null;
+    show(m, "", "Sending the profile to Nostr…");
+    const r = await sendToRelays(ev);
+    if (!r.saved.length) throw new Error("Not published: no relay saved it (" + whyList(r.failed) + "). Check the connection and try again.");
+    key.name = { text: n.text, at: ev.created_at, saved: r.saved };
+    try { await Seals.setName(key.kf.pubkey, key.name); } catch (e) {}
+    nameState();
+    show(m, "ok", "Your name is in this public key's Nostr profile, saved by " + r.saved.length + " of " + RELAYS.length + " relays" + (r.failed.length ? " (not by " + whyList(r.failed) + ")" : "")
+      + ". Now put the file below on your website, then tap “Check my name”." + (prof.ev ? " The rest of the profile was kept as it was." : ""));
+  } catch (e) { show(m, "bad", e.message); }
+  finally { if (sk) sk.fill(0); btn.disabled = false; }
+});
+$("nameCheck").addEventListener("click", async () => {
+  if (!key) return;
+  const m = $("nameMsg"), btn = $("nameCheck"), pk = key.kf.pubkey; btn.disabled = true;
+  try {
+    show(m, "", "Reading this public key's Nostr profile…");
+    const prof = await DHP.profile(RELAYS, pk);
+    if (!key || key.kf.pubkey !== pk) return;
+    if (!prof.ev) return show(m, prof.known ? "warn" : "bad", prof.known ? "This public key has no Nostr profile yet, so scanners find no name." : "No relay answered. Check the connection and try again.");
+    const nm = DHV.profileName(prof.ev), n = DHV.parseName(nm || "");
+    if (!nm) return show(m, "warn", "This public key's Nostr profile has no name (NIP-05) in it, so scanners find no name.");
+    if (!n) return show(m, "bad", "The name in this public key's Nostr profile (" + nm + ") is not written as name@domain, so scanners ignore it.");
+    show(m, "", "Asking " + n.domain + " whether it lists this public key…");
+    const r = await DHV.checkName(nm, pk, (u, i) => fetch(u, i));
+    if (!key || key.kf.pubkey !== pk) return;
+    nameFile(n);
+    if (r.status === "confirmed") { $("nameFile").classList.add("hide"); return show(m, "ok", "Confirmed: " + n.domain + " lists this public key under " + n.text + ". Scanners show seals made with this seal's private key as signed by " + n.text + "."); }
+    show(m, "bad", r.status === "other" ? n.domain + " lists a different public key under " + n.text + ". Put this public key in the file instead (below). Until then, scanners show “Name NOT confirmed” for these seals."
+      : r.status === "unlisted" ? n.domain + " does not list this public key under " + n.text + ". Put the file below on your website. Until then, scanners show “Name NOT confirmed” for these seals."
+      : n.domain + " could not be asked. The file is missing, the site redirects it, the header Access-Control-Allow-Origin: * is not sent, or the site is offline. Until it answers, scanners show these seals as signed by a public key they do not know.");
+  } catch (e) { show(m, "bad", e.message); }
+  finally { btn.disabled = false; }
+});
 
 // ---------------- v16: QR codes (a second device), the camera ----------------
 // The QR libraries load the first time they are needed (the offline copy of the site keeps them too).
@@ -805,8 +901,8 @@ async function rbTake(text) {
   if (!r || (r.t !== "stamp" && r.t !== "record") || r.v !== 1) return show($("rbMsg"), "bad", "That is not a DigiHan signing request. On the other device, tap “Sign on another device…” and scan the code it shows.");
   const all = await Seals.all(); let rec = null;
   for (const x of all) if (r.t === "record" ? r.e && x.pubkey === r.e.pubkey : await DHV.fingerprint(DHV.unhex(x.pubkey)) === r.k) { rec = x; break; }
-  if (!rec) return show($("rbMsg"), "bad", "No seal on this device has the key this request is for (key id " + (r.k || "?") + ").");
-  if (rec.kf.format === "digihan-pubkey-v1") return show($("rbMsg"), "bad", "This device keeps only the public parts of that seal: its key is elsewhere, so it cannot sign here.");
+  if (!rec) return show($("rbMsg"), "bad", "No seal on this device has the public key this request is for (public key id " + (r.k || "?") + ").");
+  if (rec.kf.format === "digihan-pubkey-v1") return show($("rbMsg"), "bad", "This device keeps only the public parts of that seal: its private key is elsewhere, so it cannot sign here.");
   if (!key || key.kf.pubkey !== rec.pubkey) { await useKey(rec.kf); await Seals.setCurrent(rec.pubkey); await renderSeals(); $("remoteBox").classList.remove("hide"); }
   const fp = await DHV.fingerprint(key.pub), lines = [];
   let m = null;
@@ -819,12 +915,12 @@ async function rbTake(text) {
       const own = DHV.hex(await DHV.sha256(key.png)) === r.c;
       lines.push(["What", "a stamp on a document"], ["Document", String(r.n || "?") + (Number.isInteger(r.z) ? " (" + num(r.z) + " bytes)" : "")], ["SHA-256", r.d],
         ["Time", anchor ? "no earlier than Bitcoin block " + num(r.a[0]) : utc(r.f) + ", as the other device states it"],
-        ["Artwork", own ? "this seal's artwork" : "SHA-256 " + r.c.slice(0, 16) + "… (the artwork the other device set up for this key)"], ["Key id", fp]);
+        ["Artwork", own ? "this seal's artwork" : "SHA-256 " + r.c.slice(0, 16) + "… (the artwork the other device set up for this public key)"], ["Public key id", fp]);
     } else {
       const e = r.e, ch = DHV.tag(e, "center_hash");
       if (e.kind !== 30078 || !h64(ch) || DHV.tag(e, "d") !== "digihan-center:" + ch || DHV.tag(e, "f") !== fp || !Number.isInteger(e.created_at)) throw new Error("This request is damaged.");
       m = await DHV.eventId(e);
-      lines.push(["What", "your seal's public record: it ties an artwork to your key"], ["Artwork SHA-256", ch], ["Made", utc(e.created_at)], ["Key id", fp]);
+      lines.push(["What", "your seal's public record: it ties an artwork to your public key"], ["Artwork SHA-256", ch], ["Made", utc(e.created_at)], ["Public key id", fp]);
     }
   } catch (e) { return show($("rbMsg"), "bad", e.message); }
   rbReq = { m };
@@ -838,7 +934,7 @@ $("rbText").addEventListener("change", () => rbTake($("rbText").value));
 $("rbCancel").addEventListener("click", rbReset);
 $("rbSign").addEventListener("click", async () => {
   if (!rbReq || !key || key.offline) return;
-  $("rbSign").disabled = true; show($("rbMsg"), "", "Opening your key…");
+  $("rbSign").disabled = true; show($("rbMsg"), "", "Opening your private key…");
   let sk = null;
   try {
     sk = await DHS.unlockKey(key.kf, $("rbPw").value);
@@ -896,14 +992,14 @@ async function useSigner(link, session) {
     if (link.type === "nip07") { show($("nsMsg"), "", "Asking the signer in this browser for your public key…"); link.pubkey = await DHN.extension.publicKey(); }
     const pub = DHV.unhex(link.pubkey), forSeal = nsFor;
     if (forSeal) {
-      if (link.pubkey !== forSeal.kf.pubkey) throw new Error("This signer holds a different key (" + DHV.npubEncode(pub).slice(0, 16) + "…) than this seal's key. Connect the signer that holds this seal's key.");
+      if (link.pubkey !== forSeal.kf.pubkey) throw new Error("This signer holds the private key of a different public key (" + DHV.npubEncode(pub).slice(0, 16) + "…) than this seal's. Connect the signer that holds this seal's private key.");
       await Seals.setSigner(link.pubkey, link); if (key === forSeal) { key.signer = link; keyNote(); await deviceState(); }
       if (session) session.close(); nsClose();
       return show($("keyMsg"), "ok", "Connected: each stamp with this seal now asks " + DHN.describe(link) + ".");
     }
     if (await sealsFull()) throw new Error("This device already keeps " + MAX_SEALS + " seals, the most it keeps. Erase one first: pick it above, then “Erase from this device”.");
     signer = DHN.signerFor(link, session, url => authLink($("nsMsg"), url));
-    show($("nsMsg"), "", "Approve your seal's public record in your signer: it ties your artwork to your key…");
+    show($("nsMsg"), "", "Approve your seal's public record in your signer: it ties your artwork to your public key…");
     const png = await makeArtPng(), draft = await DHS.draftRegistration(pub, png);
     const reg = await DHS.finishRegistration(draft, await signer.sign(draft.ev, link.pubkey));
     await addSeal({ format: "digihan-pubkey-v1", pubkey: link.pubkey, center_png: DHS.b64(png), registration: reg });
@@ -948,10 +1044,10 @@ $("keyIn").addEventListener("change", async ev => {
   const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
   try {
     const kf = JSON.parse(await f.text());
-    if (!["argon2id", "pbkdf2-sha256"].includes(kf.kdf) && kf.format !== "digihan-pubkey-v1") throw new Error("This key file was made by the Python tools. This page opens key files it made itself; to use that key, choose “Use a key I keep offline” and sign the codes with sign_hash.py.");
+    if (!["argon2id", "pbkdf2-sha256"].includes(kf.kdf) && kf.format !== "digihan-pubkey-v1") throw new Error("This private key file was made by the Python tools. This page opens private key files it made itself; to use that private key, choose “Use a private key I keep elsewhere” and sign the codes with sign_hash.py.");
     const already = await addSeal(kf);
     if (already) show($("keyMsg"), "ok", "This seal is already on this device. It is now the one in use.");
-  } catch (e) { show($("keyMsg"), "bad", e.message.startsWith("Unexpected") ? "That is not a DigiHan key file." : e.message); }
+  } catch (e) { show($("keyMsg"), "bad", e.message.startsWith("Unexpected") ? "That is not a DigiHan private key file." : e.message); }
 });
 document.addEventListener("click", ev => {
   const t = ev.target.closest(".copy"); if (!t) return;
@@ -1078,10 +1174,10 @@ function renderPublished(el, res) {
   if (r) line(r.saved.length ? "ok" : "warn", "Public record.", r.saved.length
     ? "Saved by " + r.saved.length + " of " + RELAYS.length + " relays (" + r.saved.map(relayName).join(", ") + ")." + (r.failed.length ? " Not saved by " + whyList(r.failed) + "." : "")
     : "Not saved: no relay saved it (" + whyList(r.failed) + ").");
-  if (res.list === "published") line("ok", "Blossom server list.", "Published for your key, naming " + (res.copies || []).flatMap(c => c.servers).filter((v, i, a) => a.indexOf(v) === i).map(DHP.host).join(", ") + ".");
+  if (res.list === "published") line("ok", "Blossom server list.", "Published for your public key, naming " + (res.copies || []).flatMap(c => c.servers).filter((v, i, a) => a.indexOf(v) === i).map(DHP.host).join(", ") + ".");
   if (res.listError) line("warn", "Blossom server list.", "Not published: " + res.listError);
   if (res.list === "unknown" && (res.copies || []).some(c => c.servers.length))
-    line("warn", "Blossom server list.", "Not published: no relay answered, so the page could not tell whether your key already has one.");
+    line("warn", "Blossom server list.", "Not published: no relay answered, so the page could not tell whether your public key already has one.");
 }
 // v21: a photo that carries the place it was taken: a pause before stamping (the seal signs those bytes)
 $("gpsGo").addEventListener("click", () => { if (doc) doc.gpsOk = true; hide($("gpsBox")); $("doSeal").click(); });
@@ -1141,13 +1237,13 @@ async function buildPdf(o) {
     else shown = "This kind of file is attached only: open the attachment to read it.";
   }
   const lines = ["Original file, attached unchanged: " + ascii(o.doc.name), "Size: " + num(o.doc.bytes.length) + " bytes", shown,
-    "SHA-256: " + DHV.hex(o.docHash), "Key id: " + o.fp + "    Signer: " + o.npub.slice(0, 24) + "..." + o.npub.slice(-6),
+    "SHA-256: " + DHV.hex(o.docHash), "Public key id: " + o.fp + "    Public key: " + o.npub.slice(0, 24) + "..." + o.npub.slice(-6),
     o.anchor ? "Stamped no earlier than Bitcoin block " + num(o.anchor.height) + " (mined " + utc(o.anchor.time) + ")" : "Stamped (time stated by the signer): " + utc(o.ts),
     o.proof ? "No-later-than proof: OpenTimestamps, attached as seal.ots (finished a few hours after stamping)" : "", "",
     "The seal below is calculated from the attached file's exact bytes.",
     "To check: open digihan.org/scan, scan the seal, then pick this PDF.",
     o.stampEvent ? "Signed with a Nostr signer: the signature is over a Nostr stamp event, attached as digihan-stamp.json." : "",
-    "DigiHan format v0.5. It proves which key signed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "" && i > 3));
+    "DigiHan format v0.5. It proves which public key's private key signed these exact bytes; it is not a notarization."].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "" && i > 3));
   lines.forEach((t, i) => page.drawText(t, { x: 25 * MM, y: H - 40 * MM - i * 5.2 * MM, size: 9.5, font, color: rgb(.14, .13, .11) }));
   const now = new Date();
   await out.attach(o.doc.bytes, o.doc.name, { mimeType: o.doc.type, description: "The original file, exact bytes", creationDate: now, modificationDate: now });
@@ -1169,16 +1265,16 @@ let pending = null;     // {msg, docHash, ts, anchor, wantStamp, done, k}
 let rekeyed = false;    // v4: the key file was re-encrypted with Argon2id during this seal
 $("doSeal").addEventListener("click", async () => {
   hide($("sealMsg")); hide($("gpsBox")); $("sealResult").classList.add("hide"); $("sealSignBox").classList.add("hide"); pending = null;
-  if (!key) return show($("sealMsg"), "bad", "Make your seal or open your key file first (step 1).");
+  if (!key) return show($("sealMsg"), "bad", "Make your seal or open your private key file first (step 1).");
   if (!doc) return show($("sealMsg"), "bad", "Choose a document first.");
   const wantAnchor = $("optAnchor").checked, wantStamp = $("optStamp").checked;
   const pubOpt = { record: $("optRecord").checked, blossom: $("optBlossom").checked };      // v21
   if (pubOpt.record && key.offline && !key.signer)
-    return show($("sealMsg"), "bad", "A public record is signed by this seal's key, and this seal signs by code, one code at a time. To stamp, untick the public record; to publish, connect a Nostr signer in step 1.");
+    return show($("sealMsg"), "bad", "A public record is signed with this seal's private key, and this seal signs by code, one code at a time. To stamp, untick the public record; to publish, connect a Nostr signer in step 1.");
   if (pubOpt.blossom && $("blossomOwn").value.trim() && !DHP.server($("blossomOwn").value))
     return show($("sealMsg"), "bad", "Your own Blossom server is not a web address starting with https://. Correct it or clear it.");
   if ((isJpeg(doc.bytes) || isPng(doc.bytes)) && !doc.gpsOk && DHP.hasLocation(doc.bytes)) { $("gpsBox").classList.remove("hide"); return; }   // v21
-  const done = steps([key.offline ? "Reading the document" : "Opening your key", ...(key.offline ? [] : ["Reading the document"]),
+  const done = steps([key.offline ? "Reading the document" : "Opening your private key", ...(key.offline ? [] : ["Reading the document"]),
     ...(wantAnchor ? ["Getting the latest Bitcoin block"] : []), key.signer ? "Waiting for your signer" : key.offline ? "Waiting for your signature" : "Signing",
     "Drawing the seal and reading it back", ...(wantStamp ? ["Starting the timestamp proof"] : []), "Making the PDF",
     ...(wantPicture() ? ["Making the stamped picture and reading it back"] : []),          // v20: a step of its own (it can take a while)
@@ -1194,7 +1290,7 @@ $("doSeal").addEventListener("click", async () => {
         const kf2 = await DHS.lockKey(sk, key.pub, pw, key.png, key.reg);
         if (await Seals.get(kf2.pubkey)) try { await Seals.put(kf2); } catch (e) {}
         key.kf = kf2; rekeyed = true;
-        show($("keyMsg"), "warn", "Your key file was re-encrypted with a stronger method (Argon2id). Tap “Save key file” to replace "
+        show($("keyMsg"), "warn", "Your private key file was re-encrypted with a stronger method (Argon2id). Tap “Save private key file” to replace "
           + "your saved copy; the old copy still opens with the same password, but is easier to attack if someone gets it.");
       } catch (e) {}
     }
@@ -1228,7 +1324,7 @@ $("sealFinish").addEventListener("click", async () => {
   const sig = readSig($("sealSig").value);
   if (!sig) return show($("sealMsg"), "bad", "The signature is 128 characters, 0-9 and a-f.");
   try { const payload = await DHS.assemble(key.pub, pending.msg, sig); $("sealSignBox").classList.add("hide"); await finishSeal(payload); }
-  catch (e) { show($("sealMsg"), "bad", e.message + " Check that you signed this exact code with your seal's key."); }
+  catch (e) { show($("sealMsg"), "bad", e.message + " Check that you signed this exact code with your seal's private key."); }
 });
 function cancelStamp() {
   if (stampSigner) { try { stampSigner.cancel(); stampSigner.close(); } catch (e) {} stampSigner = null; }
@@ -1305,7 +1401,7 @@ async function finishSeal(payload, stampEvent) {
     }
     const dg = DHV.hex((await DHV.sha256(payload)).slice(0, 4));
     $("sealInfo").innerHTML = "";
-    for (const [b, t] of [["Digest", dg], ["Key id", fp], ["Time", anchor ? "no earlier than Bitcoin block " + num(anchor.height) + " (mined " + utc(anchor.time) + ")" : utc(ts) + ", stated by you"], ["Time proof", proof ? "started; finish it in step 3 in a few hours" : "none"]]) {
+    for (const [b, t] of [["Digest", dg], ["Public key id", fp], ["Time", anchor ? "no earlier than Bitcoin block " + num(anchor.height) + " (mined " + utc(anchor.time) + ")" : utc(ts) + ", stated by you"], ["Time proof", proof ? "started; finish it in step 3 in a few hours" : "none"]]) {
       const d = document.createElement("div"); d.innerHTML = "<b></b> <span></span>"; d.firstChild.textContent = b; d.lastChild.textContent = t; $("sealInfo").appendChild(d);
     }
     $("sealResult").classList.remove("hide");
@@ -1327,7 +1423,7 @@ async function finishSeal(payload, stampEvent) {
       renderPublished($("pubResult"), res);
     }
     show($("sealMsg"), stampNote || overlayNote || pubNote ? "warn" : "ok", "Stamped." + stampNote + overlayNote + pubNote
-      + (rekeyed ? " Your key file was also re-encrypted with a stronger method: save it again in step 1." : ""));
+      + (rekeyed ? " Your private key file was also re-encrypted with a stronger method: save it again in step 1." : ""));
     rekeyed = false;
   } catch (e) { stopSteps(); show($("sealMsg"), "bad", e.message); }
   finally {
@@ -1792,7 +1888,7 @@ async function offerPublish(o) {
     + fp.replace(/(.{4})(?=.)/g, "$1 ") + "), then pick the file here again.";
   if (key.offline && !key.signer) return $("finishPubText").textContent = lead + "This seal signs by code, one code at a time, so the finished file cannot be published from this page.";
   $("finishPubText").textContent = lead + "The finished file carries the time proof, so it goes there too, and the public record is updated to name it. "
-    + (key.offline ? "Your signer app is asked to approve the upload and the record." : "Your key password is needed to sign the upload and the record.");
+    + (key.offline ? "Your signer app is asked to approve the upload and the record." : "Your private key password is needed to sign the upload and the record.");
   $("finishPwField").classList.toggle("hide", !!key.offline); $("finishPubRow").classList.remove("hide"); $("finishPubGo").disabled = false;
   finishPending = o;
 }
@@ -1801,7 +1897,7 @@ $("finishPubGo").addEventListener("click", async () => {
   const m = $("finishPubMsg"); let sk = null, signer = null;
   $("finishPubGo").disabled = true;
   try {
-    if (!key.offline) { show(m, "", "Opening your key…"); sk = await DHS.unlockKey(key.kf, $("finishPw").value); $("finishPw").value = ""; }
+    if (!key.offline) { show(m, "", "Opening your private key…"); sk = await DHS.unlockKey(key.kf, $("finishPw").value); $("finishPw").value = ""; }
     else signer = DHN.signerFor(key.signer, null, url => authLink(m, url));
     show(m, "", "Looking for this stamp's public record…");
     const old = await DHP.existingRecord(RELAYS, key.kf.pubkey, o.payload);
