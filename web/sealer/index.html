@@ -393,7 +393,7 @@ html { scrollbar-gutter: stable; }
   </div>
 </section>
 
-<footer>stamping page v23 · release <span id="relCode">0.7.2</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v24 · release <span id="relCode">0.7.3</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -429,7 +429,7 @@ const SITE_URL = "https://digihan.org";     // v19: shown under the seal when "A
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.7.2";
+const RELEASE = "0.7.3";
 if (DHS.RELEASE !== RELEASE || typeof DHP === "undefined" || DHP.RELEASE !== RELEASE) {   // v21: publish.js too
   $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE !== RELEASE ? DHS.RELEASE || "an older release" : typeof DHP === "undefined" ? "publish.js missing" : "publish.js " + DHP.RELEASE) + ")";
   show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE !== RELEASE ? (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") : typeof DHP === "undefined" ? "without publish.js" : "publish.js of release " + DHP.RELEASE) +
@@ -806,7 +806,7 @@ $("nameCheck").addEventListener("click", async () => {
     const r = await DHV.checkName(nm, pk, (u, i) => fetch(u, i));
     if (!key || key.kf.pubkey !== pk) return;
     nameFile(n);
-    if (r.status === "confirmed") { $("nameFile").classList.add("hide"); return show(m, "ok", "Confirmed: " + n.domain + " lists this public key under " + n.text + ". Scanners show seals made with this seal's private key as signed by " + n.text + "."); }
+    if (r.status === "confirmed") { $("nameFile").classList.add("hide"); return show(m, "ok", "Confirmed: " + n.domain + " lists this public key under " + n.text + ". Scanners show this name as confirmed for seals made with this seal's private key."); }
     show(m, "bad", r.status === "other" ? n.domain + " lists a different public key under " + n.text + ". Put this public key in the file instead (below). Until then, scanners show “Name NOT confirmed” for these seals."
       : r.status === "unlisted" ? n.domain + " does not list this public key under " + n.text + ". Put the file below on your website. Until then, scanners show “Name NOT confirmed” for these seals."
       : n.domain + " could not be asked. The file is missing, the site redirects it, the header Access-Control-Allow-Origin: * is not sent, or the site is offline. Until it answers, scanners show these seals as signed by a public key they do not know.");

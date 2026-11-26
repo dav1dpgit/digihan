@@ -9,7 +9,7 @@
 "use strict";
 
 const DHP = (() => {
-  const RELEASE = "0.7.2";        // the page compares this with its own release, as for dhseal.js
+  const RELEASE = "0.7.3";        // the page compares this with its own release, as for dhseal.js
   const { hex, sha256 } = DHV;
   const enc = new TextEncoder();
   const DEFAULT_SERVERS = ["https://blossom.primal.net", "https://blossom.band"];

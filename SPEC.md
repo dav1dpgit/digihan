@@ -422,11 +422,11 @@ that public key came from decides what a reader may say about the signer.
   from a registration carried inside the stamped file (section 9), a registration file, a relay (section 7) or a
   public record (section 13). Whoever made the seal put it there.
 * A reader MAY present the signer as known only when the public key is one of:
-  1. a public key the reader's user saved, under a name the user gave it;
+  1. a public key the reader's user saved;
   2. a public key on a list the reader itself trusts (the reference scanner: the sample seals listed on digihan.org);
   3. a public key whose name is confirmed by its domain (14.2).
 * Otherwise a reader SHOULD say that the signature is valid and that the signer is unknown, show the full public key
-  (`npub`) so it can be checked with the signer, and offer to save it under a name.
+  (`npub`) so it can be checked with the signer, and offer to save it.
 
 ### 14.2 The signer's name (optional)
 

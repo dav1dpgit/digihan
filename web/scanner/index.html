@@ -100,32 +100,25 @@ input[type=file] { display:none; }
 .dots i:nth-child(2) { animation-delay:.18s; } .dots i:nth-child(3) { animation-delay:.36s; }
 @keyframes dhdot { 0%, 80%, 100% { opacity:.25; transform:scale(.85); } 40% { opacity:1; transform:scale(1.1); } }
 .why { font-size:12.5px; color:var(--dim); margin-bottom:12px; }
-.art { display:flex; align-items:center; gap:10px; margin:2px 0 12px; font-size:11.5px; color:var(--dim); }
-.art img { width:64px; height:64px; border-radius:50%; background:#f3f4f1; object-fit:contain; }
 .keybox textarea { width:100%; margin-top:10px; background:#0d0e10; color:var(--fg); border:1px solid rgba(255,255,255,.25);
   border-radius:10px; padding:10px; font:12px/1.4 ui-monospace, Menlo, monospace; }
-.digest-big {
-  font-family:ui-monospace, Menlo, monospace; font-size:26px; font-weight:700;
-  color:#e2705f; letter-spacing:.06em; margin-bottom:2px;
-}
-.digest-cap { font-size:11.5px; color:var(--dim); margin-bottom:12px; }
 .grid { display:grid; grid-template-columns:104px 1fr; gap:5px 10px; font-size:12.5px; }
 .grid .k { color:var(--dim); }
 .grid .v { font-family:ui-monospace, Menlo, monospace; word-break:break-all; }
 .sheet .scan-btn { margin-top:14px; background:rgba(255,255,255,.14); }
-/* v29: who signed: the signer's name, or that the public key is unknown */
-.who { border-left:3px solid var(--ok); padding:4px 0 4px 10px; margin:0 0 12px; }
-.who.warn { border-color:#e6b450; } .who.bad { border-color:#ff6b6b; }
-.who-k { font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
-.who-name { font-size:17px; font-weight:700; color:var(--fg); margin:2px 0; word-break:break-word; }
-.who-src { font-size:12.5px; color:var(--dim); }
-.who-key { font:12px/1.4 ui-monospace, Menlo, monospace; color:var(--fg); word-break:break-all; margin-top:4px; }
+/* v30: the result, one row per check: what was checked, a mark, the result */
+.checks { display:grid; grid-template-columns:84px 14px 1fr; gap:10px 8px; font-size:13.5px; line-height:1.4; margin:4px 0 16px; align-items:start; }
+.checks .row { display:contents; }
+.checks .k { color:var(--dim); }
+.checks .m { font-weight:700; text-align:center; }
+.checks .m.ok { color:var(--ok); } .checks .m.bad { color:#ff6b6b; } .checks .m.warn { color:#e6b450; } .checks .m.none, .checks .m.wait { color:var(--dim); }
+.checks .v { color:var(--fg); word-break:break-word; min-width:0; }
+.checks .key { font:12px/1.4 ui-monospace, Menlo, monospace; color:var(--dim); word-break:break-all; margin-top:3px; }
+.checks .art { display:flex; align-items:center; gap:10px; }
+.checks .art img { width:56px; height:56px; border-radius:50%; background:#f3f4f1; object-fit:contain; flex:none; }
+.sheet .checks .scan-btn { margin-top:8px; padding:11px; }
 .sheet .link { background:none; border:none; padding:6px 0 0; color:#e2705f; font:600 12.5px/1.3 inherit; cursor:pointer; text-decoration:underline; }
-.savebox { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); border-radius:12px; padding:12px 14px; margin:0 0 12px; }
-.savebox p { font-size:12.5px; color:var(--dim); margin:0 0 8px; }
-.sheet input[type=text] { width:100%; margin-top:10px; background:#0d0e10; color:var(--fg); border:1px solid rgba(255,255,255,.25);
-  border-radius:10px; padding:10px; font:14px/1.3 inherit; }
-.savebox .scan-btn { margin-top:10px; }
+.details { border-top:1px solid rgba(255,255,255,.12); padding-top:12px; }
 </style>
 </head>
 <body>
@@ -134,7 +127,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v29 · release <span id="relCode">0.7.2</span> · format v0.5</div>
+    <div class="v">scanner v30 · release <span id="relCode">0.7.3</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -163,22 +156,20 @@ input[type=file] { display:none; }
     <div class="why" id="r_why"></div>
     <div class="next hide" id="r_next"><div class="next-h">Next step</div><p id="r_nextText"></p>
       <button class="scan-btn primary" id="nextBtn">Load the document…</button></div>
-    <div class="who hide" id="r_who"><div class="who-k">Signed by</div><div class="who-name" id="r_whoName"></div>
-      <div class="who-src" id="r_whoSrc"></div><div class="who-key hide" id="r_whoKey"></div>
-      <button class="link hide" id="forgetSaved">Remove this public key from this phone</button></div>
-    <div class="savebox hide" id="saveBox">
-      <p>If you know the signer: check this public key with them, letter for letter, then save it with their name. Next time a seal made with its private key shows that name.</p>
-      <input type="text" id="saveName" maxlength="40" autocomplete="off" placeholder="The signer's name">
-      <button class="scan-btn primary" id="saveGo">Save this public key on this phone</button>
+    <div class="checks" id="r_checks">
+      <div class="row"><div class="k">Document</div><div class="m" id="m_doc"></div><div class="v" id="r_doc">—</div></div>
+      <div class="row"><div class="k">Public key</div><div class="m" id="m_key"></div>
+        <div class="v"><div id="r_signer">—</div><div class="key hide" id="r_npub"></div>
+          <button class="scan-btn primary hide" id="saveGo">Save this public key on this phone</button>
+          <button class="link hide" id="forgetSaved">Remove this public key from this phone</button></div></div>
+      <div class="row hide" id="ck_name"><div class="k">Name</div><div class="m" id="m_name"></div><div class="v" id="r_name"></div></div>
+      <div class="row hide" id="r_artbox"><div class="k">Artwork</div><div class="m"></div>
+        <div class="v art"><img id="r_art" alt="registered artwork"><span>Registered artwork. Compare it with the seal's center.</span></div></div>
+      <div class="row"><div class="k">Time</div><div class="m" id="m_ts"></div><div class="v" id="r_ts"></div></div>
+      <div class="row"><div class="k">Time proof</div><div class="m" id="m_proof"></div><div class="v" id="r_proof">—</div></div>
     </div>
-    <div class="art hide" id="r_artbox"><img id="r_art" alt="registered artwork"><span>The artwork this public key registered. Compare it with the seal's center: a match shows the center was not swapped. It does not show who signed: anyone can register a copy of any artwork.</span></div>
-    <div class="digest-big" id="r_digest"></div>
-    <div class="digest-cap">digest: the first 4 bytes of this seal's SHA-256. It names this seal; it does not show who signed.</div>
-    <div class="grid">
-      <div class="k">public key</div><div class="v" id="r_signer">—</div>
-      <div class="k">document</div><div class="v" id="r_doc">—</div>
-      <div class="k">time</div><div class="v" id="r_ts"></div>
-      <div class="k">time proof</div><div class="v" id="r_proof">—</div>
+    <div class="grid details">
+      <div class="k">digest</div><div class="v" id="r_digest"></div>
       <div class="k">public key id</div><div class="v" id="r_fp"></div>
       <div class="k">frame</div><div class="v" id="r_geom"></div>
       <div class="k">version</div><div class="v" id="r_ver"></div>
@@ -192,7 +183,6 @@ input[type=file] { display:none; }
     <button class="scan-btn" id="keyBtn">Add a signer's public key…</button>
     <div class="keybox hide" id="keyBox">
       <textarea id="keyIn" rows="3" placeholder="Paste the signer's public key (npub1…), or their registration record (JSON)"></textarea>
-      <input type="text" id="keyName" maxlength="40" autocomplete="off" placeholder="The signer's name">
       <button class="scan-btn" id="keySave">Save this public key on this phone</button>
     </div>
     <button class="scan-btn" id="againBtn">Scan another</button>
@@ -223,7 +213,7 @@ function say(t) { statusEl.textContent = t; }
 // v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
 // for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
 // The reader before release 0.6.2 has no DECODER_RELEASE.
-const RELEASE = "0.7.2";
+const RELEASE = "0.7.3";
 if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
   $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
@@ -260,9 +250,10 @@ async function showResult(r, inside, src) {
   say("");
   sheet.classList.add("up");
   if (navigator.vibrate) navigator.vibrate(60);
-  current = { payload: p, fp: parsed.fp, keys: null, extraKeys: [], docs: [], picks: [], proofs: [], pngs: [], digest: DHV.hex(new Uint8Array(dg)) };
+  current = { payload: p, fp: parsed.fp, keys: null, extraKeys: [], docs: [], picks: [], proofs: [], pngs: [], digest: DHV.hex(new Uint8Array(dg)),
+              tsText: $("r_ts").textContent };
   $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
-  $("r_proof").textContent = "—"; clearWho();
+  $("r_proof").textContent = "—"; clearChecks(current);
   if (inside) await useInside(current, inside.list, inside.from);   // v17: a stamped picture carries its files
   if (src && src.docs) current.docs.push(...src.docs);              // v28: a file looked up by its hash (its public record)
   if (src && src.record) { current.record = src.record; current.recordTried = true; showCopyLink(current, src.record); }
@@ -395,21 +386,22 @@ async function timeWindow(c, anchored) {
   const a = anchored !== null ? await merkleAt(anchored) : null;          // only for the anchored block's date
   const A = anchored !== null ? "Bitcoin block " + num(anchored) + (a ? " (mined " + utc(a.time) + ")" : "") : "";
   const B = later ? "Bitcoin block " + num(later.height) + " (mined " + utc(later.time) + ")" : "";
+  const x = { A, B, later, note: why };                // v30: the parts the result rows show
   if (anchored !== null && later) {                    // a bookended seal: both ends proven
     const span = "Sometime between and including Block " + num(anchored) + " and Block " + num(later.height);
     const dates = a ? " Block " + num(anchored) + " was mined " + utc(a.time) + "; Block " + num(later.height) + " was mined " + utc(later.time) + "."
                     : " Block " + num(later.height) + " was mined " + utc(later.time) + ".";
-    return { text: span, why: "This exact document was signed with this public key's private key. " + span + " (Bitcoin), both proven." + dates };
+    return { ...x, text: span, why: "This exact document was signed with this public key's private key. " + span + " (Bitcoin), both proven." + dates };
   }
   if (later) {
     const off = parsePayload(c.payload).ts > later.time + 7200 ? " The stated time is after that block, so the stated time is wrong." : "";
-    return { text: "no later than " + B,
+    return { ...x, off, text: "no later than " + B,
              why: "This exact document was signed with this public key's private key no later than " + B + ", proven by OpenTimestamps." + off };
   }
   if (anchored !== null)
-    return { text: "no earlier than " + A + (why ? ". " + why : ""),
+    return { ...x, text: "no earlier than " + A + (why ? ". " + why : ""),
              why: "This exact document was signed with this public key's private key no earlier than " + A + ": the block's hash is part of what was signed." };
-  return { text: why || "none: the time is the signer's statement",
+  return { ...x, text: why || "none: the time is the signer's statement",
            why: "This exact document was signed with this public key's private key. The time is the signer's statement." };
 }
 let current = null, registryCache = null;
@@ -500,7 +492,7 @@ async function checkPick(c, x) {
 }
 // v29: who signed. A valid signature shows only that the private key of this public key signed this exact
 // document. Whose public key it is comes from somewhere else, and only three places count:
-//   a public key the person saved on this phone, with a name ("saved");
+//   a public key the person saved on this phone ("saved");
 //   a public key on digihan.org's list of sample seals ("sample");
 //   a name in the public key's Nostr profile (NIP-05) that its own domain confirms (DHV.checkName).
 // A public key found only inside the file, in a registration file, on Nostr relays or through a public record was
@@ -508,7 +500,7 @@ async function checkPick(c, x) {
 // shown as a public key this phone does not know (amber), never as green.
 async function trustOf(pubHex) {
   const s = loadKeys().find(x => x.pubkey === pubHex);
-  if (s) return { kind: "saved", name: typeof s.name === "string" ? s.name : "" };
+  if (s) return { kind: "saved" };
   const reg = await registry(), e = reg.entries && reg.entries[await DHV.fingerprint(DHV.unhex(pubHex))];
   return e && e.pubkey === pubHex ? { kind: "sample" } : null;
 }
@@ -520,79 +512,91 @@ async function signerName(pubHex) {
   const r = await DHV.checkName(nm, pubHex, (u, i) => fetch(u, i));
   return r.status === "invalid" ? null : r;
 }
-function who(kind, name, src, keyText, savedPub) {
-  const w = $("r_who"); w.className = "who" + (kind === "ok" ? "" : " " + kind);
-  $("r_whoName").textContent = name; $("r_whoSrc").textContent = src;
-  $("r_whoKey").textContent = keyText || ""; $("r_whoKey").classList.toggle("hide", !keyText);
-  w.dataset.pub = savedPub || ""; $("forgetSaved").classList.toggle("hide", !savedPub);
+// v30: the result is one row per check: what was checked, a mark (✓ ✗ ! – …) and the result
+const MARK = { ok: "✓", bad: "✗", warn: "!", none: "–", wait: "…" };
+function mark(id, st) { const m = $(id); m.textContent = MARK[st] || ""; m.className = "m" + (st ? " " + st : ""); }
+function row(markId, textId, st, text) { mark(markId, st); $(textId).textContent = text; }
+function clearChecks(c) {
+  for (const id of ["m_doc", "m_key", "m_name", "m_ts", "m_proof"]) mark(id, "");
+  for (const id of ["r_npub", "saveGo", "forgetSaved", "ck_name"]) $(id).classList.add("hide");
+  if (c && c.tsText) $("r_ts").textContent = c.tsText;
 }
-function clearWho() { $("r_who").classList.add("hide"); $("saveBox").classList.add("hide"); }
+const whereFound = k => k.source === "saved on this phone" ? "Saved on this phone." : k.source === "digihan.org sample list"
+  ? "On digihan.org's list of sample seals." : "Found in " + k.source + ".";
+function keyRow(st, text, pub) {
+  row("m_key", "r_signer", st, text);
+  $("r_npub").textContent = pub ? DHV.npubEncode(pub) : ""; $("r_npub").classList.toggle("hide", !pub);
+}
 async function showValid(c, k, r, docText, distinct) {
-  const pubHex = DHV.hex(k.pub), npub = DHV.npubEncode(k.pub), run = c.shown = {};   // a later check replaces this one
-  $("r_signer").textContent = short(npub) + " · " + k.source;
-  $("r_doc").textContent = docText;
+  const pubHex = DHV.hex(k.pub), run = c.shown = {};                 // a later check replaces this one
   const anchored = r.anchored !== null && r.anchored !== undefined ? r.anchored : null;
-  clearWho();
-  verdict("work", "Signature valid · checking who signed", "Checking the time proof and the signer's public key.");
-  $("r_proof").textContent = c.proofs.length ? "checking…" : "—";
+  clearChecks(c);
+  row("m_doc", "r_doc", "ok", /match/.test(docText) ? docText : "Matches: " + docText + ".");   // a loaded file's line ends in "." already
+  keyRow("wait", "Checking.", k.pub);
+  row("m_proof", "r_proof", c.proofs.length ? "wait" : "none", c.proofs.length ? "Checking." : "None.");
+  verdict("work", "Signature valid · checking the public key", "");
   const trust = await trustOf(pubHex);
-  // the name is asked for alongside; the verdict does not wait for it (relays or the domain may be slow)
+  // the name is asked for alongside; the result does not wait for it (relays or the domain may be slow)
   const asked = trust && trust.kind === "sample" ? Promise.resolve(null) : signerName(pubHex).catch(() => null);
   const tw = await timeWindow(c, anchored);
   if (c !== current || c.shown !== run) return;
-  $("r_proof").textContent = tw.text;
+  if (anchored !== null) row("m_ts", "r_ts", "ok", "No earlier than " + tw.A + ": the block's hash is part of what was signed.");
+  else row("m_ts", "r_ts", "none", c.tsText.replace(/Z, stated by the signer$/, " UTC, stated by the signer") + ".");
+  if (tw.bad) row("m_proof", "r_proof", "bad", tw.why);
+  else if (tw.later) row("m_proof", "r_proof", "ok", anchored !== null
+    ? tw.text + ": both proven. Block " + num(tw.later.height) + " was mined " + utc(tw.later.time) + "."
+    : "No later than " + tw.B + ", by OpenTimestamps." + (tw.off || ""));
+  else if (c.proofs.length) {                    // "The time proof is still pending: …" -> "Still pending: …" (the row already says "Time proof")
+    const n = (tw.note || "not finished yet.").replace(/^(the )?time proof (is )?/i, "");
+    row("m_proof", "r_proof", "wait", n.charAt(0).toUpperCase() + n.slice(1));
+  }
+  else row("m_proof", "r_proof", "none", "None.");
   const ch = r.reg ? DHV.tag(r.reg, "center_hash") : null;
   if (ch) {
     if (k.center && k.center.sha256 === ch) showArt(k.center.url, ch);
     else if (k.image) showArt(k.image, ch);
     else for (const png of c.pngs) if (DHV.hex(await DHV.sha256(png)) === ch) { showArtBytes(png); break; }   // v12: artwork attached to the PDF
   }
-  if (tw.bad) return verdict("bad", "Time proofs contradict", tw.why);
+  if (tw.bad) { keyRow("none", whereFound(k), k.pub); return verdict("bad", "Time proofs contradict", ""); }
+  const saved = !!trust && trust.kind === "saved", sample = !!trust && trust.kind === "sample";
   const render = (nm, waiting) => {
-    const nameLine = waiting ? "Looking for a name for this public key." : !nm ? ""
-      : nm.status === "confirmed" ? nm.domain + " lists this public key under the name " + nm.name + "."
-      : nm.status === "other" ? "This public key's Nostr profile claims the name " + nm.name + ", but " + nm.domain + " lists a different public key under that name."
-      : nm.status === "unlisted" ? "This public key's Nostr profile claims the name " + nm.name + ", but " + nm.domain + " does not list this public key under that name."
-      : "This public key's Nostr profile gives the name " + nm.name + ", but " + nm.domain + " could not be asked to confirm it just now.";
     const falseName = !!nm && (nm.status === "other" || nm.status === "unlisted");
-    let level;                                                              // "ok", "warn" or "bad"
-    $("saveBox").classList.add("hide");
-    if (trust && trust.kind === "saved") {
-      level = "ok";
-      who("ok", trust.name || "A public key saved on this phone", "You saved this public key on this phone." + (nm && nm.status !== "unreachable" ? " " + nameLine : ""), "", pubHex);
-    } else if (trust) {
-      level = "ok"; who("ok", "A digihan.org sample seal", "Its public key is on digihan.org's list of sample seals.");
-    } else if (nm && nm.status === "confirmed") {
-      level = "ok"; who("ok", nm.name, nameLine);
-    } else if (falseName) {
-      level = "bad"; who("bad", "Not " + nm.name, nameLine, npub);
-    } else {
-      level = "warn";
-      who("warn", "A public key this phone does not know", (nameLine ? nameLine + " " : "") + "Found in " + k.source + ".", npub);
-      if ($("saveBox").dataset.pub !== pubHex) $("saveName").value = "";
-      $("saveBox").dataset.pub = pubHex; $("saveBox").classList.remove("hide");
+    if (!sample) {
+      $("ck_name").classList.remove("hide");
+      if (waiting) row("m_name", "r_name", "wait", "Looking in this public key's Nostr profile.");
+      else if (!nm) row("m_name", "r_name", "none", "None in this public key's Nostr profile.");
+      else if (nm.status === "confirmed") row("m_name", "r_name", "ok", nm.name + ": " + nm.domain + " lists this public key under this name.");
+      else if (nm.status === "other") row("m_name", "r_name", "bad", "Claims " + nm.name + ": " + nm.domain + " lists a different public key under this name.");
+      else if (nm.status === "unlisted") row("m_name", "r_name", "bad", "Claims " + nm.name + ": " + nm.domain + " does not list this public key under this name.");
+      else row("m_name", "r_name", "warn", nm.name + ": " + nm.domain + " could not be asked.");
     }
-    $("r_who").classList.remove("hide");
+    let level;                                                          // "ok", "warn" or "bad"
+    $("saveGo").classList.add("hide"); $("forgetSaved").classList.add("hide");
+    if (saved) { level = "ok"; keyRow("ok", "Saved on this phone.", k.pub); $("forgetSaved").dataset.pub = pubHex; $("forgetSaved").classList.remove("hide"); }
+    else if (sample) { level = "ok"; keyRow("ok", "On digihan.org's list of sample seals.", k.pub); }
+    else if (nm && nm.status === "confirmed") { level = "ok"; keyRow("none", "Not saved on this phone. " + whereFound(k), k.pub); }
+    else {
+      level = falseName ? "bad" : "warn";
+      keyRow("warn", "Not known to this phone. " + whereFound(k), k.pub);
+      if (!falseName) { $("saveGo").dataset.pub = pubHex; $("saveGo").textContent = "Save this public key on this phone"; $("saveGo").classList.remove("hide"); }
+    }
     if (distinct.length > 1) {                   // v14: different public keys with this public key id (the 8 bytes match, the keys do not)
       const others = distinct.filter(x => DHV.hex(x.pub) !== pubHex).map(x => short(DHV.npubEncode(x.pub)) + " (" + x.source + ")");
-      return verdict(level === "bad" ? "bad" : "warn", "Signature valid — check the signer",
-        "Different public keys share this seal's public key id. The seal was signed with the private key of " + short(npub) + " (" + k.source
-        + "), not of " + others.join(", ") + ". Make sure the full public key is the signer's. " + tw.why);
+      mark("m_key", "warn");
+      $("r_signer").textContent += " Other public keys share this public key id: " + others.join(", ") + ".";
+      return verdict(level === "bad" ? "bad" : "warn", "Signature valid — check the signer", "");
     }
-    if (level === "ok") verdict("ok", "Signature valid", tw.why);
-    else if (level === "bad") verdict("bad", "Name NOT confirmed", "The signature is valid, but the name given for its public key is false (below)."
-      + " Do not take this seal as " + nm.name + "'s. " + tw.why);
-    else verdict("warn", "Signature valid · signer unknown", tw.why + " Anyone can make a seal that looks like this one, with the same artwork, using their own private key:"
-      + " only the public key tells them apart. Check this public key with the signer before you rely on this seal.");
+    verdict(level, level === "ok" ? "Signature valid" : level === "bad" ? "Name NOT confirmed" : "Signature valid · signer unknown", "");
   };
-  if (!(trust && trust.kind === "sample")) render(null, true);
+  render(null, !sample);
+  if (sample) return;
   const nm = await asked;
   if (c !== current || c.shown !== run) return;
   render(nm, false);
 }
 async function runCheck() {
   const c = current; if (!c) return;
-  clearWho(); c.shown = null;                   // v29: a name still being asked for no longer answers for this check
+  clearChecks(c); c.shown = null;               // v29: a name still being asked for no longer answers for this check
   if (c.keys === null) { const ks = await findKeys(c.fp, c.extraKeys); if (c.keys === null) c.keys = ks; }
   for (const k of c.extraKeys) if (!c.keys.some(x => DHV.hex(x.pub) === DHV.hex(k.pub))) c.keys.unshift(k);
   if (c !== current) return;
@@ -603,7 +607,7 @@ async function runCheck() {
   }
   if (!c.keys.length) {
     if (c.docs.length || c.picks.length) {   // v21: a file was loaded, but it does not carry the signer's key (an original, for example)
-      $("r_doc").textContent = (c.picks.length ? c.picks.map(x => x.name) : c.docs.map(d => d.name)).join(", ");   // v22: show at once that the file was loaded
+      row("m_doc", "r_doc", "none", (c.picks.length ? c.picks.map(x => x.name) : c.docs.map(d => d.name)).join(", ") + ": loaded, not checked yet.");   // v22: show at once that the file was loaded
       verdict("next", "Seal read · file loaded", "The file is loaded, but the signer's public key is not on this phone, so the signature cannot be checked yet.");
       nextStep("Load the stamped PDF or stamped picture instead: it carries the signer's public key as well as the original. "
         + "Or add the signer's public key below, then load the file again.", "Load the stamped PDF or picture…");
@@ -614,7 +618,7 @@ async function runCheck() {
     }
     return;
   }
-  $("r_signer").textContent = short(DHV.npubEncode(c.keys[0].pub)) + " · " + c.keys[0].source;
+  keyRow("none", whereFound(c.keys[0]), c.keys[0].pub);
   // v14: more than one different full key with this key id (the 8 bytes match, the keys do not)
   const distinct = [...new Map(c.keys.map(k => [DHV.hex(k.pub), k])).values()];
   // v23: files loaded with "Check against a document…" are checked one by one, and the result names each.
@@ -623,13 +627,15 @@ async function runCheck() {
     const res = [];
     for (const x of c.picks) res.push(await checkPick(c, x));
     if (c !== current) return;
-    const line = c.picks.map((x, i) => x.name + (!res[i].ok ? ": does NOT match" : res[i].doc === x.name ? ": matches" : ": the original inside it matches")).join(" · ");
+    // v30: the file loaded last first, with its result; files loaded before it after "Also checked"
+    const why = r => r === NO_MATCH ? "it is not the file that was stamped, or it was changed after stamping" : r.charAt(0).toLowerCase() + r.slice(1).replace(/\.$/, "");
+    const one = i => c.picks[i].name + (!res[i].ok ? ": does NOT match (" + why(res[i].reason) + ")" : res[i].doc === c.picks[i].name ? ": matches" : ": the original inside it matches");
+    const n = c.picks.length, line = one(n - 1) + "." + (n > 1 ? " Also checked: " + c.picks.slice(0, -1).map((x, i) => one(i)).join("; ") + "." : "");
     const last = res[res.length - 1], name = c.picks[c.picks.length - 1].name;
     if (last.ok) return showValid(c, last.k, last.r, line, distinct);
-    $("r_doc").textContent = line; $("r_proof").textContent = "—"; $("r_artbox").classList.add("hide");
-    verdict("bad", "Signature does NOT match", last.reason === NO_MATCH
-      ? name + " is not the file that was stamped, or it was changed after stamping. One changed byte is enough to fail."
-      : last.reason);
+    $("r_proof").textContent = "—"; $("r_artbox").classList.add("hide");
+    row("m_doc", "r_doc", "bad", line);
+    verdict("bad", "Signature does NOT match", "");
     return;
   }
   const docs = [...c.docs];
@@ -644,8 +650,8 @@ async function runCheck() {
       const r = await DHV.checkSeal(c.payload, k.pub, c.record.x, k.regs, blockHashAt);
       if (c !== current) return;
       if (!r.ok) continue;
-      $("r_signer").textContent = short(DHV.npubEncode(k.pub)) + " · " + k.source;
-      $("r_doc").textContent = "a file with SHA-256 " + DHV.hex(c.record.x).slice(0, 16) + "… (from its public record)";
+      keyRow("none", whereFound(k), k.pub);
+      row("m_doc", "r_doc", "none", "A file with SHA-256 " + DHV.hex(c.record.x).slice(0, 16) + "…, from its public record.");
       verdict("next", "Seal read · public record found", "This public key's private key signed a file with SHA-256 " + DHV.hex(c.record.x).slice(0, 16) + "… and published a record of it"
         + (c.record.copies.length ? "; its public copy could not be downloaded just now." : ".") + " That does not show which file you hold.");
       nextStep("Load the file to check that it is the one that was stamped. It is checked on this phone; your file is not uploaded.", "Load the document…");
@@ -664,8 +670,8 @@ async function runCheck() {
     if (r.ok) return showValid(c, k, r, d.name, distinct);
     last = r.reason;
   }
-  $("r_doc").textContent = docs.map(d => d.name).join(", ");
-  verdict("bad", "Signature does NOT match", last + " Check that you picked the exact file that was stamped.");
+  row("m_doc", "r_doc", "bad", docs.map(d => d.name).join(", ") + ": " + last);
+  verdict("bad", "Signature does NOT match", "");
 }
 // The picked file itself, plus any file attached inside a PDF (a sealed PDF carries its original).
 async function pdfAttachments(bytes) {
@@ -983,32 +989,26 @@ $("keySave").addEventListener("click", async () => {
     else { const pub = t.startsWith("npub") ? DHV.npubDecode(t) : (/^[0-9a-f]{64}$/i.test(t) ? DHV.unhex(t.toLowerCase()) : null); if (pub) entry = { pubkey: DHV.hex(pub), regs: [] }; }
   } catch (e) {}
   if (!entry) { $("keyIn").value = ""; $("keyIn").placeholder = "That is not a valid public key (npub1…) or registration record. Try again."; return; }
-  const name = $("keyName").value.trim().slice(0, 40);
-  if (!name) { $("keyName").placeholder = "Type the signer's name first"; $("keyName").focus(); return; }
-  entry.name = name;
   if (!keepKey(entry)) { $("keyIn").value = ""; $("keyIn").placeholder = "This browser did not keep it (a private window keeps nothing)."; return; }
-  $("keyIn").value = ""; $("keyName").value = ""; $("keyBox").classList.add("hide");
+  $("keyIn").value = ""; $("keyBox").classList.add("hide");
   if (current) { current.keys = null; runCheck(); }
 });
-// v29: a saved public key has the name the person gave it; saving it again renames it and adds its registrations
+// a saved public key, with its registrations (saving it again adds any new ones)
 function keepKey(entry) {
   const keys = loadKeys(), old = keys.find(k => k.pubkey === entry.pubkey);
-  if (old) { const ids = new Set((old.regs || []).map(e => e.id)); old.regs = [...(old.regs || []), ...entry.regs.filter(e => !ids.has(e.id))]; old.name = entry.name; }
+  if (old) { const ids = new Set((old.regs || []).map(e => e.id)); old.regs = [...(old.regs || []), ...entry.regs.filter(e => !ids.has(e.id))]; }
   else keys.push(entry);
   return saveKeys(keys);
 }
 $("saveGo").addEventListener("click", () => {
-  const pubHex = $("saveBox").dataset.pub, name = $("saveName").value.trim().slice(0, 40);
-  if (!pubHex) return;
-  if (!name) { $("saveName").placeholder = "Type the signer's name first"; $("saveName").focus(); return; }
-  const regs = [], seen = new Set();                 // its registrations, so a seal of this key checks offline too
+  const pubHex = $("saveGo").dataset.pub; if (!pubHex) return;
+  const regs = [], seen = new Set();                 // its registrations, so a seal of this public key checks offline too
   for (const k of (current && current.keys) || []) if (DHV.hex(k.pub) === pubHex) for (const e of k.regs || []) if (!seen.has(e.id)) { seen.add(e.id); regs.push(e); }
-  if (!keepKey({ pubkey: pubHex, regs, name })) { $("saveName").value = ""; $("saveName").placeholder = "This browser did not keep it (a private window keeps nothing)."; return; }
-  $("saveName").value = ""; $("saveBox").classList.add("hide");
+  if (!keepKey({ pubkey: pubHex, regs })) { $("saveGo").textContent = "This browser did not keep it (a private window keeps nothing)"; return; }
   if (current) { current.keys = null; runCheck(); }
 });
 $("forgetSaved").addEventListener("click", () => {
-  const pubHex = $("r_who").dataset.pub; if (!pubHex) return;
+  const pubHex = $("forgetSaved").dataset.pub; if (!pubHex) return;
   saveKeys(loadKeys().filter(k => k.pubkey !== pubHex));
   if (current) { current.keys = null; runCheck(); }
 });
@@ -1024,7 +1024,7 @@ function resetScan() {
   current = null; frames = 0; sheet.classList.remove("up"); say("");
   $("keyBox").classList.add("hide"); $("r_next").classList.add("hide"); $("r_artbox").classList.add("hide");
   $("copyBtn").classList.add("hide"); $("lookupBtn").classList.add("hide"); lookupFile = null;   // v28
-  clearWho();                                                                                     // v29
+  clearChecks(null);                                                                              // v30
   for (const id of ["r_verdict", "r_why", "r_digest", "r_signer", "r_doc", "r_ts", "r_proof", "r_fp", "r_geom", "r_ver", "r_sig", "r_corr", "r_frames"]) $(id).textContent = "";
 }
 $("againBtn").addEventListener("click", () => { resetScan(); startCamera(); });

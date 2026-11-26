@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.7.3 (2026-11-26): the result, one line per check
+
+* Scanner v30: the result is one line per check, each with what was checked, a mark (✓ passed, ✗ failed, ! not
+  known, – none, … waiting) and the result in a few words: Document (the signature matches this exact file),
+  Public key (saved on this phone, a sample seal, or not known to this phone and where it was found, with the
+  full public key), Name (the NIP-05 name and whether its domain lists this public key), Artwork (the registered
+  artwork, to compare with the seal's center), Time and Time proof. The long sentences under the verdict and the
+  "Signed by" box are gone; the digest moved down with the other details.
+* No names are asked for: "Save this public key on this phone" and "Add a signer's public key…" save the public
+  key alone.
+* Stamping page v24 (release number only, and one line in "Check my name"). How it works v22, README, SPEC.md
+  section 14 and the NIP draft say the same. Offline copy v11.
+
 ## v0.7.2 (2026-11-26): who signed
 
 * A valid signature shows only that the private key of a public key signed the document. Until now the scanner

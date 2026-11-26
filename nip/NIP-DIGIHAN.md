@@ -130,9 +130,9 @@ same query finds it.
 
 * **What a record proves.** The holder of the private key registered this artwork for its public key. It says
   nothing about who that is: anyone can register a copy of the same artwork for a public key of their own, and a
-  stamped file carries whatever registration its maker put in it. Clients MUST NOT name a signer from a
-  registration. They MAY name one from a public key the user saved under a name, or from a NIP-05 name in the public
-  key's profile (kind 0) that its domain confirms; a name the domain does not confirm MUST NOT be shown as the
+  stamped file carries whatever registration its maker put in it. Clients MUST NOT treat a signer as known from a
+  registration. They MAY treat one as known from a public key the user saved, or name one from a NIP-05 name in the
+  public key's profile (kind 0) that its domain confirms; a name the domain does not confirm MUST NOT be shown as the
   signer (SPEC.md, section 14). Binding a public key to a person by other means (for example, a notary's
   attestation) is out of scope and may be a separate NIP.
 * **Withheld records.** A relay may not return a record. Clients SHOULD ask several relays and SHOULD

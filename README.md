@@ -39,7 +39,7 @@ Nostr stamp event, which any Nostr signer app can sign.
 | Time proofs, Python and phone: "no earlier than" (block anchor) and "no later than" (OpenTimestamps) | |
 | Stamping page: make a seal and stamp any file in a browser, bookended; finish the proof later. A PNG or JPEG picture also gets a stamped copy with the seal in a corner (turned up to 15° either way, on a white disc or with a transparent background, the website under it if you choose) | |
 | Up to 21 seals on one device; private key files encrypted with Argon2id; the pages work offline once opened | |
-| Who signed: the phone names a signer only for a public key you saved with a name, a sample seal, or a name its own domain confirms (NIP-05); any other public key is shown as unknown, in full | |
+| Who signed: the phone shows the signer as known only for a public key you saved on it, a sample seal, or a name its own domain confirms (NIP-05); any other public key is shown as unknown, in full | |
 | Private keys kept elsewhere: a Nostr signer (browser extension or app browser, NIP-07; bunker link or nostrconnect, NIP-46), a second device by QR code, or `sign_hash.py` | |
 | Optional, off by default: a public record of a stamp on Nostr, and a public copy of the stamped file on Blossom servers; the scanner finds them from a seal alone, or from the original | |
 
@@ -60,12 +60,14 @@ Nostr stamp event, which any Nostr signer app can sign.
    *time proof* line shows the proven window, if the seal has one. A stamped PDF carries the signer's
    registration record and its time proof inside, so picking it is all the phone needs; a separate
    `.ots` proof file can be picked the same way as a document.
-5. **Who signed.** A valid signature shows only that the private key of this public key signed. A public key
+5. **The result** is one line per check, each with ✓, ✗, ! (not known), – (none) or … (waiting): Document,
+   Public key, Name, Artwork, Time and Time proof.
+6. **Who signed.** A valid signature shows only that the private key of this public key signed. A public key
    that came with the seal (inside the stamped file, on Nostr, in a public record) was put there by whoever made
-   the seal: anyone can make a seal with the same artwork and a private key of their own. So the scanner names the
-   signer only when:
-   * you saved the public key on the phone under a name (**Save this public key on this phone**, or **Add a
-     signer's public key…**);
+   the seal: anyone can make a seal with the same artwork and a private key of their own. So the scanner shows the
+   signer as known only when:
+   * you saved the public key on the phone (**Save this public key on this phone**, or **Add a signer's public
+     key…**);
    * it is one of the sample seals on digihan.org; or
    * the public key's Nostr profile gives a name such as `dp@example.com` and `example.com` itself lists that
      public key under that name, at `/.well-known/nostr.json` (NIP-05).
