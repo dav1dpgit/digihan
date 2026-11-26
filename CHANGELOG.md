@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.4 (2026-11-26): each check says what it checks against what
+
+* Scanner v31: each line of the result names what is checked against what, above its result: "Signature against
+  the document", "Public key against the public keys this phone knows", "Name against its website", "Artwork
+  against the seal's center", "Earliest time against Bitcoin", "Latest time against Bitcoin (OpenTimestamps)".
+  Lines not checked yet say so ("Not checked yet.", "No document yet.") instead of a dash.
+* Stamping page v25 (release number only). How it works v23 and the README use the same names. Offline copy v12.
+
 ## v0.7.3 (2026-11-26): the result, one line per check
 
 * Scanner v30: the result is one line per check, each with what was checked, a mark (✓ passed, ✗ failed, ! not

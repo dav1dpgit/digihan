@@ -60,8 +60,10 @@ Nostr stamp event, which any Nostr signer app can sign.
    *time proof* line shows the proven window, if the seal has one. A stamped PDF carries the signer's
    registration record and its time proof inside, so picking it is all the phone needs; a separate
    `.ots` proof file can be picked the same way as a document.
-5. **The result** is one line per check, each with ✓, ✗, ! (not known), – (none) or … (waiting): Document,
-   Public key, Name, Artwork, Time and Time proof.
+5. **The result** is one line per check, each naming what is checked against what, with ✓, ✗, ! (not known),
+   – (none) or … (waiting): signature against the document; public key against the public keys this phone knows;
+   name against its website; artwork against the seal's center; earliest time against Bitcoin; latest time
+   against Bitcoin (OpenTimestamps).
 6. **Who signed.** A valid signature shows only that the private key of this public key signed. A public key
    that came with the seal (inside the stamped file, on Nostr, in a public record) was put there by whoever made
    the seal: anyone can make a seal with the same artwork and a private key of their own. So the scanner shows the

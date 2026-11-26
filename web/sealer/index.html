@@ -393,7 +393,7 @@ html { scrollbar-gutter: stable; }
   </div>
 </section>
 
-<footer>stamping page v24 · release <span id="relCode">0.7.3</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
+<footer>stamping page v25 · release <span id="relCode">0.7.4</span> · format v0.5 · <a href="https://github.com/dav1dpgit/digihan" style="color:inherit">open source</a><br>A Plotzwerks project · <a style="color:inherit" href="https://plotzwerks.com">plotzwerks.com</a></footer>
 </div>
 
 <input type="file" id="artImageIn" accept="image/*">
@@ -429,7 +429,7 @@ const SITE_URL = "https://digihan.org";     // v19: shown under the seal when "A
 // v17: the page and the code it loaded must come from one release. A phone keeps a copy of the code for
 // offline use, and an open tab keeps the code it opened with; an older copy is named here, plainly,
 // instead of failing later. dhseal.js before release 0.6.2 has no RELEASE.
-const RELEASE = "0.7.3";
+const RELEASE = "0.7.4";
 if (DHS.RELEASE !== RELEASE || typeof DHP === "undefined" || DHP.RELEASE !== RELEASE) {   // v21: publish.js too
   $("relCode").textContent = RELEASE + " (its code: " + (DHS.RELEASE !== RELEASE ? DHS.RELEASE || "an older release" : typeof DHP === "undefined" ? "publish.js missing" : "publish.js " + DHP.RELEASE) + ")";
   show($("relMsg"), "bad", "This page loaded an older copy of its code (" + (DHS.RELEASE !== RELEASE ? (DHS.RELEASE ? "release " + DHS.RELEASE : "from before release 0.6.2") : typeof DHP === "undefined" ? "without publish.js" : "publish.js of release " + DHP.RELEASE) +

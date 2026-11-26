@@ -106,11 +106,11 @@ input[type=file] { display:none; }
 .grid .k { color:var(--dim); }
 .grid .v { font-family:ui-monospace, Menlo, monospace; word-break:break-all; }
 .sheet .scan-btn { margin-top:14px; background:rgba(255,255,255,.14); }
-/* v30: the result, one row per check: what was checked, a mark, the result */
-.checks { display:grid; grid-template-columns:84px 14px 1fr; gap:10px 8px; font-size:13.5px; line-height:1.4; margin:4px 0 16px; align-items:start; }
+/* v30: the result, one row per check; v31: each check names what is checked against what, above its result */
+.checks { display:grid; grid-template-columns:16px 1fr; gap:12px 8px; font-size:13.5px; line-height:1.4; margin:4px 0 16px; align-items:start; }
 .checks .row { display:contents; }
-.checks .k { color:var(--dim); }
-.checks .m { font-weight:700; text-align:center; }
+.checks .k { color:var(--dim); font-size:12px; margin-bottom:1px; }
+.checks .m { font-weight:700; text-align:center; padding-top:15px; }
 .checks .m.ok { color:var(--ok); } .checks .m.bad { color:#ff6b6b; } .checks .m.warn { color:#e6b450; } .checks .m.none, .checks .m.wait { color:var(--dim); }
 .checks .v { color:var(--fg); word-break:break-word; min-width:0; }
 .checks .key { font:12px/1.4 ui-monospace, Menlo, monospace; color:var(--dim); word-break:break-all; margin-top:3px; }
@@ -127,7 +127,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v30 · release <span id="relCode">0.7.3</span> · format v0.5</div>
+    <div class="v">scanner v31 · release <span id="relCode">0.7.4</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -157,16 +157,16 @@ input[type=file] { display:none; }
     <div class="next hide" id="r_next"><div class="next-h">Next step</div><p id="r_nextText"></p>
       <button class="scan-btn primary" id="nextBtn">Load the document…</button></div>
     <div class="checks" id="r_checks">
-      <div class="row"><div class="k">Document</div><div class="m" id="m_doc"></div><div class="v" id="r_doc">—</div></div>
-      <div class="row"><div class="k">Public key</div><div class="m" id="m_key"></div>
-        <div class="v"><div id="r_signer">—</div><div class="key hide" id="r_npub"></div>
-          <button class="scan-btn primary hide" id="saveGo">Save this public key on this phone</button>
-          <button class="link hide" id="forgetSaved">Remove this public key from this phone</button></div></div>
-      <div class="row hide" id="ck_name"><div class="k">Name</div><div class="m" id="m_name"></div><div class="v" id="r_name"></div></div>
-      <div class="row hide" id="r_artbox"><div class="k">Artwork</div><div class="m"></div>
-        <div class="v art"><img id="r_art" alt="registered artwork"><span>Registered artwork. Compare it with the seal's center.</span></div></div>
-      <div class="row"><div class="k">Time</div><div class="m" id="m_ts"></div><div class="v" id="r_ts"></div></div>
-      <div class="row"><div class="k">Time proof</div><div class="m" id="m_proof"></div><div class="v" id="r_proof">—</div></div>
+      <div class="row"><div class="m" id="m_doc"></div><div class="v"><div class="k">Signature against the document</div><div id="r_doc">No document yet.</div></div></div>
+      <div class="row"><div class="m" id="m_key"></div><div class="v"><div class="k">Public key against the public keys this phone knows</div>
+        <div id="r_signer">Not found yet.</div><div class="key hide" id="r_npub"></div>
+        <button class="scan-btn primary hide" id="saveGo">Save this public key on this phone</button>
+        <button class="link hide" id="forgetSaved">Remove this public key from this phone</button></div></div>
+      <div class="row hide" id="ck_name"><div class="m" id="m_name"></div><div class="v"><div class="k">Name against its website</div><div id="r_name"></div></div></div>
+      <div class="row hide" id="r_artbox"><div class="m"></div><div class="v"><div class="k">Artwork against the seal's center</div>
+        <div class="art"><img id="r_art" alt="registered artwork"><span>The registered artwork. Compare it with the seal's center by eye.</span></div></div></div>
+      <div class="row"><div class="m" id="m_ts"></div><div class="v"><div class="k">Earliest time against Bitcoin</div><div id="r_ts"></div></div></div>
+      <div class="row"><div class="m" id="m_proof"></div><div class="v"><div class="k">Latest time against Bitcoin (OpenTimestamps)</div><div id="r_proof">Not checked yet.</div></div></div>
     </div>
     <div class="grid details">
       <div class="k">digest</div><div class="v" id="r_digest"></div>
@@ -213,7 +213,7 @@ function say(t) { statusEl.textContent = t; }
 // v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
 // for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
 // The reader before release 0.6.2 has no DECODER_RELEASE.
-const RELEASE = "0.7.3";
+const RELEASE = "0.7.4";
 if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
   $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
@@ -241,8 +241,8 @@ async function showResult(r, inside, src) {
   $("r_geom").textContent = r.geom ? (r.geom.square ? "square · kakuin " : "round · jitsuin ") + r.geom.d + "mm" : "—";
   $("r_ver").textContent = parsed.ver + (parsed.ver === 2 ? " · a Nostr stamp event" : "") + " (flags " + parsed.flags + ")";
   $("r_fp").textContent = parsed.fp.replace(/(.{4})(?=.)/g, "$1 ");
-  $("r_ts").textContent = (parsed.flags & 1) ? "anchored to Bitcoin block " + parsed.ts.toLocaleString("en-US")
-    : new Date(parsed.ts * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z, stated by the signer";
+  $("r_ts").textContent = (parsed.flags & 1) ? "Block " + parsed.ts.toLocaleString("en-US") + ": not checked yet."
+    : "Not anchored. The time " + new Date(parsed.ts * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC is stated by the signer.";
   $("r_sig").textContent = parsed.sig.slice(0, 24) + "…" + parsed.sig.slice(-8);
   $("r_corr").textContent = r.corrected === null ? "—" : r.corrected + " byte(s)";
   $("r_frames").textContent = frames;
@@ -252,8 +252,8 @@ async function showResult(r, inside, src) {
   if (navigator.vibrate) navigator.vibrate(60);
   current = { payload: p, fp: parsed.fp, keys: null, extraKeys: [], docs: [], picks: [], proofs: [], pngs: [], digest: DHV.hex(new Uint8Array(dg)),
               tsText: $("r_ts").textContent };
-  $("r_signer").textContent = "—"; $("r_doc").textContent = "—"; $("r_artbox").classList.add("hide");
-  $("r_proof").textContent = "—"; clearChecks(current);
+  $("r_signer").textContent = "Not found yet."; $("r_doc").textContent = "No document yet."; $("r_artbox").classList.add("hide");
+  $("r_proof").textContent = "Not checked yet."; clearChecks(current);
   if (inside) await useInside(current, inside.list, inside.from);   // v17: a stamped picture carries its files
   if (src && src.docs) current.docs.push(...src.docs);              // v28: a file looked up by its hash (its public record)
   if (src && src.record) { current.record = src.record; current.recordTried = true; showCopyLink(current, src.record); }
@@ -533,24 +533,24 @@ async function showValid(c, k, r, docText, distinct) {
   clearChecks(c);
   row("m_doc", "r_doc", "ok", /match/.test(docText) ? docText : "Matches: " + docText + ".");   // a loaded file's line ends in "." already
   keyRow("wait", "Checking.", k.pub);
-  row("m_proof", "r_proof", c.proofs.length ? "wait" : "none", c.proofs.length ? "Checking." : "None.");
+  row("m_proof", "r_proof", c.proofs.length ? "wait" : "none", c.proofs.length ? "Checking." : "No time proof with this seal.");
   verdict("work", "Signature valid · checking the public key", "");
   const trust = await trustOf(pubHex);
   // the name is asked for alongside; the result does not wait for it (relays or the domain may be slow)
   const asked = trust && trust.kind === "sample" ? Promise.resolve(null) : signerName(pubHex).catch(() => null);
   const tw = await timeWindow(c, anchored);
   if (c !== current || c.shown !== run) return;
-  if (anchored !== null) row("m_ts", "r_ts", "ok", "No earlier than " + tw.A + ": the block's hash is part of what was signed.");
-  else row("m_ts", "r_ts", "none", c.tsText.replace(/Z, stated by the signer$/, " UTC, stated by the signer") + ".");
+  if (anchored !== null) row("m_ts", "r_ts", "ok", "No earlier than " + tw.A + ": that block's hash is part of what was signed.");
+  else row("m_ts", "r_ts", "none", c.tsText);
   if (tw.bad) row("m_proof", "r_proof", "bad", tw.why);
   else if (tw.later) row("m_proof", "r_proof", "ok", anchored !== null
     ? tw.text + ": both proven. Block " + num(tw.later.height) + " was mined " + utc(tw.later.time) + "."
-    : "No later than " + tw.B + ", by OpenTimestamps." + (tw.off || ""));
+    : "No later than " + tw.B + "." + (tw.off || ""));
   else if (c.proofs.length) {                    // "The time proof is still pending: …" -> "Still pending: …" (the row already says "Time proof")
     const n = (tw.note || "not finished yet.").replace(/^(the )?time proof (is )?/i, "");
     row("m_proof", "r_proof", "wait", n.charAt(0).toUpperCase() + n.slice(1));
   }
-  else row("m_proof", "r_proof", "none", "None.");
+  else row("m_proof", "r_proof", "none", "No time proof with this seal.");
   const ch = r.reg ? DHV.tag(r.reg, "center_hash") : null;
   if (ch) {
     if (k.center && k.center.sha256 === ch) showArt(k.center.url, ch);
@@ -633,7 +633,7 @@ async function runCheck() {
     const n = c.picks.length, line = one(n - 1) + "." + (n > 1 ? " Also checked: " + c.picks.slice(0, -1).map((x, i) => one(i)).join("; ") + "." : "");
     const last = res[res.length - 1], name = c.picks[c.picks.length - 1].name;
     if (last.ok) return showValid(c, last.k, last.r, line, distinct);
-    $("r_proof").textContent = "—"; $("r_artbox").classList.add("hide");
+    $("r_proof").textContent = "Not checked: the signature does not match."; $("r_artbox").classList.add("hide");
     row("m_doc", "r_doc", "bad", line);
     verdict("bad", "Signature does NOT match", "");
     return;
@@ -671,6 +671,7 @@ async function runCheck() {
     last = r.reason;
   }
   row("m_doc", "r_doc", "bad", docs.map(d => d.name).join(", ") + ": " + last);
+  $("r_proof").textContent = "Not checked: the signature does not match.";
   verdict("bad", "Signature does NOT match", "");
 }
 // The picked file itself, plus any file attached inside a PDF (a sealed PDF carries its original).
