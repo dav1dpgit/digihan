@@ -53,6 +53,6 @@ jobs:
         if: always()
         run: |
           for u in https://mempool.space/api/block-height/358391 https://blockstream.info/api/block-height/358391; do
-            h=$(curl -s -D - -o /dev/null -H "Origin: https://digihan.org" "$u" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
+            h=$(curl -s --max-time 20 -D - -o /dev/null -H "Origin: https://digihan.org" "$u" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
             echo "::notice title=CORS::${u} -> ${h:-no access-control-allow-origin header}"
           done
