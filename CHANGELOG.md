@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.6 (2026-11-26): a button back to the home page
+
+* Scanner v33: "Return to the home page" under "Scan another" on the result. It stops the camera and opens the
+  front page.
+* The scanner's buttons now use the page's own font, at the size their style sets (14 px; 15 px for "Start
+  camera"). Their style rule was written as "font: 600 14px/1 inherit", which browsers reject as a whole, so the
+  buttons fell back to the browser's default font (measured in Chromium: Arial, 13.3 px), while the one link
+  styled as a button ("Open the public copy") used the page's font at 15 px.
+* Stamping page v27 (release number only). Offline copy v14.
+
 ## v0.7.5 (2026-11-26): each check names both items and where they came from
 
 * Scanner v32: each line names the item and where it came from, and what it is checked against and where that

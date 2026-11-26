@@ -45,7 +45,7 @@ body { font:15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; color:var(-
 }
 .scan-btn {
   width:100%; background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.3);
-  color:#fff; font:600 14px/1 inherit; border-radius:11px; padding:14px;
+  color:#fff; font-family:inherit; font-size:14px; font-weight:400; line-height:1; border-radius:11px; padding:14px;   /* v33: was an invalid "font: … inherit" that left buttons in the browser's default font */
   cursor:pointer; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 }
 a.scan-btn { display:block; box-sizing:border-box; text-align:center; text-decoration:none; }   /* v28: the public copy */
@@ -71,7 +71,7 @@ input[type=file] { display:none; }
 }
 .cam-msg p { color:var(--dim); font-size:13.5px; margin:0; }
 .cam-msg .go {
-  background:var(--ink); border:none; color:#fff; font:600 15px/1 inherit;
+  background:var(--ink); border:none; color:#fff; font-family:inherit; font-size:15px; font-weight:400; line-height:1;
   border-radius:12px; padding:14px 26px; cursor:pointer;
 }
 .hide { display:none !important; }
@@ -117,7 +117,7 @@ input[type=file] { display:none; }
 .checks .art { display:flex; align-items:center; gap:10px; }
 .checks .art img { width:56px; height:56px; border-radius:50%; background:#f3f4f1; object-fit:contain; flex:none; }
 .sheet .checks .scan-btn { margin-top:8px; padding:11px; }
-.sheet .link { background:none; border:none; padding:6px 0 0; color:#e2705f; font:600 12.5px/1.3 inherit; cursor:pointer; text-decoration:underline; }
+.sheet .link { background:none; border:none; padding:6px 0 0; color:#e2705f; font-family:inherit; font-size:12.5px; font-weight:600; line-height:1.3; cursor:pointer; text-decoration:underline; }
 .details { border-top:1px solid rgba(255,255,255,.12); padding-top:12px; }
 </style>
 </head>
@@ -127,7 +127,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v32 · release <span id="relCode">0.7.5</span> · format v0.5</div>
+    <div class="v">scanner v33 · release <span id="relCode">0.7.6</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -186,6 +186,7 @@ input[type=file] { display:none; }
       <button class="scan-btn" id="keySave">Save this public key on this phone</button>
     </div>
     <button class="scan-btn" id="againBtn">Scan another</button>
+    <button class="scan-btn" id="homeBtn">Return to the home page</button>
   </div>
 </div>
 
@@ -213,7 +214,7 @@ function say(t) { statusEl.textContent = t; }
 // v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
 // for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
 // The reader before release 0.6.2 has no DECODER_RELEASE.
-const RELEASE = "0.7.5";
+const RELEASE = "0.7.6";
 if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
   $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
@@ -1045,6 +1046,7 @@ function resetScan() {
   for (const id of ["r_verdict", "r_why", "r_digest", "r_signer", "r_doc", "r_ts", "r_proof", "r_fp", "r_geom", "r_ver", "r_sig", "r_corr", "r_frames"]) $(id).textContent = "";
 }
 $("againBtn").addEventListener("click", () => { resetScan(); startCamera(); });
+$("homeBtn").addEventListener("click", () => { stopCamera("user"); resetScan(); location.href = "./"; });   // v33: the front page
 $("nextBtn").addEventListener("click", () => { picking = Date.now(); $("docIn").click(); });
 // A file picker can hide the page for a while on some phones: no reset while one is open (10 minutes at most)
 let picking = 0, hiddenAt = 0;
