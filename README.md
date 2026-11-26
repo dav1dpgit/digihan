@@ -9,7 +9,7 @@ reason to know. There is no account and no company in the middle. The center of
 the seal is free artwork (a signature, lettering, a crest); only the ring follows the format.
 
 **Try it:** open [digihan.org/scan](https://digihan.org/scan) on a phone and point it at any seal on
-[digihan.org](https://digihan.org). It should say **Signature valid**, signed by a digihan.org sample seal. To make your own seal and stamp a
+[digihan.org](https://digihan.org). It should say **Signature valid for this file**, and that the public key is on digihan.org's sample list. To make your own seal and stamp a
 document, open [digihan.org/seal](https://digihan.org/seal): it works in any browser, phone or computer.
 
 ## What a seal proves
@@ -56,14 +56,15 @@ Nostr stamp event, which any Nostr signer app can sign.
    If the signer made the stamp public, the scanner finds its public record on Nostr and downloads the public
    copy of the stamped file from a Blossom server, so the seal alone (on paper, say) is enough. A file with no
    seal in it can be looked up by its SHA-256 with **Look up a public record for this file**.
-4. The answer is **Signature valid**, **Signature does NOT match**, or what is still missing. The
+4. The answer is **Signature valid for this file**, **Signature does NOT match**, or what is still missing. The
    *time proof* line shows the proven window, if the seal has one. A stamped PDF carries the signer's
    registration record and its time proof inside, so picking it is all the phone needs; a separate
    `.ots` proof file can be picked the same way as a document.
 5. **The result** is one line per check. Each line names the item and where it came from, and what it is checked
    against and where that came from, then the result (Match, No match, or Not checked, and why), marked ✓, ✗,
    ! (not known), – (none) or … (waiting):
-   * the signature in the seal's ring against the SHA-256 hash of the document file;
+   * the signature in the seal's ring, checked with the public key, against the SHA-256 hash of the document file
+     (a match means the signature was made with that public key's private key, over that exact file);
    * the public key (from the registration inside the stamped file, a Nostr relay, this phone or the sample list)
      against the public keys saved on this phone and on digihan.org's sample list;
    * the name in the public key's Nostr profile against the name file on that name's website;
@@ -80,7 +81,7 @@ Nostr stamp event, which any Nostr signer app can sign.
    * the public key's Nostr profile gives a name such as `dp@example.com` and `example.com` itself lists that
      public key under that name, at `/.well-known/nostr.json` (NIP-05).
 
-   Otherwise it says **Signature valid · signer unknown** and shows the full public key, to check with the signer.
+   Otherwise it says **Signature valid for this file · signer unknown** and shows the full public key, to check with the signer.
    A name the domain does not confirm gives **Name NOT confirmed**, in red. See SPEC.md, section 14.
 
 ## Stamp a document in a browser

@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.7 (2026-11-26): "Signature valid for this file"
+
+* Scanner v34: the headline says "Signature valid for this file" (and "· signer unknown" when the public key is
+  not saved on the phone, not on the sample list and has no confirmed name). The first line names the public key
+  as part of the check: "Signature in the seal's ring, checked with the public key, against the SHA-256 hash of
+  the document file", and its result says what a match means: "Match: the signature was made with this public
+  key's private key, over this exact file." The check itself is unchanged: the BIP340 signature check, which
+  passes only for a signature made with the matching private key.
+* Stamping page v28 (release number only). How it works v25 and the README use the same words. Offline copy v15.
+
 ## v0.7.6 (2026-11-26): a button back to the home page
 
 * Scanner v33: "Return to the home page" under "Scan another" on the result. It stops the camera and opens the

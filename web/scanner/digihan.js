@@ -6,7 +6,7 @@
 // Stream: 28-bit sync 0xE769C57 || RS(123,78) codeword bits, track-major from the innermost
 // track; bit 0 starts at 12 o'clock under the key bridge and the stream runs clockwise.
 "use strict";
-const DECODER_RELEASE = "0.7.6";     // the scanner page compares this with its own release (an older copy shows up)
+const DECODER_RELEASE = "0.7.7";     // the scanner page compares this with its own release (an older copy shows up)
 
 // v0.2: 28-bit sync 0xE769C57 (low cyclic autocorrelation, runs <= 3).
 // 28 + 8*(78+45) === 1012 === ring capacity: no blank arc, spare capacity

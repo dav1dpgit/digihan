@@ -127,7 +127,7 @@ input[type=file] { display:none; }
 
   <div class="scan-head">
     <h1>Digi<span>Han</span> seal scanner</h1>
-    <div class="v">scanner v33 · release <span id="relCode">0.7.6</span> · format v0.5</div>
+    <div class="v">scanner v34 · release <span id="relCode">0.7.7</span> · format v0.5</div>
   </div>
 
   <div class="scan-foot" id="foot">
@@ -214,7 +214,7 @@ function say(t) { statusEl.textContent = t; }
 // v25: the page and the ring reader it loaded must come from one release. A phone keeps a copy of the code
 // for offline use, and an open tab keeps the code it opened with; an older reader is named in the header.
 // The reader before release 0.6.2 has no DECODER_RELEASE.
-const RELEASE = "0.7.6";
+const RELEASE = "0.7.7";
 if (typeof DECODER_RELEASE === "undefined" || DECODER_RELEASE !== RELEASE)
   $("relCode").textContent = RELEASE + ", but its ring reader is " + (typeof DECODER_RELEASE === "undefined" ? "older" : DECODER_RELEASE) + ": close this tab and open the scanner again";
 
@@ -523,7 +523,7 @@ function row(markId, textId, st, text) { mark(markId, st); $(textId).textContent
 function clearChecks(c) {
   for (const id of ["m_doc", "m_key", "m_name", "m_ts", "m_proof"]) mark(id, "");
   for (const id of ["r_npub", "saveGo", "forgetSaved", "ck_name"]) $(id).classList.add("hide");
-  $("k_doc").textContent = "Signature in the seal's ring against the SHA-256 hash of the document file";
+  $("k_doc").textContent = "Signature in the seal's ring, checked with the public key, against the SHA-256 hash of the document file";
   $("k_key").textContent = "Public key" + KEYS_HERE;
   $("k_name").textContent = "Name in the public key's Nostr profile against the name file on that name's website";
   $("k_art").textContent = "Artwork registered for the public key against the center of the seal";
@@ -550,7 +550,7 @@ async function showValid(c, k, r, docText, distinct) {
   keyRow("wait", "Checking.", k);
   row("m_proof", "r_proof", c.proofs.length ? "wait" : "none", c.proofs.length ? "Checking." : "None with this seal.");
   if (!c.proofs.length) $("k_proof").textContent = "OpenTimestamps proof";
-  verdict("work", "Signature valid · checking the public key", "");
+  verdict("work", "Signature valid for this file · checking the public key", "");
   const trust = await trustOf(pubHex);
   // the name is asked for alongside; the result does not wait for it (relays or the domain may be slow)
   const asked = trust && trust.kind === "sample" ? Promise.resolve(null) : signerName(pubHex).catch(() => null);
@@ -600,9 +600,9 @@ async function showValid(c, k, r, docText, distinct) {
       const others = distinct.filter(x => DHV.hex(x.pub) !== pubHex).map(x => DHV.npubEncode(x.pub) + " (from " + fromText(x) + ")");
       mark("m_key", "warn");
       $("r_signer").textContent += " Other public keys have the same public key id: " + others.join(", ") + ".";
-      return verdict(level === "bad" ? "bad" : "warn", "Signature valid — check the signer", "");
+      return verdict(level === "bad" ? "bad" : "warn", "Signature valid for this file · check the signer", "");
     }
-    verdict(level, level === "ok" ? "Signature valid" : level === "bad" ? "Name NOT confirmed" : "Signature valid · signer unknown", "");
+    verdict(level, level === "ok" ? "Signature valid for this file" : level === "bad" ? "Name NOT confirmed" : "Signature valid for this file · signer unknown", "");
   };
   render(null, !sample);
   if (sample) return;
@@ -648,7 +648,7 @@ async function runCheck() {
     const fileOf = i => res[i].ok && res[i].doc !== c.picks[i].name ? "the original inside " + c.picks[i].name : c.picks[i].name;
     const n = c.picks.length, last = res[n - 1];
     const also = n > 1 ? " Also checked: " + c.picks.slice(0, -1).map((x, i) => fileOf(i) + (res[i].ok ? ", match" : ", no match")).join("; ") + "." : "";
-    if (last.ok) return showValid(c, last.k, last.r, "Match. Document file: " + fileOf(n - 1) + "." + also, distinct);
+    if (last.ok) return showValid(c, last.k, last.r, "Match: the signature was made with this public key's private key, over this exact file. Document file: " + fileOf(n - 1) + "." + also, distinct);
     $("r_proof").textContent = "Not checked: the signature does not match."; $("r_artbox").classList.add("hide");
     row("m_doc", "r_doc", "bad", "No match. Document file: " + c.picks[n - 1].name + ". " + why(last.reason) + also);
     verdict("bad", "Signature does NOT match", "");
@@ -683,7 +683,7 @@ async function runCheck() {
   let last = NO_MATCH;
   for (const d of docs) for (const k of c.keys) {
     const r = await DHV.checkSeal(c.payload, k.pub, d.sha, k.regs, blockHashAt);
-    if (r.ok) return showValid(c, k, r, "Match. Document file: " + d.name + ".", distinct);
+    if (r.ok) return showValid(c, k, r, "Match: the signature was made with this public key's private key, over this exact file. Document file: " + d.name + ".", distinct);
     last = r.reason;
   }
   row("m_doc", "r_doc", "bad", "No match. Document file: " + docs.map(d => d.name).join(", ") + ". "

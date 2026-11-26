@@ -186,6 +186,6 @@ function relays(store) {
   assert.strictEqual(DHP.hasLocation(png([["IHDR", new Array(13).fill(0)], ["eXIf", tiff([0x0002, 0x0004])], ["IEND", []]])), true); n++;
   assert.strictEqual(DHP.hasLocation(png([["IHDR", new Array(13).fill(0)], ["IEND", []]])), false); n++;
   assert.strictEqual(DHP.hasLocation(enc.encode("%PDF-1.7")), false); n++;
-  assert.strictEqual(DHP.RELEASE, "0.7.6"); n++;
+  assert.strictEqual(DHP.RELEASE, "0.7.7"); n++;
   console.log("publish.test.js: all " + n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });
