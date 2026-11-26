@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.7.5 (2026-11-26): each check names both items and where they came from
+
+* Scanner v32: each line names the item and where it came from, and what it is checked against and where that
+  came from. For example "Signature in the seal's ring against the SHA-256 hash of the document file", "Public key
+  from the registration inside IMG_8075.jpeg against the public keys saved on this phone and on digihan.org's
+  sample list", "Name dp@example.com in the public key's Nostr profile against the name file at
+  https://example.com/.well-known/nostr.json", "Bitcoin block hash signed in the seal against block 977,604 at
+  mempool.space and blockstream.info", "OpenTimestamps proof inside IMG_8075.jpeg against the Bitcoin block at
+  mempool.space and blockstream.info".
+* Each result starts with Match, No match or Not checked, then says why in full words, for example "No match: not
+  saved on this phone and not on digihan.org's sample list", "No match. Document file: notes.md. It is not the
+  file that was stamped, or it was changed after stamping."
+* Stamping page v26 (release number only). How it works v24 and the README use the same words. Offline copy v13.
+
 ## v0.7.4 (2026-11-26): each check says what it checks against what
 
 * Scanner v31: each line of the result names what is checked against what, above its result: "Signature against
